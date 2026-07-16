@@ -1036,3 +1036,51 @@ test('listHeldWards lists every not-ready ward and excludes an overridden one', 
   expect(after.map((w) => w.wardId)).not.toContain('malleshwaram')
   expect(after.map((w) => w.wardId)).toContain('koramangala')
 })
+
+// --- Task 6: /admin/partners — createPartner ----------------------------------------------------
+
+test('createPartner requires an admin actor', () => {
+  const s = createStore()
+  expect(() => s.createPartner({ name: 'New RWA', kind: 'rwa', wardIds: [] }, curator())).toThrow(
+    /admin/i,
+  )
+  expect(s.listPartners().some((p) => p.name === 'New RWA')).toBe(false)
+})
+
+test('createPartner derives a URL-safe slug from the partner name (no Date.now()/Math.random())', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const partner = s.createPartner({ name: 'Sunset Layout RWA!', kind: 'rwa', wardIds: [] }, admin)
+  expect(partner.slug).toBe('sunset-layout-rwa')
+  expect(s.listPartners().some((p) => p.slug === partner.slug)).toBe(true)
+})
+
+test('createPartner resolves a slug collision deterministically via the persisted counter', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const first = s.createPartner({ name: 'Civic Group', kind: 'ngo', wardIds: [] }, admin)
+  const second = s.createPartner({ name: 'Civic Group', kind: 'ngo', wardIds: [] }, admin)
+  expect(first.slug).not.toBe(second.slug)
+  expect(second.slug).toMatch(/^civic-group-\d+$/)
+})
+
+test('createPartner writes the given wardIds verbatim onto the new partner', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const partner = s.createPartner(
+    { name: 'Ward Reach Org', kind: 'other', wardIds: ['shivajinagar'] },
+    admin,
+  )
+  expect(partner.wardIds).toEqual(['shivajinagar'])
+})
+
+test('createPartner is audited exactly once, and the audit detail carries the (public-facing) partner name/slug', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const before = s.listAudit().length
+  const partner = s.createPartner({ name: 'Another Org', kind: 'other', wardIds: ['jayanagar'] }, admin)
+  const audit = s.listAudit()
+  expect(audit.length).toBe(before + 1)
+  expect(audit[audit.length - 1].actorUserId).toBe(admin.id)
+  expect(audit[audit.length - 1].detail).toContain(partner.slug)
+})

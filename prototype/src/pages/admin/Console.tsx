@@ -52,6 +52,15 @@ export default function Console() {
           <p className="text-sm text-ink/70">Search accounts, deactivate/reactivate, view submission history.</p>
         </Link>
         <Link
+          to="/admin/partners"
+          className="block rounded-lg border border-slate-200 p-4 hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          <p className="font-semibold text-ink">Partners &amp; ward coverage</p>
+          <p className="text-sm text-ink/70">
+            Partner reach against every ward, expressions of interest, and held wards.
+          </p>
+        </Link>
+        <Link
           to="/admin/audit"
           className="block rounded-lg border border-slate-200 p-4 hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
         >

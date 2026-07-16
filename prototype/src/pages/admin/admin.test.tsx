@@ -47,10 +47,11 @@ test('anonymous visitor is redirected away from /admin', () => {
   expect(router.state.location.pathname).toBe('/')
 })
 
-test('admin console links to roles, users, and audit', () => {
+test('admin console links to roles, users, partners, and audit', () => {
   renderAt('/admin', 'u-admin')
   expect(screen.getByRole('link', { name: /roles/i })).toHaveAttribute('href', '/admin/roles')
   expect(screen.getByRole('link', { name: /users/i })).toHaveAttribute('href', '/admin/users')
+  expect(screen.getByRole('link', { name: /partners/i })).toHaveAttribute('href', '/admin/partners')
   expect(screen.getByRole('link', { name: /audit/i })).toHaveAttribute('href', '/admin/audit')
 })
 
@@ -177,4 +178,146 @@ test('audit log never renders a raw t{n} counter stamp — a store-generated ent
   const bodyText = screen.getByRole('table').textContent ?? ''
   expect(bodyText).toMatch(/Demo event #\d+/)
   expect(bodyText).not.toMatch(/\bt\d+\b/)
+})
+
+// --- /admin/partners ---------------------------------------------------------------------------
+
+test('non-admin (curator) is redirected away from /admin/partners', () => {
+  const router = createMemoryRouter(routeObjects, { initialEntries: ['/admin/partners'] })
+  localStorage.setItem('bv-auth', 'u-curator')
+  render(
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  )
+  expect(router.state.location.pathname).toBe('/')
+})
+
+test('anonymous visitor is redirected away from /admin/partners', () => {
+  const router = createMemoryRouter(routeObjects, { initialEntries: ['/admin/partners'] })
+  render(
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  )
+  expect(router.state.location.pathname).toBe('/')
+})
+
+test('a curator can never see EOI applicant PII via /admin/partners — the RoleGuard blocks the page entirely', async () => {
+  const user = userEvent.setup()
+  const first = renderAt('/partner-with-us')
+  await user.type(screen.getByLabelText(/name/i), 'Secret Applicant Name')
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'secret@example.com')
+  await user.click(screen.getByRole('button', { name: /submit application/i }))
+  first.unmount()
+
+  renderAt('/admin/partners', 'u-curator')
+  expect(screen.queryByText('Secret Applicant Name')).not.toBeInTheDocument()
+  expect(screen.queryByText('secret@example.com')).not.toBeInTheDocument()
+})
+
+test('partner coverage shows the uncovered set as a work queue, scoped against the real 369-ward denominator', () => {
+  renderAt('/admin/partners', 'u-admin')
+  expect(screen.getByText(/369/)).toBeInTheDocument()
+
+  // Seed: demo-rwa-one covers koramangala, demo-civic-trust covers indiranagar + malleshwaram.
+  // shivajinagar and jayanagar have no seeded partner -> the uncovered work queue.
+  const uncovered = screen.getByRole('list', { name: /uncovered wards/i })
+  expect(within(uncovered).getByText(/Shivajinagar/)).toBeInTheDocument()
+  expect(within(uncovered).getByText(/Jayanagar/)).toBeInTheDocument()
+  expect(within(uncovered).queryByText(/Koramangala/)).not.toBeInTheDocument()
+  expect(within(uncovered).queryByText(/Indiranagar/)).not.toBeInTheDocument()
+})
+
+test('partner roster lists the seeded partners with a link to their kit page', () => {
+  renderAt('/admin/partners', 'u-admin')
+  const roster = screen.getByRole('list', { name: /partner roster/i })
+  expect(
+    within(roster).getByRole('link', { name: /Sample Layout Residents Welfare Association/i }),
+  ).toHaveAttribute('href', '/partner/demo-rwa-one')
+})
+
+test('held wards show a reason and an admin can override the hold, and the store readiness flips immediately', async () => {
+  const user = userEvent.setup()
+  renderAt('/admin/partners', 'u-admin')
+
+  // No seed ward has been signed off, so every ward is held to begin with (Task 5's own tests
+  // pin this same fact about the seed).
+  const heldList = screen.getByRole('list', { name: /held wards/i })
+  const row = within(heldList).getByText('Koramangala').closest('li') as HTMLElement
+  expect(within(row).getByText(/not yet complete|not.*signed off|sign-off/i)).toBeInTheDocument()
+
+  await user.click(within(row).getByRole('button', { name: /override/i }))
+
+  expect(store.wardReadiness('koramangala').overridden).toBe(true)
+  expect(
+    within(screen.getByRole('list', { name: /held wards/i })).queryByText('Koramangala'),
+  ).not.toBeInTheDocument()
+})
+
+test('admin accepts an awareness expression of interest — it provisions a partner slug and a link to its kit', async () => {
+  const user = userEvent.setup()
+  const first = renderAt('/partner-with-us')
+  await user.type(screen.getByLabelText(/name/i), 'Sample Layout RWA Two (fictional)')
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'rwa-two@example.com')
+  await user.click(screen.getByRole('button', { name: /submit application/i }))
+  expect(screen.getByRole('status')).toBeInTheDocument()
+  first.unmount()
+
+  renderAt('/admin/partners', 'u-admin')
+  const row = screen.getByText('Sample Layout RWA Two (fictional)').closest('li') as HTMLElement
+  await user.click(within(row).getByRole('button', { name: /^accept$/i }))
+
+  const partner = store.listPartners().find((p) => p.name === 'Sample Layout RWA Two (fictional)')
+  expect(partner).toBeDefined()
+  expect(store.listInterests().find((i) => i.contact === 'rwa-two@example.com')?.status).toBe(
+    'accepted',
+  )
+  expect(
+    within(row).getByRole('link', { name: new RegExp(`/partner/${partner!.slug}`) }),
+  ).toHaveAttribute('href', `/partner/${partner!.slug}`)
+})
+
+test('admin accepts a curation expression of interest — hands off honestly, grants nothing automatically', async () => {
+  const user = userEvent.setup()
+  const first = renderAt('/partner-with-us')
+  await user.click(screen.getByRole('radio', { name: /curate data/i }))
+  await user.type(screen.getByLabelText(/name/i), 'Aspiring Curator')
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'aspiring@example.com')
+  await user.click(screen.getByRole('button', { name: /submit application/i }))
+  first.unmount()
+
+  const usersBefore = store.listUsers().length
+  const partnersBefore = store.listPartners().length
+
+  renderAt('/admin/partners', 'u-admin')
+  const row = screen.getByText('Aspiring Curator').closest('li') as HTMLElement
+  await user.click(within(row).getByRole('button', { name: /^accept$/i }))
+
+  // Nobody self-activates: no account was created and no partner was provisioned. The applicant
+  // is anonymous, so there is no account to grant a role to yet.
+  expect(store.listUsers().length).toBe(usersBefore)
+  expect(store.listPartners().length).toBe(partnersBefore)
+  expect(store.listInterests().find((i) => i.contact === 'aspiring@example.com')?.status).toBe(
+    'accepted',
+  )
+  expect(within(row).getByRole('link', { name: /roles/i })).toHaveAttribute('href', '/admin/roles')
+})
+
+test('admin rejects an application — status flips, no partner or role is ever granted', async () => {
+  const user = userEvent.setup()
+  const first = renderAt('/partner-with-us')
+  await user.type(screen.getByLabelText(/name/i), 'Rejected Applicant')
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'rejected@example.com')
+  await user.click(screen.getByRole('button', { name: /submit application/i }))
+  first.unmount()
+
+  renderAt('/admin/partners', 'u-admin')
+  const row = screen.getByText('Rejected Applicant').closest('li') as HTMLElement
+  await user.click(within(row).getByRole('button', { name: /reject/i }))
+
+  expect(
+    store.listInterests().find((i) => i.contact === 'rejected@example.com')?.status,
+  ).toBe('rejected')
+  expect(store.listPartners().some((p) => p.name === 'Rejected Applicant')).toBe(false)
 })

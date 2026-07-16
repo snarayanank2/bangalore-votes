@@ -10,6 +10,7 @@ import type {
   NewsLink,
   NotificationPrefs,
   Partner,
+  PartnerKind,
   Role,
   Source,
   Sourced,
@@ -137,6 +138,16 @@ export interface PartnerWardCoverage {
   coveredWardIds: string[]
   uncoveredWardIds: string[]
   byWard: { wardId: string; wardName: string; partnerSlugs: string[] }[]
+}
+
+/** Input to `createPartner` (PRD §5.12/§5.13, Task 6) — admin-provisioned, post-seed partner
+ *  creation. No `slug` field: the slug is always derived from `name` (see `createPartner`'s doc
+ *  comment), never accepted from a caller, so it can't be forged into colliding with or spoofing
+ *  an existing partner's kit URL. */
+export interface CreatePartnerInput {
+  name: string
+  kind: PartnerKind
+  wardIds: string[]
 }
 
 export interface SubmitFlagInput {
@@ -887,6 +898,65 @@ export function createStore() {
     persist()
   }
 
+  /** Lowercases, collapses any run of non-alphanumeric characters into a single hyphen, and trims
+   *  leading/trailing hyphens — e.g. "Sunset Layout RWA!" -> "sunset-layout-rwa". Falls back to
+   *  the literal string "partner" for a name with no alphanumeric characters at all (never returns
+   *  an empty slug). */
+  function slugifyPartnerName(name: string): string {
+    const slug = name
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+    return slug || 'partner'
+  }
+
+  /** Guarantees a slug not already used by an existing partner. On a collision, appends the
+   *  persisted `nextSeq()` counter (never `Date.now()`/`Math.random()`, both banned project-wide)
+   *  until unique — so provisioning two partners from the same name (e.g. two EOI applicants who
+   *  both typed "Civic Group") still produces two distinct, addressable `/partner/{slug}` pages. */
+  function uniquePartnerSlug(name: string): string {
+    const base = slugifyPartnerName(name)
+    if (!state.partners.some((p) => p.slug === base)) return base
+    let candidate: string
+    do {
+      candidate = `${base}-${nextSeq()}`
+    } while (state.partners.some((p) => p.slug === candidate))
+    return candidate
+  }
+
+  /**
+   * Admin-provisions a new Partner record (PRD §5.12/§5.13) — the only way a `Partner` is ever
+   * created after the initial seed. Slug is always DERIVED from `input.name` (see
+   * `uniquePartnerSlug`), never accepted as a caller-supplied field, so nothing can forge a slug
+   * that collides with (or impersonates) an existing partner's kit URL. Admin-only (`requireAdmin`
+   * — PRD §7's "Manage partners & view ward coverage" row), checked before any mutation. Published
+   * change: audited, with the partner's own name/slug in the detail string — unlike an EOI
+   * applicant's contact details, a Partner's name is meant to be public-facing (it is literally
+   * what renders on the partner's own `/partner/{slug}` kit page), so recording it in the
+   * admin-readable audit log is not a privacy leak the way copying an applicant's contact would be.
+   *
+   * Primary caller: `/admin/partners`'s EOI-review flow, on accepting an `awareness` application
+   * (PRD §5.13 — "accepting an awareness applicant provisions a partner slug and kit"). This
+   * function does NOT itself read or touch `state.interests` — nothing here links the new Partner
+   * back to the Interest that prompted it. The UI re-derives that relationship by matching
+   * `Partner.name` to `Interest.name` (see Partners.tsx) rather than the store growing a one-way
+   * foreign key for a single page's convenience.
+   */
+  function createPartner(input: CreatePartnerInput, admin: User): Partner {
+    requireAdmin(admin)
+    const slug = uniquePartnerSlug(input.name)
+    const partner: Partner = { slug, name: input.name, kind: input.kind, wardIds: [...input.wardIds] }
+    state.partners.push(partner)
+    appendAudit({
+      actorUserId: admin.id,
+      action: 'partner.created',
+      detail: `Created partner ${partner.name} (${partner.slug}).`,
+    })
+    persist()
+    return structuredClone(partner)
+  }
+
   /**
    * NOTE: does not write an audit entry (controller decision). Issue-vote results are only
    * ever surfaced in aggregate (issueTally); logging "user X voted for A,B" into the
@@ -1401,6 +1471,7 @@ export function createStore() {
     submitFlag,
     submitInterest,
     reviewInterest,
+    createPartner,
     castIssueVote,
     acceptSubmission,
     rejectSubmission,

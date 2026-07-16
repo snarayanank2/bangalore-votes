@@ -42,6 +42,7 @@ import WardIssuesEditor from './pages/curator/WardIssuesEditor'
 import AdminConsole from './pages/admin/Console'
 import AdminRoles from './pages/admin/Roles'
 import AdminUsers from './pages/admin/Users'
+import AdminPartners from './pages/admin/Partners'
 import AdminAudit from './pages/admin/Audit'
 
 /** Roles allowed on every /account/* page — any registered user (citizen,
@@ -211,6 +212,14 @@ export const routeObjects: RouteObject[] = [
         element: (
           <RoleGuard allow={ADMIN_ONLY}>
             <AdminUsers />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'admin/partners',
+        element: (
+          <RoleGuard allow={ADMIN_ONLY}>
+            <AdminPartners />
           </RoleGuard>
         ),
       },
