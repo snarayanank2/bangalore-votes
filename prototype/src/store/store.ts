@@ -36,7 +36,6 @@ export interface SubmitFlagInput {
   field: string
   detail: string
   sourceUrl?: string
-  submittedByUserId: string
 }
 
 export type CandidateSourcedField =
@@ -47,6 +46,16 @@ export type CandidateSourcedField =
   | 'approachability'
 
 export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation' | 'oldWardsNote'>>
+
+export type CandidatePatch = Partial<Omit<Candidate, 'id' | 'slug' | 'wardId'>>
+
+/** Edit payload applied to a candidate's Sourced field when a submission is accepted. */
+export interface SubmissionEdit {
+  candidateSlug?: string
+  field?: CandidateSourcedField
+  value?: string
+  source?: Source
+}
 
 /**
  * Starting point for the seq counter on a freshly-seeded store. Derived from
@@ -100,9 +109,9 @@ export function createStore() {
     return user
   }
 
-  function requireCandidate(candidateId: string): Candidate {
-    const candidate = state.candidates.find((c) => c.id === candidateId)
-    if (!candidate) throw new Error(`Unknown candidate: ${candidateId}`)
+  function requireCandidateBySlug(slug: string): Candidate {
+    const candidate = state.candidates.find((c) => c.slug === slug)
+    if (!candidate) throw new Error(`Unknown candidate: ${slug}`)
     return candidate
   }
 
@@ -119,16 +128,14 @@ export function createStore() {
   }
 
   /** Curators may only act within their assigned wards; admins bypass. */
-  function assertWardScope(actorUserId: string, wardId: string): void {
-    const actor = requireUser(actorUserId)
-    if (actor.role === 'admin') return
-    if (actor.role === 'curator' && actor.curatorWardIds?.includes(wardId)) return
-    throw new Error(`Actor ${actorUserId} is out of scope for ward ${wardId}`)
+  function requireScope(user: User, wardId: string): void {
+    if (user.role === 'admin') return
+    if (user.role === 'curator' && user.curatorWardIds?.includes(wardId)) return
+    throw new Error('Outside your ward scope')
   }
 
-  function assertAdmin(actorUserId: string): void {
-    const actor = requireUser(actorUserId)
-    if (actor.role !== 'admin') throw new Error(`Actor ${actorUserId} must be an admin`)
+  function requireAdmin(user: User): void {
+    if (user.role !== 'admin') throw new Error(`${user.id} must be an admin`)
   }
 
   // ---- read selectors ----------------------------------------------------
@@ -168,9 +175,10 @@ export function createStore() {
   }
 
   function listQueueForCurator(user: User): Submission[] {
-    if (user.role === 'admin') return [...state.submissions]
+    const pending = state.submissions.filter((s) => s.status === 'pending')
+    if (user.role === 'admin') return pending
     const scope = user.curatorWardIds ?? []
-    return state.submissions.filter((s) => scope.includes(s.wardId))
+    return pending.filter((s) => scope.includes(s.wardId))
   }
 
   function getSubmission(id: string): Submission | undefined {
@@ -203,7 +211,7 @@ export function createStore() {
 
   // ---- mutations -----------------------------------------------------------
 
-  function submitFlag(input: SubmitFlagInput): Submission {
+  function submitFlag(input: SubmitFlagInput, user: User): Submission {
     const existing = state.submissions.find(
       (s) =>
         s.status === 'pending' &&
@@ -214,8 +222,8 @@ export function createStore() {
     if (existing) {
       existing.count += 1
       appendAudit({
-        actorUserId: input.submittedByUserId,
-        action: 'submission.flag.duplicate',
+        actorUserId: user.id,
+        action: 'flag.submitted',
         wardId: input.wardId,
         detail: `Duplicate flag on ${input.field} merged into ${existing.id} (count ${existing.count}).`,
       })
@@ -232,15 +240,15 @@ export function createStore() {
       field: input.field,
       detail: input.detail,
       sourceUrl: input.sourceUrl,
-      submittedByUserId: input.submittedByUserId,
+      submittedByUserId: user.id,
       status: 'pending',
       count: 1,
       createdAt: `t${n}`,
     }
     state.submissions.push(submission)
     appendAudit({
-      actorUserId: input.submittedByUserId,
-      action: 'submission.flag.created',
+      actorUserId: user.id,
+      action: 'flag.submitted',
       wardId: input.wardId,
       detail: `New flag on ${input.field} (${submission.id}).`,
     })
@@ -248,48 +256,56 @@ export function createStore() {
     return submission
   }
 
-  function castIssueVote(userId: string, wardId: string, issueIds: string[]): void {
+  /**
+   * NOTE: does not write an audit entry (controller decision). Issue-vote results are only
+   * ever surfaced in aggregate (issueTally); logging "user X voted for A,B" into the
+   * admin-readable audit log would leak individual voting choices, which was never requested
+   * and isn't needed to support rollback/provenance of published data.
+   */
+  function castIssueVote(user: User, wardId: string, issueIds: string[]): IssueVote {
     const uniqueCount = new Set(issueIds).size
     if (issueIds.length > 3 || uniqueCount !== issueIds.length) {
-      throw new Error('You may vote for up to top 3 issues, with no duplicates.')
+      throw new Error('You can vote your top 3 issues')
     }
-    const user = requireUser(userId)
     if (wardId !== user.homeWardId) {
-      throw new Error('You may only vote on issues in your home ward.')
+      throw new Error('You can only vote in your home ward')
     }
 
-    state.issueVotes = state.issueVotes.filter((v) => !(v.userId === userId && v.wardId === wardId))
-    state.issueVotes.push({ userId, wardId, issueIds: [...issueIds] })
-
-    appendAudit({
-      actorUserId: userId,
-      action: 'issueVote.cast',
-      wardId,
-      detail: `Voted for issues: ${issueIds.join(', ') || '(none)'}.`,
-    })
+    state.issueVotes = state.issueVotes.filter(
+      (v) => !(v.userId === user.id && v.wardId === wardId),
+    )
+    const vote: IssueVote = { userId: user.id, wardId, issueIds: [...issueIds] }
+    state.issueVotes.push(vote)
     persist()
+    return vote
   }
 
-  function acceptSubmission(submissionId: string, actorUserId: string): void {
+  function acceptSubmission(submissionId: string, curator: User, edit: SubmissionEdit): void {
     const submission = requireSubmission(submissionId)
-    assertWardScope(actorUserId, submission.wardId)
+    requireScope(curator, submission.wardId)
+
+    if (edit.candidateSlug && edit.field && edit.value !== undefined && edit.source) {
+      const candidate = requireCandidateBySlug(edit.candidateSlug)
+      candidate[edit.field] = { value: edit.value, source: edit.source }
+    }
+
     submission.status = 'accepted'
     appendAudit({
-      actorUserId,
-      action: 'submission.accepted',
+      actorUserId: curator.id,
+      action: edit.field ? `candidate.${edit.field}.updated` : 'submission.accepted',
       wardId: submission.wardId,
-      detail: `Accepted flag ${submission.id} on ${submission.field}.`,
+      detail: `Accepted flag ${submission.id}${edit.field ? ` on ${edit.field}` : ''}.`,
     })
     persist()
   }
 
-  function rejectSubmission(submissionId: string, actorUserId: string, reason: string): void {
+  function rejectSubmission(submissionId: string, curator: User, reason: string): void {
     const submission = requireSubmission(submissionId)
-    assertWardScope(actorUserId, submission.wardId)
+    requireScope(curator, submission.wardId)
     submission.status = 'rejected'
     submission.reason = reason
     appendAudit({
-      actorUserId,
+      actorUserId: curator.id,
       action: 'submission.rejected',
       wardId: submission.wardId,
       detail: `Rejected flag ${submission.id} on ${submission.field}: ${reason}`,
@@ -297,71 +313,66 @@ export function createStore() {
     persist()
   }
 
-  function updateCandidate(
-    candidateId: string,
-    field: CandidateSourcedField,
-    value: string,
-    source: Source,
-    actorUserId: string,
-  ): void {
-    const candidate = requireCandidate(candidateId)
-    assertWardScope(actorUserId, candidate.wardId)
-    candidate[field] = { value, source }
+  function updateCandidate(slug: string, patch: CandidatePatch, curator: User): void {
+    const candidate = requireCandidateBySlug(slug)
+    requireScope(curator, candidate.wardId)
+    Object.assign(candidate, patch)
     appendAudit({
-      actorUserId,
-      action: `candidate.${field}.updated`,
+      actorUserId: curator.id,
+      action: 'candidate.updated',
       wardId: candidate.wardId,
-      detail: `Updated ${field} for ${candidate.name} (${candidate.id}).`,
+      detail: `Updated candidate fields: ${Object.keys(patch).join(', ') || '(none)'} for ${candidate.name} (${candidate.id}).`,
     })
     persist()
   }
 
-  function updateWard(wardId: string, patch: WardPatch, actorUserId: string): void {
-    const ward = requireWard(wardId)
-    assertWardScope(actorUserId, wardId)
+  function updateWard(id: string, patch: WardPatch, curator: User): void {
+    const ward = requireWard(id)
+    requireScope(curator, id)
     Object.assign(ward, patch)
     appendAudit({
-      actorUserId,
+      actorUserId: curator.id,
       action: 'ward.updated',
-      wardId,
+      wardId: id,
       detail: `Updated ward fields: ${Object.keys(patch).join(', ') || '(none)'}.`,
     })
     persist()
   }
 
-  function setWardIssues(wardId: string, issueIds: string[], actorUserId: string): void {
+  function setWardIssues(wardId: string, issues: string[], curator: User): void {
     const ward = requireWard(wardId)
-    assertWardScope(actorUserId, wardId)
-    ward.issueIds = [...issueIds]
+    requireScope(curator, wardId)
+    ward.issueIds = [...issues]
     appendAudit({
-      actorUserId,
+      actorUserId: curator.id,
       action: 'ward.issues.updated',
       wardId,
-      detail: `Set votable issues to: ${issueIds.join(', ') || '(none)'}.`,
+      detail: `Set votable issues to: ${issues.join(', ') || '(none)'}.`,
     })
     persist()
   }
 
-  function setUserActive(userId: string, active: boolean, actorUserId: string): void {
-    assertAdmin(actorUserId)
+  function setUserActive(userId: string, active: boolean, admin: User): void {
+    requireAdmin(admin)
     const user = requireUser(userId)
     user.active = active
     appendAudit({
-      actorUserId,
+      actorUserId: admin.id,
       action: 'user.active.updated',
       detail: `Set ${user.id} active=${active}.`,
     })
     persist()
   }
 
-  function setUserRole(userId: string, role: Role, actorUserId: string): void {
-    assertAdmin(actorUserId)
+  function setUserRole(userId: string, role: Role, wardIds: string[] | undefined, admin: User): void {
+    requireAdmin(admin)
     const user = requireUser(userId)
     user.role = role
+    user.curatorWardIds = role === 'curator' ? [...(wardIds ?? [])] : undefined
     appendAudit({
-      actorUserId,
+      actorUserId: admin.id,
       action: 'user.role.updated',
-      detail: `Set ${user.id} role=${role}.`,
+      detail: `Set ${user.id} role=${role}${role === 'curator' ? ` (wards: ${(wardIds ?? []).join(', ') || '(none)'})` : ''}.`,
     })
     persist()
   }
