@@ -83,15 +83,15 @@ bangalore-votes.opencity.in
 - **URL:** `/ward/{ward-id}`
 - **Access:** Anonymous
 - **Purpose:** Show the citizen their post-delimitation GBA ward and act as the hub for that ward.
-- **Key elements:** new ward name + number + corporation (N/S/E/W/Central); boundary map; “Set as my ward” prompt for registered users.
-- **Links to:** Candidates in ward, Ward issues & voting, Voting guide.
+- **Key elements:** new ward name + number + corporation (N/S/E/W/Central); boundary map; **register-for-updates slot** (opens the Register/Login modal, §7.1): anonymous visitors see "Register for updates," a visitor viewing their own home ward sees "Receiving updates," a visitor viewing any other ward sees nothing here. Home-ward switching lives on `/account` only (§4.1), not here.
+- **Links to:** Candidates in ward, Ward issues & voting, Voting guide; opens Register/Login modal (register-for-updates slot).
 
 ### 3.3 Candidates in ward
 - **URL:** `/ward/{ward-id}/candidates`
 - **Access:** Anonymous
 - **Purpose:** List all candidates standing in the ward.
-- **Key elements:** candidate rows (photo, name, party/independent); Compare entry point; empty-state before nomination window.
-- **Links to:** Candidate report card, Compare candidates.
+- **Key elements:** candidate rows (photo, name, party/independent); Compare entry point; empty-state before nomination window; **register-for-updates slot** (same as §3.2).
+- **Links to:** Candidate report card, Compare candidates; opens Register/Login modal (register-for-updates slot).
 
 ### 3.4 Candidate report card
 - **URL:** `/candidate/{candidate-slug}`
@@ -104,15 +104,15 @@ bangalore-votes.opencity.in
 - **URL:** `/ward/{ward-id}/compare`
 - **Access:** Anonymous
 - **Purpose:** Compare candidates side by side.
-- **Key elements:** column layout (not a feed); same field rows as the report card so they line up; 2-up / horizontal scroll on mobile.
-- **Links to:** Candidate report card.
+- **Key elements:** column layout (not a feed); same field rows as the report card so they line up; 2-up / horizontal scroll on mobile; **register-for-updates slot** (same as §3.2).
+- **Links to:** Candidate report card; opens Register/Login modal (register-for-updates slot).
 
 ### 3.6 Ward issues & voting
 - **URL:** `/ward/{ward-id}/issues`
 - **Access:** Anonymous (view results) · Registered (vote, home ward only)
 - **Purpose:** Show the ward’s key issues, candidate stances, and citizen issue-voting results.
-- **Key elements:** curator-defined issue list; candidate stance per issue (where available); **public ranked results** of citizen votes; “Vote your top 3” action.
-- **Links to:** Candidate report card; opens Cast issue vote modal (and Register/Login modal if anonymous).
+- **Key elements:** curator-defined issue list; candidate stance per issue (where available); **public ranked results** of citizen votes; “Vote your top 3” action; **register-for-updates slot** (same as §3.2).
+- **Links to:** Candidate report card; opens Cast issue vote modal (and Register/Login modal if anonymous); opens Register/Login modal (register-for-updates slot).
 - **Notes:** voting is limited to the user’s **registered home ward**. Ships in **Phase 1** (PRD §13.1) — issues and voting precede candidate data; a ward with no curator-defined issues yet shows an empty state, and candidate-stance rows appear once candidates exist.
 
 ### 3.7 Check registration / eligibility
@@ -321,11 +321,11 @@ bangalore-votes.opencity.in
 Modals overlay the current page and never change the URL, so the citizen never loses their place.
 
 ### 7.1 Register / Login
-- **Trigger:** the **Sign in** control (available to any unregistered visitor) or any gated action (flag / vote).
+- **Trigger:** the **Sign in** control (available to any unregistered visitor), any gated action (flag / vote), or the **register-for-updates slot** on a ward page (§3.2/3.3/3.5/3.6).
 - **Fallback page:** `/login` (for deep links / no-JS).
 - **Key elements:** email or WhatsApp entry → **OTP** → confirm ward + language. No passwords, no 2FA. WhatsApp-first users are nudged to also add an email address — email is the baseline delivery channel (PRD §9).
 - **Consent:** the confirm step carries links to `/terms` and `/privacy` plus one plain sentence stating what registering signs you up for (ward election updates by the chosen channels). Completing registration is the affirmative act; the system stores the event — timestamp plus the wording version shown — as the opt-in evidence WhatsApp policy requires (PRD §10; `docs/project-dependencies.md` §3.10). The exact wording is legal-review input.
-- **Behaviour:** on success, **resumes the exact action** the user attempted, in place.
+- **Behaviour:** on success, **resumes the exact action** the user attempted, in place. When opened from a ward page's register-for-updates slot, the confirm step shows that ward pre-filled and read-only instead of asking the visitor to pick one — language selection is unchanged.
 
 ### 7.2 Flag misinformation
 - **Trigger:** the Flag action on a candidate report card or a ward page — **on any ward** (not just the home ward).

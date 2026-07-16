@@ -49,6 +49,7 @@ A small trusted team keeps the data accurate and governs access behind the scene
 - Search and browse all published information: find their new GBA ward, view candidate report cards, compare candidates, and read ward issues.
 - Access voting logistics: check registration/eligibility, locate their polling booth, and read how-to-vote and voter-ID guidance.
 - See public issue-vote results for any ward, and see the flag and vote buttons — tapping either prompts them to register.
+- On any page for their ward, see a **"Register for updates"** prompt — tapping it opens the same sign-up popup, with that ward carried through as their home ward once they complete it.
 - **Out of scope:** no subscriptions, no submitting, no editing. Fully read-only.
 
 ### 4.2 Registered citizen
