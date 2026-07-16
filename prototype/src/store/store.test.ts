@@ -159,3 +159,98 @@ test('createUser writes an audit entry', () => {
   expect(audit[audit.length - 1].action).toBe('user.created')
   expect(audit[audit.length - 1].actorUserId).toBe(user.id)
 })
+
+// --- platformMetrics: /data self-accountability figures (PRD §5.14) ---------------------
+//
+// Asserted against the REAL seed shape (src/data/*.ts), not invented numbers:
+//  - 5 seeded wards, 4 of which have at least one candidate (jayanagar has none).
+//  - 10 seeded candidates, every one with all five Sourced fields populated + sourced.
+//  - 3 users: 1 citizen, 1 active curator, 1 admin.
+//  - 3 submissions: sub-1 pending, sub-2 accepted, sub-3 rejected.
+//  - 3 seeded issue votes, all in koramangala: kor-roads x3, kor-water x3, kor-waste x1.
+
+test('platformMetrics: coverage figures come from the real seed, against the real 369-ward total', () => {
+  const s = createStore()
+  const metrics = s.platformMetrics()
+
+  expect(metrics.coverage.totalWards).toBe(369)
+  expect(metrics.coverage.wardsWithPublishedCandidateData).toBe(4)
+  expect(metrics.coverage.totalCandidates).toBe(10)
+  expect(metrics.coverage.reportCardsComplete).toBe(10)
+  expect(metrics.coverage.activeCurators).toBe(1)
+  expect(metrics.coverage.sourcesCited).toBe(50) // 10 candidates x 5 sourced fields each
+})
+
+test('platformMetrics: integrity figures come from the real seed; median time to resolve is honestly unavailable, not fabricated', () => {
+  const s = createStore()
+  const metrics = s.platformMetrics()
+
+  expect(metrics.integrity.flagsRaised).toBe(3)
+  expect(metrics.integrity.flagsResolved).toBe(2)
+  expect(metrics.integrity.medianTimeToResolve).toBeNull()
+  expect(metrics.integrity.medianResolutionUnavailableReason).toMatch(/not computable|counter|clock/i)
+})
+
+test('platformMetrics: citizen signal aggregates issue votes across every ward, not just one', () => {
+  const s = createStore()
+  const metrics = s.platformMetrics()
+
+  expect(metrics.citizenSignal.totalIssueVotes).toBe(3)
+  expect(metrics.citizenSignal.registeredCitizens).toBe(3)
+
+  const byId = new Map(metrics.citizenSignal.issueRollUp.map((r) => [r.issueId, r]))
+  expect(byId.get('kor-roads')?.count).toBe(3)
+  expect(byId.get('kor-water')?.count).toBe(3)
+  expect(byId.get('kor-waste')?.count).toBe(1)
+  // Ranked highest first.
+  for (let i = 1; i < metrics.citizenSignal.issueRollUp.length; i++) {
+    expect(metrics.citizenSignal.issueRollUp[i - 1].count).toBeGreaterThanOrEqual(
+      metrics.citizenSignal.issueRollUp[i].count,
+    )
+  }
+})
+
+test('platformMetrics: a fresh vote immediately changes the city-wide roll-up (live, not cached)', () => {
+  const s = createStore()
+  const citizen = s.listUsers().find((u) => u.id === 'u-citizen')!
+  const before = s.platformMetrics().citizenSignal.totalIssueVotes
+  s.castIssueVote(citizen, citizen.homeWardId!, ['kor-lighting'])
+  const after = s.platformMetrics()
+  expect(after.citizenSignal.totalIssueVotes).toBe(before) // still 3 ballots, one changed
+  const byId = new Map(after.citizenSignal.issueRollUp.map((r) => [r.issueId, r]))
+  expect(byId.get('kor-lighting')?.count).toBe(1)
+})
+
+test('platformMetrics: exposes only aggregates — no per-user vote data anywhere in the shape', () => {
+  const s = createStore()
+  const metrics = s.platformMetrics()
+
+  for (const row of metrics.citizenSignal.issueRollUp) {
+    expect(Object.keys(row).sort()).toEqual(['count', 'issueId', 'title', 'wardId'])
+  }
+  // No seeded voter id ever leaks into the serialized shape.
+  const serialized = JSON.stringify(metrics)
+  expect(serialized).not.toMatch(/u-citizen|seed-voter-1|seed-voter-2|userId/)
+})
+
+test('platformMetrics: asOf reflects the most recent recorded audit event and advances after a curator publish', () => {
+  const s = createStore()
+  const before = s.platformMetrics().asOf
+  expect(before).toBeTruthy()
+
+  const curator = s.listUsers().find((u) => u.role === 'curator')!
+  s.updateWard('koramangala', { oldWardsNote: 'Updated note for asOf test.' }, curator)
+
+  const after = s.platformMetrics().asOf
+  expect(after).not.toBe(before)
+})
+
+test('platformMetrics deep-clones its result', () => {
+  const s = createStore()
+  const metrics = s.platformMetrics()
+  metrics.coverage.totalCandidates = -1
+  metrics.citizenSignal.issueRollUp.push({ issueId: 'hacked', wardId: 'x', title: 'x', count: 999 })
+  const again = s.platformMetrics()
+  expect(again.coverage.totalCandidates).not.toBe(-1)
+  expect(again.citizenSignal.issueRollUp.find((r) => r.issueId === 'hacked')).toBeUndefined()
+})

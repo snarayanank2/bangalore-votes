@@ -40,6 +40,78 @@ export interface IssueTallyRow {
   count: number
 }
 
+/** One row of the city-wide issue roll-up (`platformMetrics().citizenSignal.issueRollUp`) —
+ *  AGGREGATE-only, same shape family as `IssueTallyRow`, just not scoped to a single ward. Never
+ *  carries a userId or per-user vote selection (see the PRIVACY note on `platformMetrics`). */
+export interface IssueRollUpRow {
+  issueId: string
+  wardId: string
+  title: string
+  count: number
+}
+
+/**
+ * Self-accountability figures for the public `/data` page (PRD §5.14, IA §3.14) — "a platform
+ * that publishes other people's records should publish its own." Every figure here is computed
+ * live from the store; nothing is hardcoded. See `platformMetrics()` below for how each figure is
+ * derived, and for why `integrity.medianTimeToResolve` is `null` rather than a fabricated
+ * duration.
+ */
+export interface PlatformMetrics {
+  /** The most recent audit-log event stamp at computation time (`AuditEntry.at` — either a real
+   *  ISO seed timestamp or a live `t${n}` counter stamp), or `undefined` if the audit log is
+   *  somehow empty. Render through `lib/stamps.ts`'s `formatStamp()` — never treat this as, or
+   *  substitute it with, a wall-clock `Date.now()`/`new Date()` value. NOTE: `castIssueVote`
+   *  deliberately writes no audit entry (privacy — see its file comment), so this stamp does not
+   *  move when a citizen casts an issue vote; it reflects the latest published/moderation event,
+   *  not the latest citizen-signal figure. */
+  asOf: string | undefined
+  coverage: {
+    /** Wards with at least one published candidate record. */
+    wardsWithPublishedCandidateData: number
+    /** The real city-wide ward count (PRD §5.14) — NOT `listWards().length`, which is only the
+     *  prototype's 5-ward seed. Deliberately not derived from the store, since the real figure
+     *  isn't a property of this seed. */
+    totalWards: number
+    /** Candidates whose report card has all five Sourced fields populated with a non-empty value
+     *  and a non-empty source label. */
+    reportCardsComplete: number
+    totalCandidates: number
+    /** Curators with `role === 'curator' && active === true`. */
+    activeCurators: number
+    /** Count of individually-sourced candidate fields (value + valid source) across the whole
+     *  platform — up to 5 per candidate. */
+    sourcesCited: number
+  }
+  integrity: {
+    /** Total flag submissions raised (`Submission` records; each is `kind: 'flag'`). */
+    flagsRaised: number
+    /** Flag submissions no longer pending (`status` is `'accepted'` or `'rejected'`). */
+    flagsResolved: number
+    /** Always `null` in this prototype — see `medianResolutionUnavailableReason`. */
+    medianTimeToResolve: null
+    /** Why `medianTimeToResolve` can't be computed: seed `Submission.createdAt` values are real
+     *  ISO-8601 timestamps, but resolution is only ever recorded via a live `t${n}` monotonic
+     *  counter stamp (see lib/stamps.ts) — the two are not commensurable, so subtracting one from
+     *  the other would produce a fabricated duration, not a real one. `Date.now()` is banned
+     *  project-wide, so there is no real clock to backfill this with either. */
+    medianResolutionUnavailableReason: string
+  }
+  citizenSignal: {
+    /** Per-issue vote counts aggregated across every ward (not scoped to one ward, unlike
+     *  `issueTally`/`issueVoteCounts`), ranked highest first. AGGREGATE ONLY — see PRIVACY note
+     *  on `platformMetrics`. */
+    issueRollUp: IssueRollUpRow[]
+    /** Number of issue-vote ballots cast (`IssueVote` records) — i.e. how many citizens have
+     *  voted, not how many individual issue picks were made. */
+    totalIssueVotes: number
+    /** All registered accounts (citizen, curator, admin) — every role registers through the same
+     *  single OTP mechanism (PRD §10), so there is no separate "citizen-only" registration pool
+     *  to count instead. */
+    registeredCitizens: number
+  }
+}
+
 export interface SubmitFlagInput {
   wardId: string
   candidateId?: string
@@ -84,6 +156,30 @@ function isValidSourcedPatchValue(value: unknown): value is Sourced<string> {
   if (typeof source.label !== 'string' || source.label.trim() === '') return false
   if (source.type !== 'affidavit' && source.type !== 'curator') return false
   return true
+}
+
+/** The real GBA ward count (PRD §5.14/§12) — the denominator `platformMetrics()` reports coverage
+ *  against. Intentionally NOT derived from `seed.wards.length` (5 in this prototype): the whole
+ *  point of §5.14's coverage figure is to show real progress against the real city, not against
+ *  however many wards this demo happens to seed. */
+const TOTAL_WARDS_CITYWIDE = 369
+
+/** A candidate's report card is "complete" (PRD §5.14 coverage) when every one of its five
+ *  Sourced fields carries both a non-empty value and a non-empty source label. */
+function isCompleteSourcedField(field: Sourced<string>): boolean {
+  return field.value.trim() !== '' && field.source.label.trim() !== ''
+}
+
+/** The five Sourced fields on a Candidate record, in a fixed order — reused by both the
+ *  "report cards complete" and "sources cited" figures so they stay consistent with each other. */
+function candidateSourcedFieldValues(candidate: Candidate): Sourced<string>[] {
+  return [
+    candidate.trackRecord,
+    candidate.pendingCases,
+    candidate.assets,
+    candidate.education,
+    candidate.approachability,
+  ]
 }
 
 export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation' | 'oldWardsNote'>>
@@ -347,6 +443,76 @@ export function createStore() {
 
   function listUsers(): User[] {
     return structuredClone(state.users)
+  }
+
+  /**
+   * Self-accountability figures for `/data` (PRD §5.14) — see the `PlatformMetrics` doc comment
+   * for what each figure means and why `medianTimeToResolve` is `null`. Every number here is
+   * computed live from `state`; nothing is hardcoded, so the page always reflects the current
+   * store (curator publishes, new flags, issue votes, new registrations).
+   *
+   * PRIVACY (standing controller decision, same as `issueVoteCounts`): this selector returns
+   * AGGREGATES ONLY. `citizenSignal.issueRollUp` sums vote counts per issue across every ward —
+   * it never returns a per-user vote record, a userId, or an individual's issue picks. Do not add
+   * a per-user breakdown to this selector's return shape.
+   */
+  function platformMetrics(): PlatformMetrics {
+    const wardsWithCandidates = new Set(state.candidates.map((c) => c.wardId))
+    const reportCardsComplete = state.candidates.filter((c) =>
+      candidateSourcedFieldValues(c).every(isCompleteSourcedField),
+    ).length
+    const sourcesCited = state.candidates.reduce(
+      (sum, c) => sum + candidateSourcedFieldValues(c).filter(isCompleteSourcedField).length,
+      0,
+    )
+    const activeCurators = state.users.filter((u) => u.role === 'curator' && u.active).length
+
+    const flagsRaised = state.submissions.length
+    const flagsResolved = state.submissions.filter((s) => s.status !== 'pending').length
+
+    // AGGREGATE across every ward — deliberately not scoped to one wardId, unlike
+    // issueTally/issueVoteCounts. Counts only; never which user cast which vote.
+    const rollUpCounts = new Map<string, number>()
+    for (const vote of state.issueVotes) {
+      for (const issueId of vote.issueIds) {
+        rollUpCounts.set(issueId, (rollUpCounts.get(issueId) ?? 0) + 1)
+      }
+    }
+    const issueRollUp: IssueRollUpRow[] = Array.from(rollUpCounts, ([issueId, count]) => {
+      const issue = state.issues.find((i) => i.id === issueId)
+      return { issueId, wardId: issue?.wardId ?? '', title: issue?.title ?? issueId, count }
+    }).sort((a, b) => b.count - a.count)
+
+    // `state.audit` is always in append order (oldest first — see Audit.tsx's file comment for
+    // why that's a safe assumption to rely on directly instead of re-sorting), so its last entry
+    // is the most recently recorded event without needing to import lib/stamps.ts's comparator
+    // into the store layer.
+    const asOf = state.audit.length > 0 ? state.audit[state.audit.length - 1].at : undefined
+
+    const metrics: PlatformMetrics = {
+      asOf,
+      coverage: {
+        wardsWithPublishedCandidateData: wardsWithCandidates.size,
+        totalWards: TOTAL_WARDS_CITYWIDE,
+        reportCardsComplete,
+        totalCandidates: state.candidates.length,
+        activeCurators,
+        sourcesCited,
+      },
+      integrity: {
+        flagsRaised,
+        flagsResolved,
+        medianTimeToResolve: null,
+        medianResolutionUnavailableReason:
+          "Not computable in this prototype: seed submissions carry real ISO-8601 timestamps, but resolution events use a live session counter, not a clock — the two can't be subtracted into a real duration without fabricating one.",
+      },
+      citizenSignal: {
+        issueRollUp,
+        totalIssueVotes: state.issueVotes.length,
+        registeredCitizens: state.users.length,
+      },
+    }
+    return structuredClone(metrics)
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -750,6 +916,7 @@ export function createStore() {
     listSubmissionsByUser,
     listAudit,
     listUsers,
+    platformMetrics,
     subscribe,
     reset,
     stamp,
