@@ -20,6 +20,12 @@ export const seedIssues: Issue[] = [
     description: 'Timeliness of door-to-door waste pickup and segregation compliance.',
   },
   {
+    id: 'kor-lighting',
+    wardId: 'koramangala',
+    title: 'Street lighting & safety',
+    description: 'Dark stretches and poorly maintained streetlights on internal roads.',
+  },
+  {
     id: 'ind-traffic',
     wardId: 'indiranagar',
     title: 'Traffic congestion',

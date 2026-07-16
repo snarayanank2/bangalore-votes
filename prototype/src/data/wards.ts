@@ -7,7 +7,7 @@ export const seedWards: Ward[] = [
     name: 'Koramangala',
     corporation: 'South',
     oldWardsNote: 'Formed from parts of old wards 151 and 174.',
-    issueIds: ['kor-roads', 'kor-water', 'kor-waste'],
+    issueIds: ['kor-roads', 'kor-water', 'kor-waste', 'kor-lighting'],
   },
   {
     id: 'indiranagar',
