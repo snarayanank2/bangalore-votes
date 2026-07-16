@@ -87,8 +87,15 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
     setError(null)
     loginNew(contact, homeWardId, lang)
     setLang(lang)
-    resolvePending()
+    // Order matters: ModalContext holds a single tagged-union state, so whichever setState call
+    // lands last inside this synchronous handler wins the resulting UI. `onDone` (close) must run
+    // BEFORE `resolvePending`, so that if the resumed action itself opens another modal (e.g. the
+    // Flag or Cast-issue-vote modal reopening in place), that later state wins over this modal's
+    // own close — the login overlay is replaced by the resumed one instead of both collapsing to
+    // "none". When there is no pending action, `resolvePending` is a no-op and this modal simply
+    // closes, same as before.
     onDone?.()
+    resolvePending()
   }
 
   return (

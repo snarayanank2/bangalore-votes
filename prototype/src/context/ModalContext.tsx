@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { RegisterLogin } from '../components/modals/RegisterLogin'
+import { FlagMisinformation } from '../components/modals/FlagMisinformation'
 
 /** A field the citizen can flag as wrong, shown as a choice in the Flag modal. */
 export interface FlagField {
@@ -43,7 +44,7 @@ const ModalContext = createContext<ModalValue | null>(null)
  * that these are page-blocking overlays, never stacked.
  *
  * Mounted once in App.tsx, inside the Auth/I18n/Data provider tree, so the modal components it
- * renders (RegisterLogin here; FlagMisinformation/CastIssueVote added by Tasks 11/12) can call
+ * renders (RegisterLogin, FlagMisinformation here; CastIssueVote added by Task 12) can call
  * useAuth()/useData()/useI18n() themselves. Never touches the URL/router — see Modal.tsx.
  */
 export function ModalProvider({ children }: { children: ReactNode }) {
@@ -60,6 +61,11 @@ export function ModalProvider({ children }: { children: ReactNode }) {
     <ModalContext.Provider value={value}>
       {children}
       <RegisterLogin open={state.kind === 'login'} onClose={value.close} />
+      <FlagMisinformation
+        open={state.kind === 'flag'}
+        ctx={state.kind === 'flag' ? state.ctx : null}
+        onClose={value.close}
+      />
     </ModalContext.Provider>
   )
 }
