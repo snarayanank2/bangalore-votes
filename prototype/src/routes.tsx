@@ -1,8 +1,10 @@
-import { Outlet, type RouteObject } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useSearchParams, type RouteObject } from 'react-router-dom'
 import type { Role } from './types'
 import { AppBar } from './components/AppBar'
 import { Footer } from './components/Footer'
 import { RoleGuard } from './components/RoleGuard'
+import { captureSrcFromSearch } from './lib/attribution'
 
 import Home from './pages/public/Home'
 import WardResult from './pages/public/WardResult'
@@ -19,6 +21,7 @@ import FindBooth from './pages/public/FindBooth'
 import About from './pages/public/About'
 import Data from './pages/public/Data'
 import PartnerWithUs from './pages/public/PartnerWithUs'
+import PartnerKit from './pages/public/PartnerKit'
 import Press from './pages/public/Press'
 import Terms from './pages/public/Terms'
 import Privacy from './pages/public/Privacy'
@@ -50,8 +53,20 @@ const CURATOR_OR_ADMIN: Role[] = ['curator', 'admin']
 const ADMIN_ONLY: Role[] = ['admin']
 
 /** Root layout: global app bar (incl. the fictional-data banner) + page
- * outlet + global footer, present on every route. */
+ * outlet + global footer, present on every route.
+ *
+ * Also where `?src={partner-slug}` attribution (PRD §5.12) is captured — this is the one place
+ * in the whole route tree present on every page, so it's the natural single spot to read the
+ * query string and persist it (see `lib/attribution.ts`) before it's dropped by any subsequent
+ * client-side navigation. The captured value is read back later, at registration, by
+ * `RegisterLoginForm` (which is mounted outside this router tree and so can't read `?src=`
+ * itself — see App.tsx and lib/attribution.ts's file comment). */
 function RootLayout() {
+  const [searchParams] = useSearchParams()
+  useEffect(() => {
+    captureSrcFromSearch(searchParams)
+  }, [searchParams])
+
   return (
     <>
       <AppBar />
@@ -93,6 +108,9 @@ export const routeObjects: RouteObject[] = [
       { path: 'about', element: <About /> },
       { path: 'data', element: <Data /> },
       { path: 'partner-with-us', element: <PartnerWithUs /> },
+      // Unlisted (PRD §5.12) — deliberately not linked from AppBar/Footer, but NOT access-
+      // controlled (no RoleGuard): anonymous-access, same as every other page here.
+      { path: 'partner/:partnerSlug', element: <PartnerKit /> },
       { path: 'press', element: <Press /> },
       { path: 'terms', element: <Terms /> },
       { path: 'privacy', element: <Privacy /> },

@@ -549,3 +549,44 @@ test('updateCandidate still allows patching a non-Sourced field (e.g. party) wit
   expect(() => s.updateCandidate(slug, { party: 'New Party Name' }, curator())).not.toThrow()
   expect(s.getCandidate(slug)?.party).toBe('New Party Name')
 })
+
+// --- Task 3: ?src= partner attribution persists onto the user record at registration -----------
+
+test('createUser persists an optional src onto the new user record', () => {
+  const s = createStore()
+  const user = s.createUser({
+    contact: 'attributed@example.com',
+    homeWardId: 'koramangala',
+    src: 'demo-rwa-one',
+  })
+  expect(user.src).toBe('demo-rwa-one')
+  expect(s.listUsers().find((u) => u.id === user.id)?.src).toBe('demo-rwa-one')
+})
+
+test('createUser leaves src undefined when none is given (no attribution)', () => {
+  const s = createStore()
+  const user = s.createUser({ contact: 'unattributed@example.com', homeWardId: 'koramangala' })
+  expect(user.src).toBeUndefined()
+})
+
+test('src attribution grants no permissions and changes no other field on the created user', () => {
+  const s = createStore()
+  const withSrc = s.createUser({
+    contact: 'a@example.com',
+    homeWardId: 'koramangala',
+    src: 'demo-rwa-one',
+  })
+  const withoutSrc = s.createUser({ contact: 'b@example.com', homeWardId: 'koramangala' })
+  // Same role, same active flag, same shape apart from contact/id/src — attribution changes
+  // nothing about what the citizen can do.
+  expect(withSrc.role).toBe(withoutSrc.role)
+  expect(withSrc.active).toBe(withoutSrc.active)
+  expect(withSrc.curatorWardIds).toEqual(withoutSrc.curatorWardIds)
+})
+
+test('createUser does not leak the src partner slug into the audit log', () => {
+  const s = createStore()
+  s.createUser({ contact: 'tracked@example.com', homeWardId: 'koramangala', src: 'demo-rwa-one' })
+  const audit = s.listAudit()
+  expect(audit.some((a) => a.detail.includes('demo-rwa-one'))).toBe(false)
+})

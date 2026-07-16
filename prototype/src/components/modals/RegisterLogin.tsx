@@ -3,6 +3,7 @@ import { Modal } from '../Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { useI18n, type Lang } from '../../context/I18nContext'
+import { getAttributedSrc } from '../../lib/attribution'
 
 type Step = 'contact' | 'otp' | 'ward'
 
@@ -85,7 +86,10 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
       return
     }
     setError(null)
-    loginNew(contact, homeWardId, lang)
+    // ?src= partner attribution (PRD §5.12): whatever was captured earlier this visit (possibly
+    // on a completely different page — see lib/attribution.ts) is applied here, at the moment
+    // registration actually happens, regardless of what page this modal was opened from.
+    loginNew(contact, homeWardId, lang, getAttributedSrc())
     setLang(lang)
     // Order matters: ModalContext holds a single tagged-union state, so whichever setState call
     // lands last inside this synchronous handler wins the resulting UI. `onDone` (close) must run

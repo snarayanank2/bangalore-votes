@@ -58,6 +58,27 @@ export interface User {
   curatorWardIds?: string[] // scope for curators
   active: boolean
   notificationPrefs?: NotificationPrefs // undefined until the user visits /account/notifications
+  /** The partner slug (if any) this registration was attributed to via `?src=` (PRD §5.12).
+   *  MEASUREMENT ONLY — never read to grant a permission or change what the citizen sees. Set
+   *  once at registration (createUser) and never changed afterwards. */
+  src?: string
+}
+
+/** The kind of organisation a partner is (PRD §5.12) — free enough to cover the partner-led
+ *  distribution channels named in the PRD (RWAs, civic orgs, press) without over-modelling. */
+export type PartnerKind = 'rwa' | 'ngo' | 'press' | 'other'
+
+/**
+ * A distribution/recruitment partner (PRD §5.12). NOT a role (§14 locked decision) — a Partner
+ * record carries no login, no permissions, and is unrelated to `Role`. Partner records are
+ * managed by admins; this prototype only seeds a few fixed demo partners (see
+ * `src/data/partners.ts`) and provides read selectors — no admin CRUD UI yet (later task).
+ */
+export interface Partner {
+  slug: string       // URL-safe id, used in ?src={slug} and /partner/{slug}
+  name: string
+  kind: PartnerKind
+  wardIds: string[]  // wards this partner is understood to reach/represent
 }
 
 export type SubmissionStatus = 'pending' | 'accepted' | 'rejected'

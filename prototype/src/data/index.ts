@@ -4,6 +4,7 @@ import { seedIssues, seedIssueVotes } from './issues'
 import { seedUsers } from './users'
 import { seedSubmissions } from './submissions'
 import { seedAudit } from './audit'
+import { seedPartners } from './partners'
 
 export const seed = {
   wards: seedWards,
@@ -13,6 +14,7 @@ export const seed = {
   users: seedUsers,
   submissions: seedSubmissions,
   audit: seedAudit,
+  partners: seedPartners,
 }
 
 export {
@@ -23,4 +25,5 @@ export {
   seedUsers,
   seedSubmissions,
   seedAudit,
+  seedPartners,
 }

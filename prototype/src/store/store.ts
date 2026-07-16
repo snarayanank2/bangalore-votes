@@ -5,6 +5,7 @@ import type {
   Issue,
   IssueVote,
   NotificationPrefs,
+  Partner,
   Role,
   Source,
   Sourced,
@@ -31,6 +32,9 @@ export interface StoreState {
   users: User[]
   submissions: Submission[]
   audit: AuditEntry[]
+  /** Partner records (PRD §5.12) — seeded demo data in this prototype; admin-managed CRUD is a
+   *  later task, so today this array only ever grows via `seed`, never a mutation. */
+  partners: Partner[]
   /** Monotonic counter backing stamp(); persisted so it survives reload. */
   seq: number
 }
@@ -110,6 +114,20 @@ export interface PlatformMetrics {
      *  to count instead. */
     registeredCitizens: number
   }
+}
+
+/**
+ * Partner -> ward coverage against the real citywide ward count (PRD §5.12's admin coverage
+ * view). `byWard`/`coveredWardIds`/`uncoveredWardIds` are scoped to this prototype's 5-ward seed
+ * (the only wards that actually exist here to check membership against) — `totalWards` reports
+ * the real 369 denominator honestly, same pattern as `PlatformMetrics.coverage.totalWards`. The
+ * uncovered set is the work queue / early warning for reach skewing to central Bengaluru.
+ */
+export interface PartnerWardCoverage {
+  totalWards: number
+  coveredWardIds: string[]
+  uncoveredWardIds: string[]
+  byWard: { wardId: string; wardName: string; partnerSlugs: string[] }[]
 }
 
 export interface SubmitFlagInput {
@@ -214,7 +232,8 @@ function baseSeqFromSeed(): number {
     seed.issueVotes.length +
     seed.users.length +
     seed.submissions.length +
-    seed.audit.length
+    seed.audit.length +
+    seed.partners.length
   )
 }
 
@@ -443,6 +462,33 @@ export function createStore() {
 
   function listUsers(): User[] {
     return structuredClone(state.users)
+  }
+
+  function getPartner(slug: string): Partner | undefined {
+    const partner = state.partners.find((p) => p.slug === slug)
+    return partner ? structuredClone(partner) : undefined
+  }
+
+  function listPartners(): Partner[] {
+    return structuredClone(state.partners)
+  }
+
+  /** See `PartnerWardCoverage`'s doc comment for what's real (369) vs. prototype-scoped (the
+   *  per-ward breakdown, limited to this seed's 5 wards). */
+  function partnerWardCoverage(): PartnerWardCoverage {
+    const byWard = state.wards.map((ward) => ({
+      wardId: ward.id,
+      wardName: ward.name,
+      partnerSlugs: state.partners.filter((p) => p.wardIds.includes(ward.id)).map((p) => p.slug),
+    }))
+    const coveredWardIds = byWard.filter((w) => w.partnerSlugs.length > 0).map((w) => w.wardId)
+    const uncoveredWardIds = byWard.filter((w) => w.partnerSlugs.length === 0).map((w) => w.wardId)
+    return structuredClone({
+      totalWards: TOTAL_WARDS_CITYWIDE,
+      coveredWardIds,
+      uncoveredWardIds,
+      byWard,
+    })
   }
 
   /**
@@ -811,12 +857,23 @@ export function createStore() {
    * held new users in transient React state). Audited as an account event, consistent with the
    * audit log's scope of published data changes + moderation/admin actions — individual issue
    * votes remain unaudited (see castIssueVote above).
+   *
+   * `src` (PRD §5.12): the partner slug, if any, this registration is attributed to via a
+   * `?src=` link the visitor arrived on (captured/threaded by `lib/attribution.ts` +
+   * `AuthContext.loginNew`). Persisted onto the user record verbatim, with NO validation against
+   * `state.partners` — attribution is measurement-only, so an unrecognised/typo'd slug is still
+   * recorded as-is rather than silently dropped or rejected. Deliberately NOT written into the
+   * audit detail string below: the audit log is admin-readable, and turning "who referred this
+   * citizen" into a permanent, cross-referenceable audit-log fact would make the log a
+   * citizen-tracking surface, which is exactly what §5.12's "grants no permissions, changes
+   * nothing the citizen sees" is guarding against.
    */
   function createUser(input: {
     contact: string
     homeWardId?: string
     name?: string
     language?: User['language']
+    src?: string
   }): User {
     const n = nextSeq()
     const user: User = {
@@ -828,6 +885,7 @@ export function createStore() {
       language: input.language ?? 'en',
       curatorWardIds: undefined,
       active: true,
+      src: input.src,
     }
     state.users.push(user)
     appendAudit({
@@ -916,6 +974,9 @@ export function createStore() {
     listSubmissionsByUser,
     listAudit,
     listUsers,
+    getPartner,
+    listPartners,
+    partnerWardCoverage,
     platformMetrics,
     subscribe,
     reset,

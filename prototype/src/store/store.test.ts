@@ -254,3 +254,44 @@ test('platformMetrics deep-clones its result', () => {
   expect(again.coverage.totalCandidates).not.toBe(-1)
   expect(again.citizenSignal.issueRollUp.find((r) => r.issueId === 'hacked')).toBeUndefined()
 })
+
+// --- Task 3: partner model (PRD §5.12) ----------------------------------------------------------
+
+test('listPartners returns the seeded demo partners, deep-cloned', () => {
+  const s = createStore()
+  const partners = s.listPartners()
+  expect(partners.length).toBeGreaterThanOrEqual(2)
+  partners[0].name = 'mutated'
+  expect(s.listPartners()[0].name).not.toBe('mutated')
+})
+
+test('getPartner resolves a known slug and returns undefined for an unknown one', () => {
+  const s = createStore()
+  const known = s.listPartners()[0]
+  expect(s.getPartner(known.slug)?.slug).toBe(known.slug)
+  expect(s.getPartner('not-a-real-partner')).toBeUndefined()
+})
+
+test('seeded partners are unmistakably fictional demo organisations', () => {
+  const s = createStore()
+  for (const p of s.listPartners()) {
+    expect(p.name).toMatch(/fictional|demo|sample|placeholder/i)
+  }
+})
+
+test('partnerWardCoverage reports the real 369-ward denominator and splits seed wards into covered/uncovered', () => {
+  const s = createStore()
+  const coverage = s.partnerWardCoverage()
+  expect(coverage.totalWards).toBe(369)
+  expect(coverage.coveredWardIds.length + coverage.uncoveredWardIds.length).toBe(s.listWards().length)
+  for (const row of coverage.byWard) {
+    expect(row.partnerSlugs.length > 0).toBe(coverage.coveredWardIds.includes(row.wardId))
+  }
+})
+
+test('partnerWardCoverage deep-clones its result', () => {
+  const s = createStore()
+  const coverage = s.partnerWardCoverage()
+  coverage.uncoveredWardIds.push('hacked')
+  expect(s.partnerWardCoverage().uncoveredWardIds).not.toContain('hacked')
+})

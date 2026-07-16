@@ -20,7 +20,7 @@ interface AuthValue {
   role: Role
   isAuthed: boolean
   loginAs: (userId: string) => void
-  loginNew: (contact: string, homeWardId: string, language?: User['language']) => void
+  loginNew: (contact: string, homeWardId: string, language?: User['language'], src?: string) => void
   logout: () => void
   pendingAction: (() => void) | null
   requireAuth: (action: () => void) => void
@@ -59,9 +59,19 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
    * Registers a new citizen account via `store.createUser` (persists to localStorage — Task 10;
    * previously this built a transient React-state-only user that vanished on reload, see
    * task-6-8-report.md) and logs into it immediately.
+   *
+   * `src` (PRD §5.12): the partner slug this registration should be attributed to, if any. The
+   * caller (`RegisterLoginForm`) is responsible for supplying it — typically via
+   * `lib/attribution.ts`'s `getAttributedSrc()` — since AuthContext itself sits outside the
+   * router tree (see App.tsx) and has no way to read `?src=` from the URL directly.
    */
-  function loginNew(contact: string, homeWardId: string, language?: User['language']): void {
-    const created = store.createUser({ contact, homeWardId, language })
+  function loginNew(
+    contact: string,
+    homeWardId: string,
+    language?: User['language'],
+    src?: string,
+  ): void {
+    const created = store.createUser({ contact, homeWardId, language, src })
     setUserId(created.id)
   }
 
