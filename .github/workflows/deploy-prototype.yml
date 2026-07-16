@@ -19,8 +19,12 @@ jobs:
         working-directory: prototype
     steps:
       - uses: actions/checkout@v4
+      # Node 24: the test setup shims fetch/AbortController via undici@8 to work around
+      # jsdom shadowing AbortController (which breaks data-router navigation). undici@8
+      # needs a Node newer than 20, and the suite is developed and verified on 24 — CI
+      # must match, or `npm run test` dies in undici before any test runs.
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm, cache-dependency-path: prototype/package-lock.json }
+        with: { node-version: 24, cache: npm, cache-dependency-path: prototype/package-lock.json }
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
