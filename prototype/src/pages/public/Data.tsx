@@ -44,7 +44,7 @@ export default function Data() {
   const asOfLabel = metrics.asOf ? formatStamp(metrics.asOf) : 'no recorded activity yet'
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Data &amp; key metrics</h1>
         <p className="mt-2 text-sm text-ink/80">

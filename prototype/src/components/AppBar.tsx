@@ -20,7 +20,7 @@ export function AppBar() {
       <div className="w-full border-b border-amber-300 bg-amber-100 px-4 py-1.5 text-center text-xs font-medium text-amber-900 sm:text-sm">
         Prototype — sample data is fictional. Not real candidates or election data.
       </div>
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <Link
           to="/"
           className="rounded text-lg font-bold text-brand focus:outline-none focus:ring-2 focus:ring-brand"

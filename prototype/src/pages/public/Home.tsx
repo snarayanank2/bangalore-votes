@@ -10,7 +10,7 @@ const ELECTION_NOTICE_TARGET = 'September 2026 (expected)'
 
 export default function Home() {
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <section className="space-y-2 rounded-lg border border-brand/20 bg-brand/5 p-6 text-center">
         <p className="text-sm font-semibold uppercase tracking-wide text-brand">
           GBA ward elections
