@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
@@ -74,6 +74,44 @@ test('save is refused if a field is cleared of its source label — every field 
   // Nothing was published.
   const candidate = store.getCandidate('koramangala-r-menon')
   expect(candidate?.assets.source.label).toBe('EC affidavit')
+})
+
+// --- PRD §9.1: curator can mark a field "not declared" — a complete answer, not a gap ----------
+
+test('curator can mark a field "not declared" — publishes with an empty value and the marker, still sourced', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-kor-1', 'u-curator')
+
+  const assetsGroup = screen.getByRole('group', { name: /declared assets/i })
+  const valueBox = within(assetsGroup).getByLabelText(/declared assets value/i)
+  await user.click(within(assetsGroup).getByLabelText(/not declared on the affidavit/i))
+  expect(valueBox).toBeDisabled()
+
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+  const candidate = store.getCandidate('koramangala-r-menon')
+  expect(candidate?.assets.notDeclared).toBe(true)
+  expect(candidate?.assets.value).toBe('')
+  // The seeded source is untouched — "not declared" still needs a real source.
+  expect(candidate?.assets.source.label).toBe('EC affidavit')
+  expect(screen.getByText(/saved/i)).toBeInTheDocument()
+})
+
+test('a "not declared" field still requires a source — save is refused if the source label is cleared', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-kor-1', 'u-curator')
+
+  const assetsGroup = screen.getByRole('group', { name: /declared assets/i })
+  await user.click(within(assetsGroup).getByLabelText(/not declared on the affidavit/i))
+  await user.clear(within(assetsGroup).getByLabelText(/declared assets source label/i))
+
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+  expect(screen.getByRole('alert')).toHaveTextContent(/source/i)
+  // Nothing was published — the seeded value and source are both untouched.
+  const candidate = store.getCandidate('koramangala-r-menon')
+  expect(candidate?.assets.notDeclared).toBeUndefined()
+  expect(candidate?.assets.value).toMatch(/1\.8 crore/)
 })
 
 test('curator can add and remove a news link, and it persists on save', async () => {

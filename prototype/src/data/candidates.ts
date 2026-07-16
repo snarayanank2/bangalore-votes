@@ -304,9 +304,14 @@ export const seedCandidates: Candidate[] = [
       value: 'Declared movable and immovable assets totalling approximately Rs 30 lakh.',
       source: affidavit(),
     },
+    // PRD §9.1: an explicit "not declared" answer — the nomination affidavit's education field
+    // was left blank (education is optional on Form 26, unlike assets and pending cases). This
+    // is a complete, sourced fact about the affidavit, not a gap — see `Sourced.notDeclared`'s
+    // doc comment in types.ts, and CandidateReportCard.tsx's neutral "Not declared" rendering.
     education: {
-      value: 'B.A. Political Science, Bangalore University (2012).',
-      source: affidavit(),
+      value: '',
+      source: affidavit('EC affidavit — Form 26, education field left blank'),
+      notDeclared: true,
     },
     approachability: {
       value: 'Contactable via a public phone line advertised on campaign posters; response times not yet reviewed.',

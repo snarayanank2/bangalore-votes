@@ -107,7 +107,14 @@ export default function CompareCandidates() {
                     const sourced = field.get(candidate)
                     return (
                       <td key={candidate.id} className="min-w-[12rem] px-3 py-3 align-top">
-                        <p className="text-sm text-ink/90">{sourced.value}</p>
+                        {/* PRD §9.1/§11: same neutral "Not declared" treatment as the report
+                         *  card — a fact about the affidavit, not a gap, and not styled as a
+                         *  warning. */}
+                        {sourced.notDeclared ? (
+                          <p className="text-sm italic text-ink/70">Not declared</p>
+                        ) : (
+                          <p className="text-sm text-ink/90">{sourced.value}</p>
+                        )}
                         <div className="mt-1.5">
                           <SourceBadge source={sourced.source} />
                         </div>

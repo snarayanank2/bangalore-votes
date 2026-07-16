@@ -31,7 +31,14 @@ function ReportField({
     <div className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
       <dt className="text-sm font-semibold text-ink">{label}</dt>
       <dd className="mt-1.5 space-y-1.5">
-        <p className="text-sm leading-relaxed text-ink/90">{sourced.value}</p>
+        {/* PRD §9.1: "not declared" is a fact about the affidavit, not a gap — render it as an
+         *  explicit, neutral state, visibly distinct from both a real value and an empty/unknown
+         *  field. Deliberately no warning colour and no wording implying concealment (PRD §11). */}
+        {sourced.notDeclared ? (
+          <p className="text-sm italic text-ink/70">Not declared</p>
+        ) : (
+          <p className="text-sm leading-relaxed text-ink/90">{sourced.value}</p>
+        )}
         <SourceBadge source={sourced.source} />
         {caveat && <p className="text-xs italic text-ink/60">{caveat}</p>}
       </dd>

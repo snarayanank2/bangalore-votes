@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { fieldLabel } from '../../lib/fields'
 import type { CandidatePatch, CandidateSourcedField } from '../../store/store'
-import type { NewsLink, SourceType } from '../../types'
+import type { NewsLink, Sourced, SourceType } from '../../types'
 
 const SOURCED_FIELDS: CandidateSourcedField[] = [
   'trackRecord',
@@ -19,6 +19,11 @@ interface FieldDraft {
   sourceType: SourceType
   sourceLabel: string
   sourceUrl: string
+  /** PRD §9.1: marks this field as an explicit "not declared" answer rather than a gap — see
+   *  `Sourced.notDeclared`'s doc comment in types.ts. A source is still required when this is
+   *  checked; only the value becomes optional (and is cleared on save, so a value typed before
+   *  checking the box is never silently published alongside a "not declared" marker). */
+  notDeclared: boolean
 }
 
 /**
@@ -32,8 +37,10 @@ interface FieldDraft {
  *
  * SOURCE IS MANDATORY PER FIELD (PRD §5.2/§11 — every data point on the platform carries a
  * visible source; that's the product's core trust mechanism). Save is refused, inline, if any of
- * the five fields is missing a value or a source label. Saving publishes immediately — curators
- * are trusted, there is no second-person approval (locked decision).
+ * the five fields is missing a source label, or is missing both a value and a "Not declared"
+ * marker (PRD §9.1 — "not declared" is itself a complete answer, so it substitutes for a value,
+ * never for a source). Saving publishes immediately — curators are trusted, there is no
+ * second-person approval (locked decision).
  *
  * SCOPE: this page never pre-checks scope — like SubmissionReview, it lets a curator open (and
  * fill out) the form for any candidate reachable by URL, and only surfaces the store's `/scope/i`
@@ -59,6 +66,7 @@ export default function EditCandidate() {
         sourceType: sourced?.source.type ?? 'curator',
         sourceLabel: sourced?.source.label ?? '',
         sourceUrl: sourced?.source.url ?? '',
+        notDeclared: sourced?.notDeclared ?? false,
       }
     }
     return initial
@@ -116,13 +124,33 @@ export default function EditCandidate() {
     setSaved(false)
 
     for (const field of SOURCED_FIELDS) {
-      if (!drafts[field].value.trim()) {
-        setError(`Enter a value for "${fieldLabel(field)}".`)
+      // PRD §9.1: "not declared" is a valid, complete answer, so a checked field skips the
+      // value requirement below — but it still needs a real source (it's a fact about the
+      // affidavit), same as every other field, checked unconditionally next.
+      if (!drafts[field].notDeclared && !drafts[field].value.trim()) {
+        setError(`Enter a value for "${fieldLabel(field)}", or mark it "Not declared".`)
         return
       }
       if (!drafts[field].sourceLabel.trim()) {
-        setError(`Attach a source for "${fieldLabel(field)}" — every field must be sourced.`)
+        setError(
+          `Attach a source for "${fieldLabel(field)}" — every field must be sourced, including a "not declared" field.`,
+        )
         return
+      }
+    }
+
+    // Builds one candidate Sourced<string> field from its draft — "not declared" fields are
+    // saved with an empty value (never whatever was typed before the box was checked), so the
+    // published record can never show both a "not declared" marker and stray text (§9.1).
+    function sourcedFrom(draft: FieldDraft): Sourced<string> {
+      return {
+        value: draft.notDeclared ? '' : draft.value.trim(),
+        source: {
+          type: draft.sourceType,
+          label: draft.sourceLabel.trim(),
+          url: draft.sourceUrl.trim() || undefined,
+        },
+        notDeclared: draft.notDeclared,
       }
     }
 
@@ -130,46 +158,11 @@ export default function EditCandidate() {
       name: name.trim() || activeCandidate.name,
       party: party.trim() || activeCandidate.party,
       news,
-      trackRecord: {
-        value: drafts.trackRecord.value.trim(),
-        source: {
-          type: drafts.trackRecord.sourceType,
-          label: drafts.trackRecord.sourceLabel.trim(),
-          url: drafts.trackRecord.sourceUrl.trim() || undefined,
-        },
-      },
-      pendingCases: {
-        value: drafts.pendingCases.value.trim(),
-        source: {
-          type: drafts.pendingCases.sourceType,
-          label: drafts.pendingCases.sourceLabel.trim(),
-          url: drafts.pendingCases.sourceUrl.trim() || undefined,
-        },
-      },
-      assets: {
-        value: drafts.assets.value.trim(),
-        source: {
-          type: drafts.assets.sourceType,
-          label: drafts.assets.sourceLabel.trim(),
-          url: drafts.assets.sourceUrl.trim() || undefined,
-        },
-      },
-      education: {
-        value: drafts.education.value.trim(),
-        source: {
-          type: drafts.education.sourceType,
-          label: drafts.education.sourceLabel.trim(),
-          url: drafts.education.sourceUrl.trim() || undefined,
-        },
-      },
-      approachability: {
-        value: drafts.approachability.value.trim(),
-        source: {
-          type: drafts.approachability.sourceType,
-          label: drafts.approachability.sourceLabel.trim(),
-          url: drafts.approachability.sourceUrl.trim() || undefined,
-        },
-      },
+      trackRecord: sourcedFrom(drafts.trackRecord),
+      pendingCases: sourcedFrom(drafts.pendingCases),
+      assets: sourcedFrom(drafts.assets),
+      education: sourcedFrom(drafts.education),
+      approachability: sourcedFrom(drafts.approachability),
     }
 
     try {
@@ -251,8 +244,25 @@ export default function EditCandidate() {
                     value={draft.value}
                     onChange={(e) => updateDraft(field, { value: e.target.value })}
                     rows={2}
-                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                    disabled={draft.notDeclared}
+                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-slate-100 disabled:text-ink/50"
                   />
+                </div>
+                <div className="flex items-start gap-2">
+                  <input
+                    id={`${idBase}-not-declared`}
+                    type="checkbox"
+                    checked={draft.notDeclared}
+                    onChange={(e) => updateDraft(field, { notDeclared: e.target.checked })}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                  <label htmlFor={`${idBase}-not-declared`} className="text-sm text-ink">
+                    Not declared on the affidavit
+                    <span className="block text-xs font-normal text-ink/60">
+                      This is a complete answer, not a gap — it records that the affidavit itself
+                      leaves this field blank. A source is still required below.
+                    </span>
+                  </label>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-3">
                   <div>

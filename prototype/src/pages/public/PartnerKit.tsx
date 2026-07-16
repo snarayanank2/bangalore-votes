@@ -7,7 +7,7 @@ import { useData, useStoreVersion } from '../../context/DataContext'
 const SITE_ORIGIN = 'https://bangalore-votes.opencity.in'
 
 /**
- * Partner kit (PRD §5.12, IA §3.16, `/partner/{partner-slug}`) — UNLISTED (no route here is
+ * Partner kit (PRD §5.12, IA §3.19, `/partner/{partner-slug}`) — UNLISTED (no route here is
  * linked from the app bar or footer, and it's not meant to be indexed) but explicitly NOT
  * access-controlled: it carries nothing sensitive, and a login wall would defeat the entire point
  * of a page built for someone who hasn't registered yet. Anonymous, matches PRD §7's permissions

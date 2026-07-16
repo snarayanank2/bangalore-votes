@@ -150,6 +150,15 @@ test('getCandidateById returns undefined for an unknown id', () => {
   expect(s.getCandidateById('no-such-id')).toBeUndefined()
 })
 
+test('createUser deep-clones its result — mutating it does not corrupt a subsequent read', () => {
+  const s = createStore()
+  const user = s.createUser({ contact: 'clone-check@example.com', homeWardId: 'koramangala' })
+  user.homeWardId = 'HACKED'
+  const reread = s.listUsers().find((u) => u.id === user.id)
+  expect(reread?.homeWardId).toBe('koramangala')
+  expect(s.getState().users.find((u) => u.id === user.id)?.homeWardId).toBe('koramangala')
+})
+
 test('createUser writes an audit entry', () => {
   const s = createStore()
   const before = s.listAudit().length
@@ -160,11 +169,28 @@ test('createUser writes an audit entry', () => {
   expect(audit[audit.length - 1].actorUserId).toBe(user.id)
 })
 
+// --- PRD §9.1: the seeded "not declared" field is actually exercised, not just theoretical -----
+
+test('seed: shivajinagar-t-ahmed.education is marked "not declared" with a real source, and wardCompleteness treats it as complete', () => {
+  const s = createStore()
+  const candidate = s.getCandidate('shivajinagar-t-ahmed')
+  expect(candidate?.education.notDeclared).toBe(true)
+  expect(candidate?.education.value).toBe('')
+  expect(candidate?.education.source.label.trim()).not.toBe('')
+
+  const completeness = s.wardCompleteness('shivajinagar')
+  expect(completeness.complete).toBe(true)
+  expect(completeness.issues).toEqual([])
+})
+
 // --- platformMetrics: /data self-accountability figures (PRD §5.14) ---------------------
 //
 // Asserted against the REAL seed shape (src/data/*.ts), not invented numbers:
 //  - 5 seeded wards, 4 of which have at least one candidate (jayanagar has none).
-//  - 10 seeded candidates, every one with all five Sourced fields populated + sourced.
+//  - 10 seeded candidates, every one with all five Sourced fields sourced, and either populated
+//    or explicitly `notDeclared: true` (shivajinagar-t-ahmed's `education` — PRD §9.1: a "not
+//    declared" field is still complete, so this does NOT change reportCardsComplete/sourcesCited
+//    below).
 //  - 3 users: 1 citizen, 1 active curator, 1 admin — registeredCitizens (Fix 2) counts the 1
 //    citizen only, not all 3 accounts.
 //  - 3 submissions (queue records): sub-1 pending (count 2), sub-2 accepted (count 3), sub-3

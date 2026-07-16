@@ -42,6 +42,20 @@ test('candidate column headers link through to the report card', () => {
   )
 })
 
+// --- PRD §9.1/§11: "not declared" renders the same neutral marker as the report card ------------
+
+test('a "not declared" field (seed: shivajinagar-t-ahmed, education) shows the neutral "Not declared" marker instead of a blank cell', () => {
+  renderAt('/ward/shivajinagar/compare')
+
+  const educationRow = screen.getByRole('rowheader', { name: /education/i }).closest('tr')
+  expect(educationRow).not.toBeNull()
+  expect(within(educationRow as HTMLElement).getByText('Not declared')).toBeInTheDocument()
+  // Still carries its source badge, exactly like every other field.
+  expect(
+    within(educationRow as HTMLElement).getAllByText(/Official \(affidavit\)/i).length,
+  ).toBeGreaterThan(0)
+})
+
 test('shows an honest empty state for a ward with no candidates yet', () => {
   renderAt('/ward/jayanagar/compare')
   expect(screen.getByText(/no candidates.*(yet|nomination)/i)).toBeInTheDocument()

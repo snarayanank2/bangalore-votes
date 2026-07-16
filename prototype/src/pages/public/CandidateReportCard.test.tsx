@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
@@ -77,6 +77,23 @@ test('anonymous click on Flag an error shows the login modal first (resume-in-pl
 test('shows a plain-text provenance note that name, photo and party come from the EC nomination', () => {
   renderAt('/candidate/koramangala-r-menon')
   expect(screen.getByText(/name, photo and party.*EC nomination/i)).toBeInTheDocument()
+})
+
+// --- PRD §9.1: "not declared" is a fact about the affidavit, rendered as an explicit, neutral --
+// state — distinct from both a real value and an empty/unknown field (PRD §11: no warning colour,
+// no wording implying concealment).
+
+test('a field marked "not declared" (seed: shivajinagar-t-ahmed, education) renders an explicit "Not declared" state with its source badge', () => {
+  renderAt('/candidate/shivajinagar-t-ahmed')
+
+  const educationTerm = screen.getByText('Education / qualifications')
+  const dd = educationTerm.closest('div')!.querySelector('dd') as HTMLElement
+  expect(within(dd).getByText('Not declared')).toBeInTheDocument()
+  expect(within(dd).getByText(/Official \(affidavit\)/i)).toBeInTheDocument()
+
+  // Neutral per PRD §11 — no warning/negative styling class on the "Not declared" text itself.
+  const notDeclaredEl = within(dd).getByText('Not declared')
+  expect(notDeclaredEl.className).not.toMatch(/red|warn|error|amber|accent/i)
 })
 
 test('an unknown candidate slug does not crash and shows an honest not-found message', () => {

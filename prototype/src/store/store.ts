@@ -1521,7 +1521,7 @@ export function createStore() {
       detail: `Registered new citizen ${user.id} (${input.contact}).`,
     })
     persist()
-    return user
+    return structuredClone(user)
   }
 
   /**
