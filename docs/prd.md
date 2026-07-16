@@ -135,8 +135,10 @@ Let citizens signal which local issues matter most, and show that signal publicl
 ### 5.11 About us, funding & data sourcing (trust page)
 *Page: `/about`*
 
-- Explain who runs the platform, how data is sourced and verified, and the neutrality stance.
+- **Name the operator.** The platform is run in production by the **Oorvani Foundation**, the trust that operates `opencity.in`. This is stated plainly, not buried.
+- Explain how data is sourced and verified, and the neutrality stance.
 - **Disclose funding.** For a platform whose value rests entirely on neutrality, who pays for it is the first question a skeptical reader asks; the answer should not have to be requested. Disclosure detail is an open question (§17).
+- **State the data commitments** in citizen-readable terms, mirroring `/privacy` (§5.16): Oorvani does not sell citizen data to third parties, and contact details are used for ward election updates and critical product updates only.
 - Supports the trust requirement in §11; links to primary sources.
 - This is also the "about us" page — team and mission live here rather than on a separate URL, because a citizen who doubts the platform wants who-runs-it and how-it-sources-data in one place.
 
@@ -188,7 +190,9 @@ Press is an amplifier for the partner-led distribution model (§14), and journal
 *Pages: `/terms`, `/privacy`*
 
 - **`/terms`** — acceptable use; contribution licensing (flags, issue votes); accuracy and liability disclaimers; account termination grounds, consistent with the admin ban capability (§7).
-- **`/privacy`** — what personal data is collected (email, phone, address→ward, language, `src` attribution) and why; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution) and why; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **Data commitments (locked, §14).** Oorvani **does not sell or share citizen data with third parties**. Contact details are used for two purposes only: ward-scoped election updates (§9), and **critical product updates**.
+- **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause.
 - **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
 - Both need **legal review**; their content is outside a product spec's competence. `/privacy` is additionally blocked on an undecided retention policy (§17).
 
@@ -235,6 +239,7 @@ Registered citizens can see the **status of everything they have submitted** —
 | Vote on top-3 ward issues (home ward) | – | ✅ | ✅ | ✅ |
 | View status of own submissions | – | ✅ | ✅ | ✅ |
 | Define ward issue list | – | – | ✅ | ✅ |
+| Mark a ward ready for candidate comms | – | – | Scope | All |
 | Create / edit ward & candidate data | – | – | Scope | All |
 | Publish live | – | – | ✅ | ✅ |
 | Review submissions | – | – | Scope | All |
@@ -266,8 +271,16 @@ Registered citizens can see the **status of everything they have submitted** —
 
 - A ward-scoped send that references candidate data **must not go out to a ward whose data is not ready**. Each such send is gated per ward on a readiness check; unready wards are **held**, not sent.
 - Rationale: sends are ward-scoped across 369 wards, and curator coverage will be uneven. Telling a citizen "your ward's report cards are complete" and landing them on an empty page is worse than sending nothing — and it would happen exactly when press attention peaks.
+
+**A ward is ready when both of the following hold:**
+
+1. **Completeness.** Every candidate who has filed a nomination in the ward has a report card record; each carries name and party/independent; cases, assets, and education are either populated or explicitly marked *not declared*; and every field has a source (§11). "Not declared" is a valid, complete answer — it is a fact about the affidavit, not a gap.
+2. **Curator sign-off.** The ward's curator has explicitly marked it ready (§7). The mechanical check alone cannot tell a thin ward from a finished one; a person who knows the ward can.
+
+**Sign-off is cleared automatically when the ward's candidate set materially changes** — a new nomination or a withdrawal. Otherwise a ward signed off at the notification would still count as ready at E−2w, when the list it was signed off against no longer exists. In practice this means C2 requires a fresh sign-off after withdrawals close.
+
 - Held wards must be visible to admins (`/admin/partners`), since a held ward is a curator-coverage gap that needs fixing, not a silent skip. Admins can override a hold and release the send — consistent with their oversight role (§7).
-- The concrete readiness criterion is an open question (§17).
+- Sign-off and override are both published changes and are therefore written to the audit log (§11).
 
 ### 9.2 Election-silence content freeze
 
@@ -367,6 +380,9 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Funding disclosure | `/about` states who funds the platform (§5.11). Neutrality is the product; its funding cannot be opaque. |
 | Legal page sequencing | `/privacy` ships in **Phase 0**, before the teaser — it gates WhatsApp onboarding and therefore the comms plan (§5.16). |
 | Ward send gating | Candidate-referencing sends are gated per ward on data readiness; unready wards are held (§9.1). |
+| Ward readiness test | Field completeness **and** explicit curator sign-off. Sign-off clears when the ward's candidate set changes (§9.1). |
+| Operator | The **Oorvani Foundation** runs the platform in production; named on `/about` and `/privacy`. |
+| Citizen data use | Oorvani does not sell or share citizen data with third parties. Contacts are used for ward election updates and critical product updates only — the latter meaning service-affecting notices, not feature marketing (§5.16). |
 | Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). |
 
 ---
@@ -401,11 +417,11 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 - Candidate comparison: maximum number of candidates shown at once on mobile.
 - News links: curator-added only, or auto-suggested for curator approval?
 - Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
-- Ward data-readiness (§9.1): what concretely makes a ward ready to receive candidate comms — a curator assigned, a field-completeness threshold, or explicit curator sign-off?
-- Registration and ward-coverage targets: no numbers are set, so Phase 1 has no exit criteria yet.
+- Does clearing sign-off on every candidate-set change (§9.1) create too much curator churn during the nomination window, when the set changes daily? A possible refinement: suspend gating entirely until withdrawals close, since no candidate-referencing send falls in that window except L1.
 - Is the partner kit page itself bilingual, or English-only with bilingual assets inside it? Same for `/press` and `/partner-with-us`.
 - Press timing: does the launch push go out at the notification, or at E−2w when report cards are actually complete?
-- **Data retention after the election** (§5.16): what happens to roughly 100k phone numbers once the poll is over — deletion, retention for a future phase, or retention on re-consent? Undecided, and a hard blocker on `/privacy`, which is itself a Phase 0 blocker. A trust decision before it is a legal one; note that the deferred promise-tracking phase has an obvious interest in keeping them.
+- **Retention period** (§5.16): Oorvani's commitments settle *who* may use the data (nobody else) and *for what* (election updates, critical product notices). They do not settle **for how long**. `/privacy` must state a period or a deletion trigger, and this remains a Phase 0 blocker.
+- **Re-consent path for the next phase** (§5.16, §16): if promise tracking ships, the election list cannot simply be reused. Is re-consent collected during this release — an optional "tell me about future civic tools" checkbox at registration — or sought later against a list that has gone cold? Deciding now costs one checkbox; deciding later may cost the list.
 - Funding disclosure detail (§5.11): does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question the disclosure was meant to close.
 - Do `/data` coverage figures count a ward whose data exists but is held from comms by the §9.1 readiness check? The honest answer and the flattering answer differ.
 - Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text on an otherwise bilingual product?

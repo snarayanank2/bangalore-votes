@@ -118,7 +118,11 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 | Distribution | Partner-led (RWAs, civic orgs, press). **No paid acquisition** — it costs money the project lacks and undercuts the neutrality claim. |
 | Election-silence rule | From 48h before poll close, all outbound comms are logistics only — no candidate content. In practice we go further: the last send is booth logistics at E−3d, then nothing. The site stays up. |
 | Partner recruitment | Runs in the same conversations as curator recruitment; the two pools are the same people. `/partner-with-us` opens the same funnel to anyone. |
+| Operator | The **Oorvani Foundation** — the trust behind `opencity.in` — runs the platform in production, and is named on the About and Privacy pages. |
+| Citizen data use | Oorvani does not sell or share citizen data. Contacts are used for ward election updates and critical product notices only — service-affecting messages, not feature marketing. |
 | Funding disclosure | The About page states who funds the platform. Neutrality is the product; its funding cannot be opaque. |
+| Ward readiness | A ward receives candidate comms only when its data passes a completeness check **and** its curator signs off. Sign-off clears when the candidate list changes. |
+| Phase 1 target | ~25,000 registrations, with at least 50 in at least 300 of the 369 wards. |
 | Public metrics | A Data page publishes our own coverage and integrity figures, plus a city-wide issue picture. Figures, not downloadable datasets. |
 | Legal sequencing | The privacy policy publishes **before the teaser** — Meta gates WhatsApp onboarding on it, so it gates the comms plan. |
 
@@ -164,18 +168,20 @@ The platform does not launch in one moment. Candidate data cannot exist until th
 Three points deserve stakeholder attention:
 
 - **The roll-deadline alert is the highest-value message we send.** Missing the roll is the only failure in this funnel that cannot be undone — no amount of good candidate information helps someone who isn't registered to vote.
-- **We never send a promise our data can't keep.** A ward only receives candidate-related comms once its data passes a readiness check. A ward with no curator is held back rather than sent to an empty page.
+- **We never send a promise our data can't keep.** A ward only receives candidate-related comms once its data passes a completeness check *and* its curator has signed the ward off. A ward that fails either is held back rather than sent to an empty page, and the sign-off clears whenever the candidate list changes — so nobody is vouching for a list that has since moved.
 - **We go quiet for the last 48 hours.** The Representation of the People Act bans electioneering in that window. Rather than argue that neutral report cards aren't electioneering, we simply stop — the last send is booth logistics three days out. This gives up the election-morning reminder, the single highest-converting message in a normal campaign. It buys a platform nobody can accuse of campaigning, which is the only asset we actually have. The site stays fully available throughout.
 
 ---
 
 ## 11. Trust surfaces & recruitment
 
-Three public pages carry the neutrality claim. **About** says who we are, how we source data, and — added here — **who funds us**, because that is the first question a skeptical journalist asks. **Data** publishes our own coverage and integrity figures alongside a city-wide picture of what Bengaluru's wards say matters; a platform that publishes other people's records should publish its own. **Press kit** ships early, since journalists arrive at the notification and a kit assembled then is assembled too late.
+Three public pages carry the neutrality claim. **About** names the operator — the **Oorvani Foundation**, the trust behind `opencity.in` — says how we source data, and, added here, **who funds us**, because that is the first question a skeptical journalist asks. It also states Oorvani's commitments in plain words: we do not sell or share citizen data, and we use contact details for ward election updates and critical service notices only. Saying that on the page citizens actually read, rather than only in the privacy policy, is what earns a phone number. **Data** publishes our own coverage and integrity figures alongside a city-wide picture of what Bengaluru's wards say matters; a platform that publishes other people's records should publish its own. **Press kit** ships early, since journalists arrive at the notification and a kit assembled then is assembled too late.
 
 **Partner with us** turns recruitment from a private motion into a public one, offering the two ways to help — *spread awareness* or *curate data* — and taking applications from anyone. The team's own address book does not stretch to 369 wards, and it is precisely where a central-Bengaluru skew would come from.
 
-One sequencing point worth stakeholder attention: the **privacy policy is the first thing we must publish**, before the teaser. Meta will not approve WhatsApp onboarding without a live privacy-policy URL, so it gates the templates, which gate the entire comms plan. It also needs a lawyer — India's DPDP Act applies squarely to what we collect — and it is blocked on a question nobody has answered yet: what happens to ~100,000 phone numbers after the election.
+One sequencing point worth stakeholder attention: the **privacy policy is the first thing we must publish**, before the teaser. Meta will not approve WhatsApp onboarding without a live privacy-policy URL, so it gates the templates, which gate the entire comms plan. It also needs a lawyer — India's DPDP Act applies squarely to what we collect — and it is still blocked on **how long we keep citizen contact data**. Oorvani's commitments settle who may use it and for what; they do not yet settle for how long, and the privacy policy cannot ship without a period or a deletion trigger.
+
+One related decision is cheap now and expensive later. Citizens will register for *election* updates. If the deferred promise-tracking phase ever ships, that list cannot simply be reused — it was gathered for a different purpose, and "critical product updates" does not stretch to a new product. An optional "tell me about future civic tools" consent at registration costs one checkbox today; without it, the next phase starts from a cold list.
 
 Full detail: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md`.
 
@@ -187,8 +193,9 @@ Full detail: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md`.
 - Resolve remaining open questions (see the PRD).
 - Kick off offline curator **and partner** recruitment in parallel — one motion, one named owner.
 - **Engage a lawyer for the privacy policy and terms.** This is the first item on the critical path, not the last: the privacy policy gates WhatsApp onboarding, which gates the templates, which gate the comms plan.
-- **Decide the post-election data retention policy** — it blocks the privacy policy, and the privacy policy blocks everything else.
+- **Decide how long citizen contact data is retained** — it blocks the privacy policy, and the privacy policy blocks everything else.
+- Decide whether registration carries an optional consent for future civic tools, so a later phase has a lawful list to talk to.
 - Start WhatsApp template approval as soon as the privacy policy is live; its lead time, not the code, gates the teaser.
-- Set registration and ward-coverage targets (open question in the GTM spec).
 - Agree the funding disclosure: named funders, or categories only?
+- Confirm whether Oorvani's existing channels (Open City, and Citizen Matters if that is also Oorvani) are available as launch distribution — the plan is currently written as though starting from no audience at all.
 - Proceed to wireframe → hi-fi design and technical design.

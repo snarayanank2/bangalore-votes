@@ -20,7 +20,11 @@ Distribution is **partner-led and earned**: RWA and community networks, civic or
 
 | Area | Choice | Why |
 |---|---|---|
+| Operator | The **Oorvani Foundation**, the trust behind `opencity.in` | Named on `/about` and `/privacy`. An election platform whose operator is unclear has no neutrality claim to make. |
+| Citizen data use | No sale or sharing with third parties. Contacts used for ward election updates and **critical product updates** only | Oorvani's commitment. "Critical product updates" must be drafted narrowly — service-affecting notices, not feature marketing — or it becomes the loophole the DPDP purpose limitation exists to close. |
 | Primary metric | Registered citizens with home ward set | Measurable and re-contactable. Ward breadth tracked as a guardrail against central-Bengaluru skew. |
+| Phase 1 target | **~25,000 registrations, with ≥50 in ≥300 of 369 wards** | Built bottom-up from what a partner cascade can deliver unpaid, not down from a quotable share of the electorate. Ward breadth is half the target because a total alone is satisfiable entirely from central Bengaluru. |
+| Ward readiness | Field completeness **and** curator sign-off; sign-off clears on candidate-set change | Completeness is automatic and honest but cannot tell a thin ward from a finished one. Sign-off adds the human who knows. Clearing on change stops a ward signed off at the notification counting as ready at E−2w against a list that no longer exists. |
 | Distribution shape | Partner-led cascade | The only shape that reaches ward breadth without paid spend. Press is an amplifier inside it, not a strategy. |
 | Paid acquisition | None | Costs money the project does not have, and paid political-adjacent ads undermine the neutrality claim that the whole platform rests on. |
 | Teaser asset | The ward finder itself | The platform's premise is that citizens don't know their new ward. A finder gives a real answer today, earns the forward, and captures ward at registration — which a "notify me" box cannot. |
@@ -44,7 +48,7 @@ The Indian election sequence runs notification → nominations (~7d) → scrutin
 | Phase | Trigger | Public surface | Purpose |
 |---|---|---|---|
 | **0 — Network** | Now | `/privacy`, `/terms` | Recruit partners and curators in the same conversations. Publish the privacy policy — it gates WhatsApp onboarding. Submit templates for approval. Exit: partner coverage across target wards, curators assigned, templates approved. |
-| **1 — Teaser** | Ward + logistics data ready | `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press` | Build the list. Ward finder is the forwardable asset. |
+| **1 — Teaser** | Ward + logistics data ready | `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press` | Build the list. Ward finder is the forwardable asset. **Exit: ~25,000 registrations, ≥50 in ≥300 wards.** |
 | **2 — Launch** | At N | Adds `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare`, `/data` | Candidates provisional. The press moment. |
 | **3 — Countdown** | E−3w → E−1w | Adds `/ward/{id}/issues` results at scale; `/data` issue roll-up becomes meaningful | E−2w is the real content beat: final list, report cards complete. |
 | **4 — Final 72h** | E−3d | No change | One logistics send at E−3d, then the campaign goes dark. Site stays fully available. |
@@ -125,13 +129,19 @@ The honest caveat: this page reads "14 of 369 wards" in Phase 1, and the roll-up
 
 **`/press`** — boilerplate at three lengths, current key stats, logos, screenshots, spokesperson bios and quotes, contact with a stated response time, and the neutrality statement. Ships in Phase 1 even though it is a Phase 2 asset, because journalists arrive at N and a kit assembled at N is assembled too late.
 
-**`/about`** — extended rather than duplicated; the existing page (IA §3.13) already covers who runs the platform. It gains an explicit **funding disclosure**. For a platform whose whole value is neutrality, who pays for it is the first question a skeptical journalist asks, and the answer should not have to be requested.
+**`/about`** — extended rather than duplicated; the existing page (IA §3.13) already covers who runs the platform. It now names the operator — the **Oorvani Foundation**, the trust behind `opencity.in` — and gains an explicit **funding disclosure**. For a platform whose whole value is neutrality, who runs and pays for it is the first question a skeptical journalist asks, and the answer should not have to be requested.
+
+It also carries Oorvani's **data commitments** in citizen-readable terms: the data is not sold or shared with third parties, and contact details are used for ward election updates and critical product notices only. These are the same commitments `/privacy` makes in legal language. Saying them in plain words on the page citizens actually read is what converts a compliance document into a reason to trust the platform enough to hand over a phone number — which is the entire funnel.
 
 ---
 
 ## 8. Measurement
 
-North star: registered citizens with a home ward set.
+North star: registered citizens with a home ward set. **Phase 1 target: ~25,000, with ≥50 registrations in ≥300 of 369 wards.**
+
+The target is deliberately two numbers. A single city-wide total is satisfiable entirely out of a dozen affluent central wards — it would be met, and the plan would have failed. The breadth number is the one that encodes the actual mission, and it is the one to look at first when the two disagree.
+
+Both are built bottom-up from what the cascade can plausibly deliver without paid spend, not down from a quotable fraction of the electorate. 1% of Bengaluru's roughly 90–100 lakh voters would be ~90,000 — a better number to say out loud and a worse one to steer by, because everyone would know it was fiction by week three.
 
 - **Funnel:** `/` visit → ward found → register → OTP confirmed. Ward-found-but-didn't-register is the diagnostic for whether the teaser's promise lands; if citizens take their answer and leave, the "we'll tell you who's standing here" line is too weak.
 - **Ward coverage:** wards with ≥1 registration, and wards with ≥1 partner, both against 369.
@@ -150,7 +160,9 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 | **Comms promise data curators haven't filled in** | L1/C2 sent ward-scoped to a ward with no curator lands on an empty page — converting the best message into the worst impression, exactly as press attention peaks | **Per-ward send gating**: a ward receives L1/C2/C3 only after its data passes a readiness check. Unready wards are held, not sent a broken promise. Now a PRD requirement (§9.1). |
 | WhatsApp Business API approval slips | Half the channel plan disappears | Submit all templates in Phase 0 (~14: seven sends × EN/KN), and publish `/privacy` first — Meta will not onboard without it. Email is the baseline; WhatsApp is the fast-follow. |
 | **`/privacy` treated as launch hygiene** | It gates WhatsApp onboarding, which gates templates, which gates the comms plan. Deferring it silently defers everything | Publish in Phase 0, before the teaser. Sequenced explicitly in §3. |
-| DPDP Act 2023 non-compliance | Legal exposure; the platform collects phone, email, and address→ward for ~100k citizens | Consent notice, data-principal rights, and a named grievance officer in `/privacy`. Needs a lawyer — out of this spec's competence. |
+| DPDP Act 2023 non-compliance | Legal exposure; the platform collects phone, email, and address→ward at scale | Consent notice, data-principal rights, and a named grievance officer in `/privacy`. Needs a lawyer — out of this spec's competence. |
+| **"Critical product updates" drafted broadly** | It becomes the loophole that swallows the purpose limitation — every future announcement is arguably critical, and the election list quietly turns into a general marketing list | Draft it narrowly in `/privacy` (§5.16 of the PRD): service-affecting notices only. The deferred promise-tracking phase needs fresh consent, not this clause. |
+| Curator sign-off becomes a rubber stamp | The readiness gate passes wards it should hold, restoring the failure it was built to prevent | Show the completeness gaps next to the control, so signing off is a judgement about a specific list rather than a reflex. Track sign-offs in the audit log. |
 | `/data` published too early | "14 of 369 wards" is honest and damaging, and hands critics a number | Ship `/data` in Phase 2, not Phase 1. Every figure timestamped. |
 | Election date moves | Calendar invalid | Relative anchors absorb it. Note R1 is anchored to the roll deadline, which moves independently. |
 | Partner network doesn't materialise | Ward coverage skews to affluent central wards | Coverage dashboard surfaces it early; press is the fallback amplifier. |
@@ -181,10 +193,10 @@ Paid acquisition. Candidate outreach or engagement of any kind. Post-election co
 
 ## 12. Open questions
 
-- **Registration targets.** No number is set for total registrations or for the ward-coverage floor. Needs an owner's read on realistic scale before Phase 1 exit criteria can be written.
-- **Ward data-readiness check.** What concretely makes a ward "ready" to receive L1/C2 — a curator assigned, a minimum field completeness, or a curator's explicit sign-off?
 - **Partner kit localisation.** Is the kit page itself bilingual, or English-only with bilingual assets inside it? Same question for `/press` and `/partner-with-us`.
 - **Press embargo.** Does the Phase 2 press push go out at N, or at E−2w when report cards are actually complete?
-- **Data retention after the election.** `/privacy` has to answer what happens to roughly 100k phone numbers once the poll is over — deleted, retained for a future phase, or retained on re-consent. Nobody has decided, and the platform's next phase (promise tracking) has an obvious interest in keeping them. This is a trust decision before it is a legal one, and it is a hard blocker on `/privacy`, which is itself a Phase 0 blocker.
+- **Retention period.** Oorvani's commitments settle *who* may use citizen data (nobody else) and *for what* (election updates, critical product notices). They do not settle **for how long**. `/privacy` must state a period or a deletion trigger, and it remains a Phase 0 blocker.
+- **Re-consent for the next phase.** If promise tracking ships, the election list cannot simply be reused — it was gathered for an election, and "critical product updates" does not stretch to a new product. Collect an optional "tell me about future civic tools" consent at registration now, or go back to a cold list later? Deciding now costs one checkbox. Deciding later may cost the list.
+- **Is Citizen Matters an owned channel?** If the Oorvani Foundation also publishes Citizen Matters, the plan is written against a cold-start problem the organisation may not actually have — an existing Bengaluru civic readership is a distribution asset worth more than most of the partner cascade, and Phase 1 would look different. Worth confirming before Phase 0 planning hardens.
 - **`/data` figures during held wards.** Does coverage count a ward whose data exists but is held from comms by the PRD §9.1 readiness check? The honest answer and the flattering answer differ.
 - **Funding disclosure detail.** Does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question it was meant to close.

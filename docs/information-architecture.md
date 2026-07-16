@@ -156,8 +156,8 @@ bangalore-votes.opencity.in
 ### 3.13 About us, funding & how we source data
 - **URL:** `/about`
 - **Access:** Anonymous
-- **Purpose:** Establish trust — explain who runs the platform, **who funds it**, how data is sourced and verified, and the neutrality stance.
-- **Key elements:** who we are (team, mission); **funding disclosure**; sourcing/verification explanation; contact; links to primary sources; link to `/partner-with-us`.
+- **Purpose:** Establish trust — explain **who runs the platform**, who funds it, how data is sourced and verified, and the neutrality stance.
+- **Key elements:** the operator — the **Oorvani Foundation**, the trust behind `opencity.in` — named plainly; team and mission; **funding disclosure**; the data commitments in citizen-readable terms (no sale to third parties; contacts used for election updates and critical product notices only); sourcing/verification explanation; contact; links to primary sources; link to `/partner-with-us`.
 - **Notes:** *Added from the PRD cross-check (trust & provenance, PRD §11) — see Section 8. Funding disclosure added by the GTM plan: for a platform whose value is its neutrality, who pays for it is the first question a skeptical journalist asks, and the answer should not have to be requested. This page is the "about us" page — deliberately not split, since a citizen doubting the platform wants who-runs-it and how-it-sources-data in one place.*
 
 ### 3.14 Data & key metrics
@@ -196,8 +196,8 @@ bangalore-votes.opencity.in
 - **URL:** `/privacy`
 - **Access:** Anonymous
 - **Purpose:** Disclose what personal data is collected, why, and what rights the citizen has over it.
-- **Key elements:** what is collected (email, phone, address→ward, language, `src` attribution) and why; WhatsApp/email consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
-- **Notes:** *Added by the GTM plan. **Ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the entire comms plan. Needs legal review. Blocked on an undecided retention policy — see Section 9.*
+- **Key elements:** the operator (**Oorvani Foundation**); what is collected (email, phone, address→ward, language, `src` attribution) and why; the **data commitments** — no sale or sharing with third parties, contacts used only for ward election updates and critical product notices; WhatsApp/email consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention period; the fact that issue votes are published in aggregate.
+- **Notes:** *Added by the GTM plan. **Ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the entire comms plan. Needs legal review. "Critical product updates" must be drafted narrowly — service-affecting notices, not feature marketing — or it silently becomes the loophole the purpose limitation was meant to close. Still blocked on the retention period — see Section 9.*
 
 ### 3.19 Partner kit
 - **URL:** `/partner/{partner-slug}`
@@ -240,8 +240,9 @@ bangalore-votes.opencity.in
 - **URL:** `/curator`
 - **Access:** Curator
 - **Purpose:** Home for a curator’s work.
-- **Key elements:** review-queue count, recent activity, quick entry to edit candidates/wards and define issues.
+- **Key elements:** review-queue count, recent activity, quick entry to edit candidates/wards and define issues; **wards in the curator's scope awaiting readiness sign-off**, with those whose sign-off was cleared by a candidate-set change called out first.
 - **Links to:** Review queue, Edit candidate, Edit ward, Define ward issue list.
+- **Notes:** *The awaiting-sign-off list added by the GTM plan. A curator who does not know a ward is held will not sign it off, and the ward simply goes silent — the failure is invisible from the curator's side unless the dashboard says so.*
 
 ### 5.2 Review queue
 - **URL:** `/curator/queue`
@@ -266,9 +267,10 @@ bangalore-votes.opencity.in
 ### 5.5 Edit ward
 - **URL:** `/curator/ward/{id}`
 - **Access:** Curator
-- **Purpose:** Maintain ward-level information.
-- **Key elements:** ward metadata, boundary/mapping data, ward issues content; source per field.
+- **Purpose:** Maintain ward-level information, and declare the ward ready for citizen comms.
+- **Key elements:** ward metadata, boundary/mapping data, ward issues content; source per field; **readiness panel** — the mechanical completeness check for this ward shown as a pass/fail with the specific gaps listed, plus a **Mark ward ready** control (PRD §9.1).
 - **Links to:** Define ward issue list.
+- **Notes:** *Readiness panel added by the GTM plan. A ward receives candidate-related comms only when completeness passes **and** the curator signs off — the mechanical check cannot tell a thin ward from a finished one. Sign-off **clears automatically** when the ward's candidate set changes (nomination or withdrawal), so the curator re-signs after withdrawals close; showing the gaps rather than a bare fail is what makes the re-sign a minute's work rather than an investigation.*
 
 ### 5.6 Define ward issue list
 - **URL:** `/curator/ward/{id}/issues`
@@ -361,7 +363,7 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 | 5.14 Public data & metrics | `/data` |
 | 5.15 Press kit | `/press` |
 | 5.16 Legal pages | `/terms`, `/privacy` |
-| §9.1 Ward data-readiness gating | `/admin/partners` (held-wards view + override) |
+| §9.1 Ward data-readiness gating | `/curator/ward/{id}` (readiness panel + sign-off), `/curator` (awaiting sign-off), `/admin/partners` (held-wards view + override) |
 | §13.1 Phased launch | Candidate routes show the §3.3 empty state before notification |
 | §11 Trust, neutrality & provenance | Sources on report card; `/about` (incl. funding disclosure); `/admin/audit` |
 | Registration | Register/Login modal (`/login` fallback) |
@@ -386,6 +388,8 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 - Do we need a public `/login` fallback page, or is the modal sufficient for all entry paths?
 - Is `/partner/{slug}` bilingual itself, or English-only with bilingual copy blocks inside it? Same for `/press` and `/partner-with-us`.
 - Does the Home page need a pre-notification state distinct from its post-notification one, given the ward finder is the teaser?
-- **Data retention after the election** — `/privacy` must state what happens to ~100k phone numbers once the poll is over. Undecided, and a hard blocker on a Phase 0 page.
-- Does `/data` coverage count a ward whose data exists but is held from comms by the §9.1 readiness check?
+- **Retention period** — Oorvani's commitments settle who may use the data and for what, but not for how long. `/privacy` must state a period or a deletion trigger. Still a hard blocker on a Phase 0 page.
+- Should registration carry an optional "tell me about future civic tools" consent, so the deferred promise-tracking phase has a lawful list to talk to? Costs one checkbox now; the list goes cold otherwise.
+- Does `/data` coverage count a ward whose data exists but is held from comms by the PRD §9.1 readiness check?
+- Does the readiness panel belong on `/curator/ward/{id}`, or does it deserve its own screen once the gap list grows long?
 - Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text while the product is bilingual?
