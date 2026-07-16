@@ -11,7 +11,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'koramangala',
     name: 'Radhika Menon',
     photoUrl: photo('Radhika Menon'),
-    party: 'INC',
+    party: 'Nagarika Party',
     trackRecord: {
       value: 'Two-term corporator focused on stormwater drain desilting and footpath repairs across the ward.',
       source: curatorSrc(),
@@ -42,7 +42,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'koramangala',
     name: 'Suresh Gowda',
     photoUrl: photo('Suresh Gowda'),
-    party: 'BJP',
+    party: "Citizens' Front",
     trackRecord: {
       value: 'First-time contestant; ran a residents-welfare association for six years focused on waste segregation drives.',
       source: curatorSrc(),
@@ -105,7 +105,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'indiranagar',
     name: 'Priya Shetty',
     photoUrl: photo('Priya Shetty'),
-    party: 'INC',
+    party: 'Nagarika Party',
     trackRecord: {
       value: 'One-term corporator; led a footpath-widening pilot on the ward\'s main commercial stretch.',
       source: curatorSrc(),
@@ -136,7 +136,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'indiranagar',
     name: 'Arif Khan',
     photoUrl: photo('Arif Khan'),
-    party: 'JD(S)',
+    party: 'Namma Ward Party',
     trackRecord: {
       value: 'First-time contestant; runs a local traders\' association and has campaigned on parking regulation.',
       source: curatorSrc(),
@@ -198,7 +198,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'malleshwaram',
     name: 'Kavitha Iyer',
     photoUrl: photo('Kavitha Iyer'),
-    party: 'BJP',
+    party: "Citizens' Front",
     trackRecord: {
       value: 'Two-term corporator; oversaw restoration work on two heritage market buildings.',
       source: curatorSrc(),
@@ -260,7 +260,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'shivajinagar',
     name: 'Farida D\'Souza',
     photoUrl: photo('Farida D\'Souza'),
-    party: 'INC',
+    party: 'Nagarika Party',
     trackRecord: {
       value: 'One-term corporator; introduced a street-lighting upgrade programme in the ward\'s inner lanes.',
       source: curatorSrc(),
@@ -291,7 +291,7 @@ export const seedCandidates: Candidate[] = [
     wardId: 'shivajinagar',
     name: 'Tariq Ahmed',
     photoUrl: photo('Tariq Ahmed'),
-    party: 'AAP',
+    party: 'Progress Alliance',
     trackRecord: {
       value: 'First-time contestant; organised a vendor-registration drive as part of a local traders\' collective.',
       source: curatorSrc(),
