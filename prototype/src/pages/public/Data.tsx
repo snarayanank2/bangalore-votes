@@ -103,8 +103,16 @@ export default function Data() {
           Integrity
         </h2>
         <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          <Metric label="Flags raised" value={metrics.integrity.flagsRaised} />
-          <Metric label="Flags resolved" value={metrics.integrity.flagsResolved} />
+          <Metric
+            label="Flags raised"
+            value={metrics.integrity.flagsRaised}
+            hint="Every report a citizen filed, including duplicates merged onto the same issue."
+          />
+          <Metric
+            label="Flags resolved"
+            value={metrics.integrity.flagsResolved}
+            hint="Distinct review items a curator has acted on — not directly comparable to flags raised."
+          />
           <div>
             <dt className="text-xs font-medium uppercase tracking-wide text-ink/60">
               Median time to resolve
@@ -162,11 +170,20 @@ export default function Data() {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({
+  label,
+  value,
+  hint,
+}: {
+  label: string
+  value: string | number
+  hint?: string
+}) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wide text-ink/60">{label}</dt>
       <dd className="mt-1 text-xl font-bold text-ink">{value}</dd>
+      {hint && <dd className="mt-1 text-xs text-ink/60">{hint}</dd>}
     </div>
   )
 }

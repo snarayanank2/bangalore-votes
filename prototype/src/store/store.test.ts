@@ -165,8 +165,10 @@ test('createUser writes an audit entry', () => {
 // Asserted against the REAL seed shape (src/data/*.ts), not invented numbers:
 //  - 5 seeded wards, 4 of which have at least one candidate (jayanagar has none).
 //  - 10 seeded candidates, every one with all five Sourced fields populated + sourced.
-//  - 3 users: 1 citizen, 1 active curator, 1 admin.
-//  - 3 submissions: sub-1 pending, sub-2 accepted, sub-3 rejected.
+//  - 3 users: 1 citizen, 1 active curator, 1 admin — registeredCitizens (Fix 2) counts the 1
+//    citizen only, not all 3 accounts.
+//  - 3 submissions (queue records): sub-1 pending (count 2), sub-2 accepted (count 3), sub-3
+//    rejected (count 1) — flagsRaised (Fix 3) sums the counts (2+3+1=6), not the record count (3).
 //  - 3 seeded issue votes, all in koramangala: kor-roads x3, kor-water x3, kor-waste x1.
 
 test('platformMetrics: coverage figures come from the real seed, against the real 369-ward total', () => {
@@ -185,7 +187,11 @@ test('platformMetrics: integrity figures come from the real seed; median time to
   const s = createStore()
   const metrics = s.platformMetrics()
 
-  expect(metrics.integrity.flagsRaised).toBe(3)
+  // Fix 3: flagsRaised is the SUM of each submission's dedup count (2+3+1=6), not the number of
+  // (deduped) queue records (3) — PRD §6.3 frames the count as the real citizen-policing signal.
+  expect(metrics.integrity.flagsRaised).toBe(6)
+  // flagsResolved stays record-based (deliberately not the same unit as flagsRaised): resolution
+  // acts on the deduped queue item, not the underlying raw report count.
   expect(metrics.integrity.flagsResolved).toBe(2)
   expect(metrics.integrity.medianTimeToResolve).toBeNull()
   expect(metrics.integrity.medianResolutionUnavailableReason).toMatch(/not computable|counter|clock/i)
@@ -196,7 +202,9 @@ test('platformMetrics: citizen signal aggregates issue votes across every ward, 
   const metrics = s.platformMetrics()
 
   expect(metrics.citizenSignal.totalIssueVotes).toBe(3)
-  expect(metrics.citizenSignal.registeredCitizens).toBe(3)
+  // Fix 2: registeredCitizens counts role === 'citizen' only (1), excluding the seed's curator and
+  // admin accounts (platform staff, not a citizen-engagement signal).
+  expect(metrics.citizenSignal.registeredCitizens).toBe(1)
 
   const byId = new Map(metrics.citizenSignal.issueRollUp.map((r) => [r.issueId, r]))
   expect(byId.get('kor-roads')?.count).toBe(3)

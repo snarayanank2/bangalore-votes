@@ -34,14 +34,25 @@ test('/data renders active curators and sources cited from the store, not a hard
   expect(coverage.getByText('50')).toBeInTheDocument() // sources cited
 })
 
-test('/data renders integrity figures and does not fabricate a median resolution time', () => {
+test('/data renders integrity figures (flags raised = sum of dedup counts, not queue-record count) and does not fabricate a median resolution time', () => {
   const main = renderData()
   const integrity = within(main.getByRole('heading', { name: /^integrity$/i }).closest('section')!)
-  expect(integrity.getByText('3')).toBeInTheDocument() // flags raised
+  // Fix 3: flagsRaised sums each submission's dedup count (sub-1=2, sub-2=3, sub-3=1 -> 6), not
+  // the number of queue records (3, the old buggy figure).
+  expect(integrity.getByText('6')).toBeInTheDocument() // flags raised
   expect(integrity.getByText('2')).toBeInTheDocument() // flags resolved
   expect(integrity.getByText(/not available in this prototype/i)).toBeInTheDocument()
   // No fabricated duration string like "3 days" or "12 hours" anywhere in the integrity section.
   expect(integrity.queryByText(/\d+\s*(day|hour|minute)s?\b/i)).not.toBeInTheDocument()
+})
+
+test('/data does not imply flags raised and flags resolved are an apples-to-apples ratio', () => {
+  const main = renderData()
+  const integrity = within(main.getByRole('heading', { name: /^integrity$/i }).closest('section')!)
+  // The two figures use different units (raw report count vs. distinct queue items) — the page
+  // must say so, not just show "6" and "2" side by side with no explanation.
+  expect(integrity.getByText(/duplicates? merged/i)).toBeInTheDocument()
+  expect(integrity.getByText(/not directly comparable/i)).toBeInTheDocument()
 })
 
 test('/data renders citizen-signal figures aggregated across every ward', () => {
@@ -51,6 +62,10 @@ test('/data renders citizen-signal figures aggregated across every ward', () => 
   )
   const totalVotesLabel = citizenSignal.getByText(/total issue votes cast/i)
   expect(totalVotesLabel.nextElementSibling?.textContent).toBe('3')
+  // Fix 2: registered citizens counts role === 'citizen' only (1 of the seed's 3 accounts) — the
+  // curator and admin seed accounts are platform staff, excluded from this citizen-signal figure.
+  const registeredLabel = citizenSignal.getByText(/registered citizens/i)
+  expect(registeredLabel.nextElementSibling?.textContent).toBe('1')
   expect(citizenSignal.getByRole('heading', { name: /city-wide issue roll-up/i })).toBeInTheDocument()
   // Seeded koramangala issues should appear, ranked.
   expect(citizenSignal.getByText(/road quality/i)).toBeInTheDocument()

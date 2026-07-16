@@ -234,11 +234,13 @@ export default function EditWard() {
             Completeness:{' '}
             {completeness.complete
               ? 'Complete'
-              : `${completeness.issues.length} candidate${completeness.issues.length === 1 ? '' : 's'} with gaps`}
+              : completeness.candidateCount === 0
+                ? 'Not ready — no candidates filed'
+                : `${completeness.issues.length} candidate${completeness.issues.length === 1 ? '' : 's'} with gaps`}
           </p>
           {completeness.candidateCount === 0 && (
             <p className="mt-1 text-ink/70">
-              No candidates have filed nominations in this ward yet.
+              {completeness.reason ?? 'No candidates have filed nominations in this ward yet.'}
             </p>
           )}
           {completeness.issues.length > 0 && (
@@ -295,7 +297,9 @@ export default function EditWard() {
             </button>
             {!completeness.complete && (
               <p className="mt-1 text-xs text-ink/60">
-                Complete every candidate&apos;s report card above before you can sign off.
+                {completeness.candidateCount === 0
+                  ? 'A ward with no candidates on record cannot be signed off for candidate-referencing comms.'
+                  : "Complete every candidate's report card above before you can sign off."}
               </p>
             )}
           </div>

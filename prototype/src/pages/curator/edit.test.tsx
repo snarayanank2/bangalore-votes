@@ -207,17 +207,26 @@ test('a ward with an incomplete candidate lists the gap and disables sign-off', 
 
   renderAt('/curator/ward/jayanagar', 'u-admin')
   expect(screen.getByText(/incomplete filer/i)).toBeInTheDocument()
-  expect(screen.getByText(/pendingCases/)).toBeInTheDocument()
+  // Fix 4: the gap reason uses the friendly field label, not the raw camelCase key.
+  expect(screen.getByText(/criminal record.*pending cases/i)).toBeInTheDocument()
+  expect(screen.queryByText(/pendingCases/)).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeDisabled()
 })
 
-test('a ward with zero candidates on record is vacuously complete and can be signed off', async () => {
-  const user = userEvent.setup()
+// FIX 1 (real defect — rewritten, was previously pinning the bug as intended behavior): a
+// zero-candidate ward used to be treated as "vacuously complete" and signable — the literal
+// "every candidate who filed has a complete record" check is vacuously true when nobody has
+// filed, but that is exactly the harm PRD §9.1 exists to prevent (telling a curator/admin a
+// ward's data is "ready" for a candidate-referencing send when there is nothing to reference).
+// Rewritten to assert the corrected, honest behavior: sign-off stays disabled, and the panel
+// says WHY in a way that is true ("no candidates filed"), not "fields are missing".
+test('a ward with zero candidates on record is NOT ready — sign-off is disabled with an honest "no candidates filed" reason', () => {
   renderAt('/curator/ward/jayanagar', 'u-admin')
 
-  expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeEnabled()
-  await user.click(screen.getByRole('button', { name: /mark ward ready/i }))
-  expect(store.wardReadiness('jayanagar').signedOff).toBe(true)
+  expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeDisabled()
+  expect(screen.getByText(/no candidates have filed/i)).toBeInTheDocument()
+  expect(store.wardReadiness('jayanagar').ready).toBe(false)
+  expect(store.wardReadiness('jayanagar').complete).toBe(false)
 })
 
 // --- /curator/ward/:wardId/issues ---------------------------------------------------------------

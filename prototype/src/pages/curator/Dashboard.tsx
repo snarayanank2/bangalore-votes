@@ -40,9 +40,15 @@ export default function Dashboard() {
   // PRD §9.1 / IA curator dashboard: wards in scope not yet signed off for candidate-referencing
   // comms, with a ward whose sign-off was CLEARED BY A CANDIDATE-SET CHANGE called out ahead of a
   // ward that was simply never signed off — the failure is invisible from the curator's side
-  // unless this list says so.
+  // unless this list says so. Also carries `completeness` (Fix 1) so a ward with zero candidates
+  // on record can say so honestly, instead of the generic "not yet complete" reading like a
+  // report-card gap that doesn't exist yet.
   const awaitingSignOff = wards
-    .map((ward) => ({ ward, readiness: data.wardReadiness(ward.id) }))
+    .map((ward) => ({
+      ward,
+      readiness: data.wardReadiness(ward.id),
+      completeness: data.wardCompleteness(ward.id),
+    }))
     .filter((row) => !row.readiness.signedOff)
     .sort((a, b) => Number(b.readiness.clearedByCandidateChange) - Number(a.readiness.clearedByCandidateChange))
 
@@ -84,7 +90,7 @@ export default function Dashboard() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {awaitingSignOff.map(({ ward, readiness }) => (
+            {awaitingSignOff.map(({ ward, readiness, completeness }) => (
               <li key={ward.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
                 <Link
                   to={`/curator/ward/${ward.id}`}
@@ -97,7 +103,9 @@ export default function Dashboard() {
                     ? 'Sign-off cleared — the candidate list changed since the last sign-off.'
                     : readiness.complete
                       ? 'Complete — awaiting sign-off.'
-                      : 'Not yet complete.'}
+                      : completeness.candidateCount === 0
+                        ? 'No candidates filed yet.'
+                        : 'Not yet complete.'}
                 </span>
               </li>
             ))}

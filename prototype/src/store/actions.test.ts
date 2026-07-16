@@ -767,11 +767,33 @@ test('wardCompleteness: a freshly-seeded ward with fully sourced candidates is c
   expect(result.issues).toEqual([])
 })
 
-test('wardCompleteness: a ward with zero candidates on record is vacuously complete', () => {
+// FIX 1 (real defect): this test used to assert `complete: true` for a zero-candidate ward — the
+// literal "every candidate who filed has a complete record" check is vacuously true when nobody
+// has filed, but that vacuous pass is exactly the harm PRD §9.1 exists to prevent: a curator/admin
+// being told a ward's data is "ready" for a candidate-referencing send when there is nothing to
+// reference. Rewritten to assert the corrected behavior: NOT complete, with a distinct, honest
+// ward-level `reason` (not a per-candidate `issues` entry, since there is no candidate at fault).
+test('wardCompleteness: a ward with zero candidates on record is NOT complete — a distinct "no candidates filed" reason, not a report-card gap', () => {
   const s = createStore()
   const result = s.wardCompleteness('jayanagar')
-  expect(result.complete).toBe(true)
+  expect(result.complete).toBe(false)
   expect(result.candidateCount).toBe(0)
+  expect(result.issues).toEqual([]) // no candidate to attach a per-candidate gap to
+  expect(result.reason).toMatch(/no candidates/i)
+})
+
+test('wardReadiness: a zero-candidate ward is not ready, and signOffWard refuses to sign it off', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+
+  const readiness = s.wardReadiness('jayanagar')
+  expect(readiness.complete).toBe(false)
+  expect(readiness.ready).toBe(false)
+
+  const auditBefore = s.listAudit().length
+  expect(() => s.signOffWard('jayanagar', admin)).toThrow(/complete/i)
+  expect(s.wardReadiness('jayanagar').signedOff).toBe(false)
+  expect(s.listAudit().length).toBe(auditBefore)
 })
 
 test('wardCompleteness: an empty, un-marked field is a gap, not complete', () => {
@@ -782,7 +804,10 @@ test('wardCompleteness: an empty, un-marked field is a gap, not complete', () =>
   const result = s.wardCompleteness('jayanagar')
   expect(result.complete).toBe(false)
   expect(result.issues).toHaveLength(1)
-  expect(result.issues[0].reasons.join(' ')).toMatch(/pendingCases/)
+  // Fix 4: reasons use the friendly field label, not the raw camelCase key — a curator reading
+  // this panel should never have to decode "pendingCases".
+  expect(result.issues[0].reasons.join(' ')).toMatch(/criminal record.*pending cases/i)
+  expect(result.issues[0].reasons.join(' ')).not.toMatch(/pendingCases/)
 })
 
 test('wardCompleteness: "not declared" is a valid, complete answer — not a gap', () => {

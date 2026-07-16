@@ -168,10 +168,16 @@ function HeldWardRow({ wardId, wardName, readiness, admin }: HeldWardRowProps) {
   const data = useData()
   const [error, setError] = useState<string | null>(null)
 
+  // Fix 1: a zero-candidate ward is incomplete for a distinct, honest reason ("no candidates
+  // filed") — not "report cards have gaps," which would misleadingly imply candidates exist with
+  // missing fields.
+  const completeness = data.wardCompleteness(wardId)
   const reason = readiness.clearedByCandidateChange
     ? 'Sign-off was cleared — the candidate list changed since the last sign-off.'
     : !readiness.complete
-      ? 'Not yet complete — one or more candidate report cards have gaps.'
+      ? completeness.candidateCount === 0
+        ? 'No candidates have filed nominations in this ward yet.'
+        : 'Not yet complete — one or more candidate report cards have gaps.'
       : 'Complete, but not yet signed off by a curator.'
 
   function override(): void {

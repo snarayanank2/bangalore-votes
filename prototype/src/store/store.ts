@@ -98,9 +98,18 @@ export interface PlatformMetrics {
     sourcesCited: number
   }
   integrity: {
-    /** Total flag submissions raised (`Submission` records; each is `kind: 'flag'`). */
+    /** FIX 3: the SUM of every flag submission's dedup `count` (not the number of `Submission`
+     *  records) — e.g. seed `sub-1.count=2` + `sub-2.count=3` + `sub-3.count=1` = 6, not 3. PRD
+     *  §6.3 frames this count explicitly as "a strong signal to the curator" of how many citizens
+     *  are actively policing the data; counting only deduped queue records would silently halve
+     *  that signal (3 vs the true 6 in seed). NOTE: this is intentionally NOT the same unit as
+     *  `flagsResolved` below (record-based) — see that field's doc comment, and `/data`'s own
+     *  wording, for why the two are not meant to read as an apples-to-apples ratio. */
     flagsRaised: number
-    /** Flag submissions no longer pending (`status` is `'accepted'` or `'rejected'`). */
+    /** Flag submissions (queue RECORDS, not raw report count) no longer pending (`status` is
+     *  `'accepted'` or `'rejected'`) — deliberately record-based, unlike `flagsRaised` above:
+     *  resolution acts on the deduped queue item a curator reviews, not on each individual
+     *  duplicate report that was merged into it. */
     flagsResolved: number
     /** Always `null` in this prototype — see `medianResolutionUnavailableReason`. */
     medianTimeToResolve: null
@@ -119,9 +128,11 @@ export interface PlatformMetrics {
     /** Number of issue-vote ballots cast (`IssueVote` records) — i.e. how many citizens have
      *  voted, not how many individual issue picks were made. */
     totalIssueVotes: number
-    /** All registered accounts (citizen, curator, admin) — every role registers through the same
-     *  single OTP mechanism (PRD §10), so there is no separate "citizen-only" registration pool
-     *  to count instead. */
+    /** FIX 2: accounts with `role === 'citizen'` ONLY — curator and admin accounts are excluded,
+     *  even though every role registers through the same single OTP mechanism (PRD §10). PRD
+     *  §5.14 lists this figure under "citizen signal", and counting the platform's own staff
+     *  (curators/admins) here would inflate a public citizen-engagement figure and read as
+     *  self-serving on a self-accountability page. */
     registeredCitizens: number
   }
 }
@@ -187,6 +198,20 @@ const CANDIDATE_SOURCED_FIELDS: readonly CandidateSourcedField[] = [
   'education',
   'approachability',
 ]
+
+/** Mirrors `lib/fields.ts`'s `CANDIDATE_FIELD_LABELS` values, for the exact same reason
+ * `CANDIDATE_SOURCED_FIELDS` above is duplicated rather than imported: the store must not depend
+ * on UI-layer modules. Used only to phrase `wardCompleteness`'s per-candidate gap reasons in
+ * plain English (e.g. "Criminal record / pending cases") instead of a raw camelCase field key a
+ * curator would otherwise have to decode. Keep in sync by hand if a sourced field is ever added,
+ * renamed, or removed. */
+const CANDIDATE_FIELD_LABELS: Record<CandidateSourcedField, string> = {
+  trackRecord: 'Ward track record',
+  pendingCases: 'Criminal record / pending cases',
+  assets: 'Declared assets',
+  education: 'Education / qualifications',
+  approachability: 'Approachability',
+}
 
 function isCandidateSourcedField(field: string): field is CandidateSourcedField {
   return (CANDIDATE_SOURCED_FIELDS as readonly string[]).includes(field)
@@ -293,6 +318,13 @@ export interface WardCompleteness {
   complete: boolean
   candidateCount: number
   issues: WardCompletenessCandidateIssue[]
+  /** Set only when `complete` is `false` for a WARD-LEVEL reason that isn't any one candidate's
+   *  gap — today that's exactly the `candidateCount === 0` case ("no candidates filed"), which is
+   *  a distinct, honest reason from "fields are missing" (Fix 1: a zero-candidate ward used to be
+   *  vacuously complete). `issues` stays `[]` in this case — there is no candidate to attach a
+   *  per-candidate gap to. Absent whenever `complete` is `true`, or when incompleteness is fully
+   *  explained by `issues`. */
+  reason?: string
 }
 
 /** PRD §9.1: `{ complete, signedOff, ready }` plus two extra fields this codebase's UI needs —
@@ -624,7 +656,10 @@ export function createStore() {
     )
     const activeCurators = state.users.filter((u) => u.role === 'curator' && u.active).length
 
-    const flagsRaised = state.submissions.length
+    // FIX 3: sum of each submission's dedup `count` — the measure of citizen policing PRD §6.3
+    // calls a "strong signal to the curator" — NOT the number of (deduped) queue records.
+    const flagsRaised = state.submissions.reduce((sum, s) => sum + s.count, 0)
+    // Deliberately record-based (unlike flagsRaised): resolution acts on the deduped queue item.
     const flagsResolved = state.submissions.filter((s) => s.status !== 'pending').length
 
     // AGGREGATE across every ward — deliberately not scoped to one wardId, unlike
@@ -666,7 +701,8 @@ export function createStore() {
       citizenSignal: {
         issueRollUp,
         totalIssueVotes: state.issueVotes.length,
-        registeredCitizens: state.users.length,
+        // FIX 2: citizen-role accounts only — curators/admins are platform staff, not citizens.
+        registeredCitizens: state.users.filter((u) => u.role === 'citizen').length,
       },
     }
     return structuredClone(metrics)
@@ -677,7 +713,9 @@ export function createStore() {
    *  gaps — empty when the candidate has none. Name/party come straight off the EC nomination and
    *  must simply be present (non-empty); each of the five Sourced fields must carry a real
    *  source, and either a populated value or an explicit `notDeclared` marker (§9.1: a valid,
-   *  complete answer, not a gap) — see `isCompleteSourcedField`. */
+   *  complete answer, not a gap) — see `isCompleteSourcedField`. Reasons use `CANDIDATE_FIELD_LABELS`'
+   *  friendly names (e.g. "Criminal record / pending cases"), not the raw camelCase field key —
+   *  curators read these directly on the readiness panel (Fix 4). */
   function candidateReadinessIssues(candidate: Candidate): string[] {
     const issues: string[] = []
     if (!candidate.name.trim()) issues.push('Candidate name is missing.')
@@ -685,7 +723,7 @@ export function createStore() {
     for (const field of CANDIDATE_SOURCED_FIELDS) {
       if (!isCompleteSourcedField(candidate[field])) {
         issues.push(
-          `"${field}" needs a source, and either a value or an explicit "not declared" marker.`,
+          `${CANDIDATE_FIELD_LABELS[field]} needs a source, and either a value or an explicit "not declared" marker.`,
         )
       }
     }
@@ -697,14 +735,32 @@ export function createStore() {
    * candidate-referencing send (the other half is human curator sign-off — see `signOffWard`).
    * Every candidate currently on record for the ward (i.e. who has filed a nomination) must carry
    * name + party and every Sourced field either populated or explicitly `notDeclared`, each with
-   * a real source. A ward with zero candidates on record is vacuously complete — there is nothing
-   * to check yet (it still needs sign-off before `wardReadiness` calls it `ready`).
+   * a real source.
+   *
+   * FIX 1 (real defect, previously pinned by tests as intended behavior): a ward with ZERO
+   * candidates on record is NOT complete. The literal reading of "every candidate who has filed a
+   * nomination has a report card" is vacuously true when nobody has filed — but PRD §9.1 exists
+   * to stop exactly the failure mode a vacuous pass would create: a curator or admin being told a
+   * ward's data is "ready" for a candidate-referencing send when there is nothing to reference.
+   * This is a distinct, honest WARD-LEVEL reason ("no candidates filed"), not a per-candidate
+   * report-card gap, so it is surfaced via `reason`, not `issues` (which stays `[]` — there is no
+   * candidate to attach a gap to).
    *
    * Read selector: does not throw for an unknown wardId (matches `listCandidatesByWard`'s
-   * convention) — an id with no matching candidates is just reported as 0 candidates, complete.
+   * convention) — an id with no matching candidates is just reported as 0 candidates, incomplete.
    */
   function wardCompleteness(wardId: string): WardCompleteness {
     const candidates = state.candidates.filter((c) => c.wardId === wardId)
+    if (candidates.length === 0) {
+      return structuredClone({
+        wardId,
+        complete: false,
+        candidateCount: 0,
+        issues: [],
+        reason:
+          'No candidates have filed nominations in this ward yet — there is nothing to reference in a candidate-referencing send.',
+      })
+    }
     const issues: WardCompletenessCandidateIssue[] = []
     for (const candidate of candidates) {
       const reasons = candidateReadinessIssues(candidate)
