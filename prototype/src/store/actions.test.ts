@@ -84,3 +84,28 @@ test('listQueueForCurator returns pending submissions only, scoped to the curato
   expect(adminQ.find(i => i.id === 'sub-2')).toBeUndefined()
   expect(adminQ.find(i => i.id === 'sub-3')).toBeUndefined()
 })
+
+// --- Fix 5: pin setUserRole's curatorWardIds-clearing behavior (see comment in store.ts) -----
+
+test('setUserRole clears curatorWardIds when the new role is not curator (intentional, pinned)', () => {
+  const s = createStore()
+  const admin = s.listUsers().find(u => u.role === 'admin')!
+  const c = curator()
+  expect(c.curatorWardIds?.length).toBeGreaterThan(0) // sanity: seed curator has ward scope
+
+  s.setUserRole(c.id, 'citizen', undefined, admin)
+  const demoted = s.listUsers().find(u => u.id === c.id)!
+  expect(demoted.role).toBe('citizen')
+  expect(demoted.curatorWardIds).toBeUndefined()
+})
+
+test('setUserRole sets curatorWardIds when promoting to curator', () => {
+  const s = createStore()
+  const admin = s.listUsers().find(u => u.role === 'admin')!
+  const citizenUser = citizen()
+
+  s.setUserRole(citizenUser.id, 'curator', ['malleshwaram'], admin)
+  const promoted = s.listUsers().find(u => u.id === citizenUser.id)!
+  expect(promoted.role).toBe('curator')
+  expect(promoted.curatorWardIds).toEqual(['malleshwaram'])
+})

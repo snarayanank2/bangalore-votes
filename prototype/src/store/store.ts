@@ -74,10 +74,23 @@ function baseSeqFromSeed(): number {
   )
 }
 
+/** Narrow, cheap shape check — enough to catch truncated/garbage localStorage values. */
+function isStoreStateShape(value: unknown): value is StoreState {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return Array.isArray(v.wards)
+}
+
 function loadInitialState(): StoreState {
   const raw = localStorage.getItem(KEY)
   if (raw) {
-    return JSON.parse(raw) as StoreState
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      if (isStoreStateShape(parsed)) return parsed
+      // Parsed fine but isn't a StoreState (e.g. missing `wards`) — fall through to seed.
+    } catch {
+      // Malformed JSON — fall through to seed.
+    }
   }
   const cloned = structuredClone(seed) as Omit<StoreState, 'seq'>
   return { ...cloned, seq: baseSeqFromSeed() }
@@ -92,14 +105,25 @@ export function createStore() {
     for (const listener of listeners) listener()
   }
 
-  function stamp(): number {
+  /** Advances the persisted counter WITHOUT persisting. Internal use inside a mutation, so the
+   *  mutation can do its own single persist() once its state is fully consistent (Fix 2). */
+  function nextSeq(): number {
     state.seq = (state.seq ?? baseSeqFromSeed()) + 1
-    persist()
     return state.seq
   }
 
+  /** Public, standalone id/counter allocator — persists immediately since callers may use it
+   *  outside of a larger mutation (e.g. the existing cross-reload monotonicity test). */
+  function stamp(): number {
+    const n = nextSeq()
+    persist()
+    return n
+  }
+
+  /** Does NOT persist — the enclosing mutation persists exactly once, after all state
+   *  (submission/candidate/user changes AND this audit entry) is fully consistent. */
   function appendAudit(entry: Omit<AuditEntry, 'id' | 'at'>): void {
-    const n = stamp()
+    const n = nextSeq()
     state.audit.push({ id: `audit-${n}`, at: `t${n}`, ...entry })
   }
 
@@ -145,23 +169,25 @@ export function createStore() {
   }
 
   function getWard(id: string): Ward | undefined {
-    return state.wards.find((w) => w.id === id)
+    const ward = state.wards.find((w) => w.id === id)
+    return ward ? structuredClone(ward) : undefined
   }
 
   function listWards(): Ward[] {
-    return [...state.wards]
+    return structuredClone(state.wards)
   }
 
   function getCandidate(slug: string): Candidate | undefined {
-    return state.candidates.find((c) => c.slug === slug)
+    const candidate = state.candidates.find((c) => c.slug === slug)
+    return candidate ? structuredClone(candidate) : undefined
   }
 
   function listCandidatesByWard(wardId: string): Candidate[] {
-    return state.candidates.filter((c) => c.wardId === wardId)
+    return structuredClone(state.candidates.filter((c) => c.wardId === wardId))
   }
 
   function listIssues(wardId: string): Issue[] {
-    return state.issues.filter((i) => i.wardId === wardId)
+    return structuredClone(state.issues.filter((i) => i.wardId === wardId))
   }
 
   function issueTally(wardId: string): IssueTallyRow[] {
@@ -176,25 +202,26 @@ export function createStore() {
 
   function listQueueForCurator(user: User): Submission[] {
     const pending = state.submissions.filter((s) => s.status === 'pending')
-    if (user.role === 'admin') return pending
+    if (user.role === 'admin') return structuredClone(pending)
     const scope = user.curatorWardIds ?? []
-    return pending.filter((s) => scope.includes(s.wardId))
+    return structuredClone(pending.filter((s) => scope.includes(s.wardId)))
   }
 
   function getSubmission(id: string): Submission | undefined {
-    return state.submissions.find((s) => s.id === id)
+    const submission = state.submissions.find((s) => s.id === id)
+    return submission ? structuredClone(submission) : undefined
   }
 
   function listSubmissionsByUser(userId: string): Submission[] {
-    return state.submissions.filter((s) => s.submittedByUserId === userId)
+    return structuredClone(state.submissions.filter((s) => s.submittedByUserId === userId))
   }
 
   function listAudit(): AuditEntry[] {
-    return [...state.audit]
+    return structuredClone(state.audit)
   }
 
   function listUsers(): User[] {
-    return [...state.users]
+    return structuredClone(state.users)
   }
 
   // ---- lifecycle -----------------------------------------------------------
@@ -231,7 +258,7 @@ export function createStore() {
       return existing
     }
 
-    const n = stamp()
+    const n = nextSeq()
     const submission: Submission = {
       id: `sub-${n}`,
       kind: 'flag',
@@ -368,6 +395,10 @@ export function createStore() {
     requireAdmin(admin)
     const user = requireUser(userId)
     user.role = role
+    // INTENTIONAL: any role change away from 'curator' clears curatorWardIds, even a temporary
+    // demotion. A non-curator carrying a stale ward scope is worse than losing it — if the user
+    // is later re-promoted, an admin must re-assign wards explicitly. Pinned by a test in
+    // actions.test.ts ("setUserRole clears curatorWardIds ...").
     user.curatorWardIds = role === 'curator' ? [...(wardIds ?? [])] : undefined
     appendAudit({
       actorUserId: admin.id,
@@ -375,6 +406,35 @@ export function createStore() {
       detail: `Set ${user.id} role=${role}${role === 'curator' ? ` (wards: ${(wardIds ?? []).join(', ') || '(none)'})` : ''}.`,
     })
     persist()
+  }
+
+  /**
+   * Registers a new citizen account so registration survives reload (previously AuthContext only
+   * held new users in transient React state). Audited as an account event, consistent with the
+   * audit log's scope of published data changes + moderation/admin actions — individual issue
+   * votes remain unaudited (see castIssueVote above).
+   */
+  function createUser(input: { contact: string; homeWardId?: string; name?: string }): User {
+    const n = nextSeq()
+    const user: User = {
+      id: `u-${n}`,
+      name: input.name ?? input.contact,
+      contact: input.contact,
+      role: 'citizen',
+      homeWardId: input.homeWardId,
+      language: 'en',
+      curatorWardIds: undefined,
+      active: true,
+    }
+    state.users.push(user)
+    appendAudit({
+      actorUserId: user.id,
+      action: 'user.created',
+      wardId: input.homeWardId,
+      detail: `Registered new citizen ${user.id} (${input.contact}).`,
+    })
+    persist()
+    return user
   }
 
   // Persist the freshly-seeded (or rehydrated) state immediately so that
@@ -406,6 +466,7 @@ export function createStore() {
     setWardIssues,
     setUserActive,
     setUserRole,
+    createUser,
   }
 }
 
