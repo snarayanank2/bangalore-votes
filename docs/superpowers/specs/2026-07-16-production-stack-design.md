@@ -22,7 +22,8 @@ The existing `prototype/` directory — a client-side React demo with mock data 
 | Backend | FastAPI, Python 3.12, `uv` | Given. |
 | Database | PostgreSQL 16 + PostGIS | PRD §5.1 requires address→ward lookup; §5.10 requires an address-accurate booth location. Both are point-in-polygon queries against ward boundaries. |
 | Frontend | Next.js (App Router), TypeScript, Tailwind | Public pages are shareable links forwarded by RWAs (PRD §12, IA §2). Server rendering gives working WhatsApp/Twitter link previews and fast first paint on low-end phones; a client-rendered SPA gives neither. |
-| Maps | MapLibre GL + ward boundary GeoJSON | Open-source, no per-map-view billing on an election-day traffic spike. |
+| Map rendering | MapLibre GL + ward boundary GeoJSON | Open-source, no per-map-view billing on an election-day traffic spike. Rendering is what scales with pageviews. |
+| Geocoding | Google Geocoding API, server-side, cached to ward | Best Bengaluru address coverage by a wide margin; no open geocoder is close. Bills per request, and caching drives requests toward zero. See §6. |
 | ORM / migrations | SQLAlchemy 2.0 (async) + Alembic | Conventional FastAPI pairing. |
 | Schemas | Pydantic v2 | Conventional; already the FastAPI default. |
 | Sessions | Signed HTTP-only cookie | The Next.js server must read the session to render authenticated pages. Cookies are also revocable, which PRD §7 requires (admins deactivate accounts). A JWT is not revocable without adding the same server-side lookup a session already is. |
@@ -133,13 +134,51 @@ Translation writes are system-authored, not curator-authored. They append to the
 - Ward lookup: geocode the address to a point, then one `ST_Contains` query returns the ward.
 - Boundaries render client-side in MapLibre GL from a GeoJSON endpoint, cached in Redis — the polygons change roughly never.
 
-### Open risk: address geocoding
+### Split responsibility: Google geocodes, MapLibre renders
 
-**Geocoding Bengaluru addresses without Google is genuinely hard.** Nominatim's coverage of Bengaluru layouts, cross-roads, and colloquial addresses is patchy, and PRD §5.1 asks for address lookup by name.
+| Job | Provider | Billing exposure |
+|---|---|---|
+| Address → coordinates | Google Geocoding API | Per request — and a cached request is no request |
+| Rendering boundaries and booth pins | MapLibre GL | None |
 
-**Mitigation:** ship ward lookup by ward name and pincode first — both are exact matches needing no geocoder — and treat address geocoding as a timeboxed spike with its own go/no-go. Do not let the delimitation-data dependency (PRD §15) and an unproven geocoder land on the critical path together.
+Google has by a wide margin the best Bengaluru address coverage; no open geocoder handles local layouts, cross-roads, and colloquial addresses well enough for PRD §5.1. But **per-map-view billing was the real election-day risk, and rendering is the thing that scales with pageviews.** Keeping MapLibre for rendering removes that exposure entirely. Geocoding scales with *distinct addresses typed*, which is a far smaller number and one caching drives toward zero.
 
-This is called out as a risk, not solved here.
+**The Google key is server-side only.** The browser never calls Google and never sees the key. Geocoding happens inside the API.
+
+### Caching: cache the ward, not the coordinates
+
+Google's Maps Platform terms permit caching latitude/longitude for **at most 30 consecutive calendar days**, after which cached coordinates must be deleted. Only `place_id` is exempt and may be stored indefinitely.
+
+**This does not constrain us, because we do not want the coordinates.** We want the ward. So:
+
+1. Normalize the address (lowercase, collapse whitespace, strip punctuation) and hash it.
+2. On a miss, call Google, get a point, run `ST_Contains` against our boundaries — **all within the one request**.
+3. Store `address_hash → ward_id`. **Discard the lat/lng.**
+
+The stored ward assignment is derived from our own PostGIS boundary data, not from Google Maps Content, so the durable cache is not subject to the 30-day rule. This keeps us clearly inside the terms rather than near their edge, and it is also just the better design — the ward is what every caller wanted, and coordinates were only ever an intermediate.
+
+> **Note:** this is an engineering reading of the terms, not legal advice. Worth a lawyer's glance before launch given the platform is public and civic. If a conservative reading prevails, the fallback is a 30-day TTL on the cache — more Google calls, same behaviour, higher bill. Nothing else in the design moves.
+
+**Two layers:**
+
+| Layer | Store | Lifetime | Purpose |
+|---|---|---|---|
+| Hot | Redis | 30 days, refreshed on hit | Absorbs the spike |
+| Durable | Postgres `address_ward_cache` | Permanent | Survives Redis restarts and cold starts |
+
+Invalidated wholesale only when ward boundaries are redrawn — a rare, deliberate, admin-triggered event.
+
+### Cost containment
+
+Caching handles the ordinary case; these handle the adversarial one, since an uncached-address flood is the failure mode that produces a surprise invoice:
+
+- **Rate limit geocoding per session**, on the same Redis the PRD already requires it for (§12).
+- **A daily spend cap.** On breach, address lookup degrades to ward-name and pincode search — which need no geocoder — with a notice, rather than failing or billing without limit.
+- **A circuit breaker** on Google errors and timeouts, degrading the same way. A Google outage must not take down ward lookup.
+
+### Remaining risk
+
+Geocoding quality is now a solved problem; **the delimitation boundary data is not.** Ward-name and pincode lookup ship first regardless — they are exact matches, need no geocoder, and give a working path while the GeoJSON (PRD §15) is still being sourced. Address lookup layers on top once boundaries are loaded.
 
 ---
 
@@ -196,10 +235,12 @@ Who may send to which wards (curator scoped to assigned wards vs admin city-wide
 - **Next.js adds a second runtime to operate.** Paid for by working link previews and fast first paint, both of which the PRD treats as core.
 - **A machine translation may be wrong until a curator reviews it.** Accepted: the alternative is either no Kannada or stalled content. Mitigated by `kn_status` and curator correction.
 - **Backups are ours.** See §4.
+- **A dependency on Google for geocoding.** Accepted for address quality, and bounded: it is one server-side call behind a cache, a spend cap, and a circuit breaker, and every failure mode degrades to pincode search rather than to an outage. Replacing the provider means reimplementing one function.
 
 **Rejected:**
 
-- **Google Maps** — best India geocoding, but per-view billing on a spike day and a key in the client.
+- **Google Maps for rendering** — per-map-view billing on a spike day and a key in the client. Rejected for rendering only; Google is used for geocoding (§6), where the billing scales with distinct addresses rather than pageviews.
+- **An open geocoder (Nominatim/Photon)** — no billing and no vendor, but coverage of Bengaluru layouts, cross-roads, and colloquial addresses is too patchy to meet PRD §5.1.
 - **Vite SPA** — same stack as the prototype, but no link previews and weak SEO across 369 ward pages.
 - **Twilio Verify** — least code for WhatsApp OTP, but per-verification pricing and vendor lock-in, and its India WhatsApp onboarding still needs Meta business verification, so it does not remove the blocker it exists to remove.
 - **FastAPI `BackgroundTasks` instead of a queue** — no new containers, but jobs die with the process, with no retry and no visibility.
@@ -208,4 +249,6 @@ Who may send to which wards (curator scoped to assigned wards vs admin city-wide
 
 ## 10. Next step
 
-Write the implementation plan for the scaffold: repo layout, six-container compose, the initial schema including the `{en, kn}` field shape and stubbed notification tables, and a CI pipeline. Notifications and address geocoding are separately scoped and are not part of that plan.
+Write the implementation plan for the scaffold: repo layout, six-container compose, the initial schema including the `{en, kn}` field shape, the `address_ward_cache` table, and stubbed notification tables, plus a CI pipeline.
+
+**Notifications remain carved out** (§8) and are not part of that plan.
