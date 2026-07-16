@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import oorvaniLogo from '../assets/oorvani-logo.png'
 
 /**
  * Global footer (present on every page). Per PRD §13 / IA §1, the trust and legal pages
@@ -32,6 +33,16 @@ export function Footer() {
           Privacy
         </Link>
       </nav>
+
+      <a
+        href="https://opencity.in"
+        target="_blank"
+        rel="noreferrer"
+        className="mx-auto mt-4 flex max-w-2xl items-center gap-2 rounded focus:outline-none focus:ring-2 focus:ring-brand"
+      >
+        <span className="text-sm text-ink/70">A program by</span>
+        <img src={oorvaniLogo} alt="Oorvani Foundation" className="h-4 w-auto" />
+      </a>
     </footer>
   )
 }

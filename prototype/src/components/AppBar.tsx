@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useI18n } from '../context/I18nContext'
 import { useAuth } from '../context/AuthContext'
 import { DevRoleSwitcher } from './DevRoleSwitcher'
+import opencityLogo from '../assets/opencity-logo.png'
 
 /**
  * Global app bar (present on every page): logo → home, EN | ಕನ್ನಡ language
@@ -21,12 +22,22 @@ export function AppBar() {
         Prototype — sample data is fictional. Not real candidates or election data.
       </div>
       <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <Link
-          to="/"
-          className="rounded text-lg font-bold text-brand focus:outline-none focus:ring-2 focus:ring-brand"
-        >
-          Bangalore Votes
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/"
+            className="rounded text-lg font-bold text-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          >
+            Bangalore Votes
+          </Link>
+          <a
+            href="https://opencity.in"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center rounded bg-ink px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand"
+          >
+            <img src={opencityLogo} alt="OpenCity" className="h-4 w-auto" />
+          </a>
+        </div>
 
         <div className="flex flex-wrap items-center gap-3">
           <div role="group" aria-label="Language" className="flex items-center gap-1 text-sm">
