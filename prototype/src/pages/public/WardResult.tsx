@@ -69,7 +69,7 @@ export default function WardResult() {
           ) : (
             <button
               type="button"
-              onClick={() => data.setHomeWard(user.id, ward.id)}
+              onClick={() => data.setHomeWard(user.id, ward.id, user)}
               className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
             >
               Set as my ward

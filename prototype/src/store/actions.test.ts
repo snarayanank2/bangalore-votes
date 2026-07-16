@@ -60,6 +60,92 @@ test('acceptSubmission publishes the edit and writes an audit entry', () => {
   expect(s.listAudit().length).toBe(before + 1)
 })
 
+// --- Fix 2: acceptSubmission must not write a false "accepted" audit trail ------------------
+
+test('acceptSubmission throws when the edit is missing a source for a flag targeting a candidate field', () => {
+  const s = createStore()
+  const candidateId = s.listCandidatesByWard('koramangala')[0].id
+  const slug = s.listCandidatesByWard('koramangala')[0].slug
+  const sub = s.submitFlag(
+    { wardId: 'koramangala', candidateId, field: 'assets', detail: 'wrong figure' },
+    citizen(),
+  )
+  const before = s.listAudit().length
+
+  expect(() =>
+    s.acceptSubmission(sub.id, curator(), { candidateSlug: slug, field: 'assets', value: '₹1' }),
+  ).toThrow(/source/i)
+
+  // Nothing was published, status unchanged, no audit entry appended.
+  expect(s.getSubmission(sub.id)?.status).toBe('pending')
+  expect(s.getCandidate(slug)?.assets.value).not.toBe('₹1')
+  expect(s.listAudit().length).toBe(before)
+})
+
+test('acceptSubmission throws when the edit is missing entirely for a flag targeting a candidate field', () => {
+  const s = createStore()
+  const candidateId = s.listCandidatesByWard('koramangala')[0].id
+  const sub = s.submitFlag(
+    { wardId: 'koramangala', candidateId, field: 'assets', detail: 'wrong figure' },
+    citizen(),
+  )
+  const before = s.listAudit().length
+
+  expect(() => s.acceptSubmission(sub.id, curator(), {})).toThrow(/source/i)
+  expect(s.getSubmission(sub.id)?.status).toBe('pending')
+  expect(s.listAudit().length).toBe(before)
+})
+
+test('acceptSubmission with a complete sourced edit still works end-to-end', () => {
+  const s = createStore()
+  const candidateId = s.listCandidatesByWard('koramangala')[0].id
+  const slug = s.listCandidatesByWard('koramangala')[0].slug
+  const sub = s.submitFlag(
+    { wardId: 'koramangala', candidateId, field: 'assets', detail: 'wrong figure' },
+    citizen(),
+  )
+  const before = s.listAudit().length
+
+  s.acceptSubmission(sub.id, curator(), {
+    candidateSlug: slug,
+    field: 'assets',
+    value: '₹5,00,000',
+    source: { type: 'affidavit', label: 'EC affidavit' },
+  })
+
+  expect(s.getSubmission(sub.id)?.status).toBe('accepted')
+  expect(s.getCandidate(slug)?.assets.value).toBe('₹5,00,000')
+  expect(s.listAudit().length).toBe(before + 1)
+})
+
+test('acceptSubmission accepts a flag with no candidate field to publish (documented branch, no source required)', () => {
+  const s = createStore()
+  // No candidateId at all — a legitimate SubmitFlagInput shape (e.g. a ward-level flag). Uses
+  // koramangala (in u-curator's scope) so this pins the "no candidate field" branch specifically,
+  // not a scope failure.
+  const sub = s.submitFlag({ wardId: 'koramangala', field: 'name', detail: 'ward name typo' }, citizen())
+  const before = s.listAudit().length
+
+  expect(() => s.acceptSubmission(sub.id, curator(), {})).not.toThrow()
+  expect(s.getSubmission(sub.id)?.status).toBe('accepted')
+  expect(s.listAudit().length).toBe(before + 1)
+})
+
+test('acceptSubmission accepts a flag with a candidateId but a field that is not a known Sourced field (documented branch)', () => {
+  const s = createStore()
+  const candidateId = s.listCandidatesByWard('koramangala')[0].id
+  // 'party' is a real Candidate field but not one of the five Sourced fields curators can publish.
+  const sub = s.submitFlag(
+    { wardId: 'koramangala', candidateId, field: 'party', detail: 'wrong party listed' },
+    citizen(),
+  )
+  const before = s.listAudit().length
+
+  expect(() => s.acceptSubmission(sub.id, curator(), {})).not.toThrow()
+  expect(s.getSubmission(sub.id)?.status).toBe('accepted')
+  expect(s.listAudit().length).toBe(before + 1)
+})
+
 test('rejectSubmission records a reason', () => {
   const s = createStore()
   const sub = s.submitFlag({ wardId: 'koramangala', field: 'name', detail: 'x' }, citizen())
@@ -132,7 +218,7 @@ test('setHomeWard updates the user home ward and writes an audit entry', () => {
   expect(c.homeWardId).toBe('koramangala') // sanity: seed citizen starts in koramangala
 
   const before = s.listAudit().length
-  s.setHomeWard(c.id, 'indiranagar')
+  s.setHomeWard(c.id, 'indiranagar', c)
 
   const updated = s.listUsers().find(u => u.id === c.id)!
   expect(updated.homeWardId).toBe('indiranagar')
@@ -144,7 +230,29 @@ test('setHomeWard updates the user home ward and writes an audit entry', () => {
 test('setHomeWard rejects an unknown ward id', () => {
   const s = createStore()
   const c = citizen()
-  expect(() => s.setHomeWard(c.id, 'not-a-real-ward')).toThrow(/unknown ward/i)
+  expect(() => s.setHomeWard(c.id, 'not-a-real-ward', c)).toThrow(/unknown ward/i)
+})
+
+// --- Fix 3: setHomeWard requires a self-only (or admin) actor -------------------------------
+
+test('setHomeWard throws when a non-admin actor tries to set another user home ward', () => {
+  const s = createStore()
+  const c = citizen()
+  const other = s.createUser({ contact: 'someone.else@example.com', homeWardId: 'malleshwaram' })
+
+  expect(() => s.setHomeWard(other.id, 'indiranagar', c)).toThrow(/admin/i)
+  // Unchanged.
+  expect(s.listUsers().find(u => u.id === other.id)?.homeWardId).toBe('malleshwaram')
+})
+
+test('setHomeWard allows an admin to set another user home ward', () => {
+  const s = createStore()
+  const admin = s.listUsers().find(u => u.role === 'admin')!
+  const other = s.createUser({ contact: 'someone.else@example.com', homeWardId: 'malleshwaram' })
+
+  s.setHomeWard(other.id, 'indiranagar', admin)
+
+  expect(s.listUsers().find(u => u.id === other.id)?.homeWardId).toBe('indiranagar')
 })
 
 // --- Task 19: setLanguagePref, setNotificationPrefs (account pages) ---------------------------
@@ -199,4 +307,109 @@ test('setNotificationPrefs persists across a fresh createStore() (reload)', () =
   expect(s2.listUsers().find((u) => u.id === 'u-citizen')?.notificationPrefs?.whatsappEnabled).toBe(
     true,
   )
+})
+
+// --- Fix 1: ward.issueIds is the single source of truth for the public issues page ----------
+
+test('curator removes an issue: listIssues no longer returns it and issueTally no longer counts it', () => {
+  const s = createStore()
+  expect(s.listIssues('koramangala').map((i) => i.id)).toContain('kor-roads')
+  expect(s.issueTally('koramangala').map((r) => r.issueId)).toContain('kor-roads')
+
+  s.setWardIssues('koramangala', ['kor-water', 'kor-waste', 'kor-lighting'], curator())
+
+  expect(s.listIssues('koramangala').map((i) => i.id)).not.toContain('kor-roads')
+  expect(s.issueTally('koramangala').map((r) => r.issueId)).not.toContain('kor-roads')
+  // The raw vote records referencing kor-roads are untouched.
+  expect(s.getState().issueVotes.some((v) => v.issueIds.includes('kor-roads'))).toBe(true)
+})
+
+test('listIssues returns issues in the order given by ward.issueIds', () => {
+  const s = createStore()
+  s.setWardIssues('koramangala', ['kor-lighting', 'kor-roads', 'kor-water'], curator())
+  expect(s.listIssues('koramangala').map((i) => i.id)).toEqual(['kor-lighting', 'kor-roads', 'kor-water'])
+})
+
+test('re-adding a removed issue makes its prior votes count again', () => {
+  const s = createStore()
+  // Seed: kor-roads has 3 votes (src/data/issues.ts).
+  const before = s.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')?.count
+  expect(before).toBe(3)
+
+  s.setWardIssues('koramangala', ['kor-water', 'kor-waste', 'kor-lighting'], curator())
+  expect(s.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')).toBeUndefined()
+
+  s.setWardIssues('koramangala', ['kor-water', 'kor-waste', 'kor-lighting', 'kor-roads'], curator())
+  expect(s.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')?.count).toBe(3)
+})
+
+// --- Fix 4: curators can author new ward issues -----------------------------------------------
+
+test('addIssue creates a new issue, appends it to ward.issueIds, and audits', () => {
+  const s = createStore()
+  const before = s.listAudit().length
+
+  const issue = s.addIssue(
+    'koramangala',
+    { title: 'Footpath encroachment', description: 'Vendors blocking footpaths.' },
+    curator(),
+  )
+
+  expect(issue.wardId).toBe('koramangala')
+  expect(issue.title).toBe('Footpath encroachment')
+  expect(s.getWard('koramangala')?.issueIds).toContain(issue.id)
+  expect(s.listIssues('koramangala').map((i) => i.id)).toContain(issue.id)
+  expect(s.listAudit().length).toBe(before + 1)
+  expect(s.listAudit()[s.listAudit().length - 1]?.action).toBe('issue.created')
+})
+
+test('addIssue ids are allocated from the persisted counter, not Date.now()/Math.random()', () => {
+  const s1 = createStore()
+  const issue = s1.addIssue('koramangala', { title: 'A', description: 'B' }, curator())
+  const s2 = createStore()
+  // If the id survives a fresh createStore() (localStorage reload) unchanged and deterministic,
+  // it was allocated from the persisted seq counter.
+  expect(s2.getState().issues.find((i) => i.id === issue.id)).toBeDefined()
+})
+
+test('addIssue respects curator ward scope', () => {
+  const s = createStore()
+  // u-curator is scoped to koramangala + indiranagar, not malleshwaram.
+  expect(() =>
+    s.addIssue('malleshwaram', { title: 'X', description: 'Y' }, curator()),
+  ).toThrow(/scope/i)
+})
+
+test('addIssue by an admin bypasses ward scope', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  expect(() =>
+    s.addIssue('malleshwaram', { title: 'X', description: 'Y' }, admin),
+  ).not.toThrow()
+})
+
+test('updateIssue edits title/description and audits', () => {
+  const s = createStore()
+  const before = s.listAudit().length
+
+  s.updateIssue('kor-roads', { title: 'Road quality, potholes & footpaths' }, curator())
+
+  const updated = s.listIssues('koramangala').find((i) => i.id === 'kor-roads')
+  expect(updated?.title).toBe('Road quality, potholes & footpaths')
+  // Unpatched field untouched.
+  expect(updated?.description).toBe('Condition and repair of internal roads.')
+  expect(s.listAudit().length).toBe(before + 1)
+  expect(s.listAudit()[s.listAudit().length - 1]?.action).toBe('issue.updated')
+})
+
+test('updateIssue respects curator ward scope (scoped by the issue own ward)', () => {
+  const s = createStore()
+  // mal-water belongs to malleshwaram, outside u-curator's scope.
+  expect(() => s.updateIssue('mal-water', { title: 'Renamed' }, curator())).toThrow(/scope/i)
+})
+
+test('updateIssue throws for an unknown issue id', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  expect(() => s.updateIssue('not-a-real-issue', { title: 'X' }, admin)).toThrow(/unknown issue/i)
 })

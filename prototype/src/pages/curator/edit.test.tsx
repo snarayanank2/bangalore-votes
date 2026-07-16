@@ -191,7 +191,7 @@ test('curator re-adds a previously removed issue — ward.issueIds grows back', 
   expect(store.getWard('koramangala')?.issueIds).toHaveLength(4)
 })
 
-test('removing an issue does not delete or alter the underlying issueVotes records (no store-level migration exists)', async () => {
+test('removing an issue does not delete the underlying issueVotes records, but stops it counting/showing publicly (Fix 1)', async () => {
   const user = userEvent.setup()
   renderAt('/curator/ward/koramangala/issues', 'u-curator')
 
@@ -202,13 +202,14 @@ test('removing an issue does not delete or alter the underlying issueVotes recor
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   // The raw vote records referencing the now-excluded issue id are untouched — setWardIssues only
-  // ever writes ward.issueIds, never state.issueVotes.
+  // ever writes ward.issueIds, never state.issueVotes. A citizen's historical vote-set is theirs.
   const votesAfter = store.getState().issueVotes.filter((v) => v.issueIds.includes('kor-roads'))
   expect(votesAfter).toEqual(votesBefore)
-  // And the public tally is UNCHANGED too — issueTally reads state.issues by wardId, not
-  // ward.issueIds, so excluding an issue here does not currently remove it from the public page.
-  const tallyRow = store.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')
-  expect(tallyRow?.count).toBe(votesBefore.length)
+
+  // But the public page and tally now DO respect ward.issueIds (Fix 1) — a removed issue
+  // disappears from both, even though the underlying votes are preserved.
+  expect(store.listIssues('koramangala').find((i) => i.id === 'kor-roads')).toBeUndefined()
+  expect(store.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')).toBeUndefined()
 })
 
 test('curator cannot save issues outside their ward scope — inline error, no crash', async () => {
@@ -223,4 +224,42 @@ test('curator cannot save issues outside their ward scope — inline error, no c
 test('a ward with no issues yet shows an empty state, not a crash', () => {
   renderAt('/curator/ward/jayanagar/issues', 'u-admin')
   expect(screen.getByText(/no issues.*defined/i)).toBeInTheDocument()
+})
+
+// --- Fix 4: curators can author new ward issues (addIssue/updateIssue), wired into this page --
+
+test('curator adds a brand-new issue — it is votable immediately and shows on the public page', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/ward/jayanagar/issues', 'u-admin')
+
+  await user.type(screen.getByLabelText(/^title$/i), 'Footpath encroachment')
+  await user.type(screen.getByLabelText(/^description$/i), 'Vendors blocking footpaths near the market.')
+  await user.click(screen.getByRole('button', { name: /add issue/i }))
+
+  expect(screen.getByLabelText(/footpath encroachment/i)).toBeChecked()
+
+  const ward = store.getWard('jayanagar')
+  expect(ward?.issueIds).toHaveLength(1)
+  const newIssue = store.listIssues('jayanagar')[0]
+  expect(newIssue.title).toBe('Footpath encroachment')
+  // Fix 1: listIssues is what the public /ward/:id/issues page renders — the new issue is on it.
+  expect(store.listIssues('jayanagar').map((i) => i.id)).toContain(newIssue.id)
+})
+
+test('curator edits an existing issue title and description — publishes immediately and audits', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/ward/koramangala/issues', 'u-curator')
+  const auditBefore = store.listAudit().length
+
+  await user.click(screen.getAllByRole('button', { name: /^edit$/i })[0])
+  // Two "Title" fields are on screen at once: the always-present "Add a new issue" form, and the
+  // one that just appeared inline for the issue being edited — the latter is the second match.
+  const titleBox = screen.getAllByLabelText(/^title$/i)[1]
+  await user.clear(titleBox)
+  await user.type(titleBox, 'Road quality, potholes & footpath damage')
+  await user.click(screen.getByRole('button', { name: /save issue/i }))
+
+  expect(store.listAudit().length).toBe(auditBefore + 1)
+  const updated = store.listIssues('koramangala').find((i) => i.title.includes('footpath damage'))
+  expect(updated).toBeDefined()
 })

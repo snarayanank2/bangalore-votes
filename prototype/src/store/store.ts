@@ -54,9 +54,31 @@ export type CandidateSourcedField =
   | 'education'
   | 'approachability'
 
+/** Mirrors `lib/fields.ts`'s `CANDIDATE_FIELD_LABELS` keys. Duplicated here (not imported)
+ * because `store.ts` is the data-integrity boundary and must not depend on UI-layer modules —
+ * keep the two lists in sync by hand if a sourced field is ever added or removed. */
+const CANDIDATE_SOURCED_FIELDS: readonly CandidateSourcedField[] = [
+  'trackRecord',
+  'pendingCases',
+  'assets',
+  'education',
+  'approachability',
+]
+
+function isCandidateSourcedField(field: string): field is CandidateSourcedField {
+  return (CANDIDATE_SOURCED_FIELDS as readonly string[]).includes(field)
+}
+
 export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation' | 'oldWardsNote'>>
 
 export type CandidatePatch = Partial<Omit<Candidate, 'id' | 'slug' | 'wardId'>>
+
+export type IssuePatch = Partial<Pick<Issue, 'title' | 'description'>>
+
+export interface NewIssueInput {
+  title: string
+  description: string
+}
 
 /** Edit payload applied to a candidate's Sourced field when a submission is accepted. */
 export interface SubmissionEdit {
@@ -154,6 +176,12 @@ export function createStore() {
     return ward
   }
 
+  function requireIssue(id: string): Issue {
+    const issue = state.issues.find((i) => i.id === id)
+    if (!issue) throw new Error(`Unknown issue: ${id}`)
+    return issue
+  }
+
   function requireSubmission(submissionId: string): Submission {
     const submission = state.submissions.find((s) => s.id === submissionId)
     if (!submission) throw new Error(`Unknown submission: ${submissionId}`)
@@ -195,8 +223,34 @@ export function createStore() {
     return structuredClone(state.candidates.filter((c) => c.wardId === wardId))
   }
 
-  function listIssues(wardId: string): Issue[] {
+  /**
+   * ALL issues ever authored for a ward, regardless of whether they're currently in
+   * `ward.issueIds` — i.e. the full master catalog `listIssues` used to (incorrectly) expose as
+   * "the public list" before Fix 1. Curator-facing only: `WardIssuesEditor` uses this (not
+   * `listIssues`) to render the full toggle list, so a curator can re-check an issue they
+   * previously unchecked — `listIssues` alone can no longer show it once it drops out of
+   * `ward.issueIds`. The public voting page (`WardIssues.tsx`) must keep using `listIssues`.
+   */
+  function listIssueCatalog(wardId: string): Issue[] {
     return structuredClone(state.issues.filter((i) => i.wardId === wardId))
+  }
+
+  /**
+   * `ward.issueIds` is the single source of truth for which issues are votable in a ward, and in
+   * what order — this is what a curator's `setWardIssues`/`addIssue`/`updateIssue` edits actually
+   * control on the public page (IA §5.6, PRD §5.5). Returns the issues named by `ward.issueIds`,
+   * in that order; an id with no matching `Issue` record (shouldn't happen in practice) is
+   * silently skipped rather than crashing the page. An unknown wardId returns `[]`, matching the
+   * previous filter-based behavior for a ward with no issues.
+   */
+  function listIssues(wardId: string): Issue[] {
+    const ward = state.wards.find((w) => w.id === wardId)
+    if (!ward) return []
+    const byId = new Map(state.issues.map((i) => [i.id, i]))
+    const ordered = ward.issueIds
+      .map((id) => byId.get(id))
+      .filter((i): i is Issue => i !== undefined)
+    return structuredClone(ordered)
   }
 
   /** The user's current vote-set for a ward, if they've cast one — `undefined` otherwise. Used to
@@ -324,11 +378,32 @@ export function createStore() {
     return vote
   }
 
+  /**
+   * Accepting a flag that targets a known candidate Sourced field (`submission.candidateId` is
+   * set AND `submission.field` is one of the five `CandidateSourcedField`s) MUST publish a
+   * complete, sourced edit — sourcing is mandatory (PRD §6/§11). Previously an incomplete `edit`
+   * was silently skipped while the submission was still marked `accepted` and audited, producing
+   * a FALSE "this was published" audit trail. Now it throws instead, before any state is touched.
+   *
+   * A submission that does NOT target a candidate field (e.g. `candidateId` undefined, or a
+   * free-form `field` that isn't one of the five known Sourced fields — a legitimate shape per
+   * `SubmitFlagInput`, exercised by `actions.test.ts`'s ward-level flag tests) has nothing to
+   * publish to a candidate. Accepting it is a pure moderation decision — status + audit only, no
+   * candidate write, and no source is required, since there's no field to attach one to.
+   */
   function acceptSubmission(submissionId: string, curator: User, edit: SubmissionEdit): void {
     const submission = requireSubmission(submissionId)
     requireScope(curator, submission.wardId)
 
-    if (edit.candidateSlug && edit.field && edit.value !== undefined && edit.source) {
+    const targetsCandidateField =
+      submission.candidateId !== undefined && isCandidateSourcedField(submission.field)
+
+    if (targetsCandidateField) {
+      if (!edit.candidateSlug || !edit.field || edit.value === undefined || !edit.source) {
+        throw new Error(
+          'Cannot accept this flag: a corrected value and a source are required to publish a candidate field.',
+        )
+      }
       const candidate = requireCandidateBySlug(edit.candidateSlug)
       candidate[edit.field] = { value: edit.value, source: edit.source }
     }
@@ -392,6 +467,54 @@ export function createStore() {
       action: 'ward.issues.updated',
       wardId,
       detail: `Set votable issues to: ${issues.join(', ') || '(none)'}.`,
+    })
+    persist()
+  }
+
+  /**
+   * Authors a brand-new votable issue for a ward (PRD §5.5/IA §5.6 — curators must be able to
+   * add, not just toggle, ward issues). Scope-guarded like the other curator mutations. Id comes
+   * from the persisted `nextSeq()` counter (never `Date.now()`/`Math.random()`), following the
+   * same `<kind>-<n>` convention as `sub-${n}`/`u-${n}`. Appends the new issue's id to
+   * `ward.issueIds` immediately, so — per `listIssues`/`issueTally` now reading `ward.issueIds`
+   * as the source of truth (Fix 1) — it shows up on the public `/ward/:id/issues` page and joins
+   * the tally (starting at 0 votes) as soon as this returns.
+   */
+  function addIssue(wardId: string, input: NewIssueInput, curator: User): Issue {
+    const ward = requireWard(wardId)
+    requireScope(curator, wardId)
+    const n = nextSeq()
+    const issue: Issue = {
+      id: `issue-${n}`,
+      wardId,
+      title: input.title,
+      description: input.description,
+    }
+    state.issues.push(issue)
+    ward.issueIds = [...ward.issueIds, issue.id]
+    appendAudit({
+      actorUserId: curator.id,
+      action: 'issue.created',
+      wardId,
+      detail: `Added issue "${issue.title}" (${issue.id}).`,
+    })
+    persist()
+    return structuredClone(issue)
+  }
+
+  /** Edits an existing issue's title/description (PRD §5.5/IA §5.6). Scope-guarded by the
+   *  issue's own wardId — a curator can only edit issues in wards they're assigned to. Does not
+   *  touch `ward.issueIds` or `state.issueVotes`; it only changes the issue's own content, which
+   *  is reflected everywhere the issue's id already appears (public page, tally, editor). */
+  function updateIssue(issueId: string, patch: IssuePatch, curator: User): void {
+    const issue = requireIssue(issueId)
+    requireScope(curator, issue.wardId)
+    Object.assign(issue, patch)
+    appendAudit({
+      actorUserId: curator.id,
+      action: 'issue.updated',
+      wardId: issue.wardId,
+      detail: `Updated issue fields: ${Object.keys(patch).join(', ') || '(none)'} for ${issue.title} (${issue.id}).`,
     })
     persist()
   }
@@ -461,17 +584,20 @@ export function createStore() {
 
   /**
    * Lets a citizen set/change their own registered home ward (WardResult's "Set as my ward"
-   * action, IA §3.2). Distinct from setUserRole/setUserActive (admin-only): any user may set
-   * their own home ward, so this deliberately does NOT call requireAdmin. Audited like the other
-   * account/data mutations, and validates the ward exists (requireWard throws otherwise) so a bad
-   * id can never silently corrupt a user's homeWardId.
+   * action, IA §3.2). Takes an actor `User` like the other actor-sensitive mutators
+   * (`castIssueVote`, `acceptSubmission`, `setUserRole`) and asserts self-only: the actor must be
+   * the same user as `userId`, UNLESS the actor is an admin (admins may set another user's home
+   * ward, e.g. from an admin support flow). Audited like the other account/data mutations, and
+   * validates the ward exists (requireWard throws otherwise) so a bad id can never silently
+   * corrupt a user's homeWardId.
    */
-  function setHomeWard(userId: string, wardId: string): void {
+  function setHomeWard(userId: string, wardId: string, actor: User): void {
+    if (actor.id !== userId) requireAdmin(actor)
     const user = requireUser(userId)
     requireWard(wardId)
     user.homeWardId = wardId
     appendAudit({
-      actorUserId: user.id,
+      actorUserId: actor.id,
       action: 'user.homeWard.updated',
       wardId,
       detail: `Set home ward to ${wardId} for ${user.id}.`,
@@ -522,6 +648,7 @@ export function createStore() {
     getCandidate,
     listCandidatesByWard,
     listIssues,
+    listIssueCatalog,
     getIssueVote,
     issueTally,
     listQueueForCurator,
@@ -539,6 +666,8 @@ export function createStore() {
     updateCandidate,
     updateWard,
     setWardIssues,
+    addIssue,
+    updateIssue,
     setUserActive,
     setUserRole,
     createUser,
