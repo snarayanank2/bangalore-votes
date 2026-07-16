@@ -1,11 +1,56 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import type { WardReadiness } from '../../store/store'
-import type { Interest, PartnerKind, User } from '../../types'
+import type { Interest, Partner, PartnerKind, User, Ward } from '../../types'
 
 const PARTNER_KINDS: PartnerKind[] = ['rwa', 'ngo', 'press', 'other']
+
+/** Shared ward-checkbox fieldset for the "Add a partner" form and each roster row's inline
+ *  editor — both need the exact same "which wards does this partner reach" control. Local draft
+ *  set, applied by the caller's own Save/Add button (matches Roles.tsx's RoleRow explicit-save
+ *  convention — nothing here writes to the store itself). */
+function WardCoverageFieldset({
+  legendId,
+  idPrefix,
+  wards,
+  wardIds,
+  onToggle,
+}: {
+  legendId: string
+  idPrefix: string
+  wards: Ward[]
+  wardIds: Set<string>
+  onToggle: (id: string) => void
+}) {
+  return (
+    <fieldset className="space-y-1">
+      <legend id={legendId} className="mb-1 text-sm font-medium text-ink">
+        Ward coverage
+      </legend>
+      <div className="flex flex-wrap gap-x-4 gap-y-1">
+        {wards.map((ward) => {
+          const id = `${idPrefix}-${ward.id}`
+          return (
+            <div key={ward.id} className="flex items-center gap-1.5">
+              <input
+                id={id}
+                type="checkbox"
+                checked={wardIds.has(ward.id)}
+                onChange={() => onToggle(ward.id)}
+                className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+              />
+              <label htmlFor={id} className="text-sm text-ink">
+                {ward.name}
+              </label>
+            </div>
+          )
+        })}
+      </div>
+    </fieldset>
+  )
+}
 
 interface InterestRowProps {
   interest: Interest
@@ -33,7 +78,12 @@ function InterestRow({ interest, admin }: InterestRowProps) {
       data.reviewInterest(interest.id, 'accepted', admin)
       if (interest.path === 'awareness') {
         data.createPartner(
-          { name: interest.name, kind, wardIds: interest.wardId ? [interest.wardId] : [] },
+          {
+            name: interest.name,
+            kind,
+            wardIds: interest.wardId ? [interest.wardId] : [],
+            interestId: interest.id,
+          },
           admin,
         )
       }
@@ -52,12 +102,14 @@ function InterestRow({ interest, admin }: InterestRowProps) {
     }
   }
 
-  // `createPartner` writes `Partner.name` from `interest.name` verbatim (see store.ts's doc
-  // comment on createPartner) — matching on name is how this row finds "its" provisioned kit
-  // page without the store needing a dedicated Interest -> Partner foreign key.
+  // Fix: `Partner.interestId` is a real foreign key back to this Interest (set by `accept()`
+  // above, via `createPartner`'s `interestId` input) — NOT a name-match. A name-match would
+  // silently collide once an admin can also add a partner directly (see the "Add a partner"
+  // form below): two partners sharing a name, or a directly-added partner whose name happens to
+  // match an applicant's, could no longer be told apart by `.find(p => p.name === ...)`.
   const provisionedPartner =
     interest.status === 'accepted' && interest.path === 'awareness'
-      ? data.listPartners().find((p) => p.name === interest.name)
+      ? data.listPartners().find((p) => p.interestId === interest.id)
       : undefined
 
   return (
@@ -154,6 +206,295 @@ function InterestRow({ interest, admin }: InterestRowProps) {
   )
 }
 
+interface AddPartnerFormProps {
+  wards: Ward[]
+  admin: User
+}
+
+/**
+ * Free-form "add a partner" form (IA §6.4 — direct provisioning, independent of the EOI queue).
+ * Reuses `createPartner` (no duplicated slug logic — see `slugifyPartnerName`/`uniquePartnerSlug`
+ * in store.ts, both unchanged by this form). No `interestId` is passed: a partner added here has
+ * no originating EOI, matching `Partner.interestId`'s "undefined for a directly-added partner"
+ * contract.
+ */
+function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
+  const data = useData()
+  const [name, setName] = useState('')
+  const [kind, setKind] = useState<PartnerKind>('other')
+  const [wardIds, setWardIds] = useState<Set<string>>(new Set())
+  const [error, setError] = useState<string | null>(null)
+  const [created, setCreated] = useState<Partner | null>(null)
+
+  function toggleWard(id: string): void {
+    setCreated(null)
+    setWardIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>): void {
+    e.preventDefault()
+    if (!name.trim()) {
+      setError('Enter a partner name.')
+      setCreated(null)
+      return
+    }
+    try {
+      const partner = data.createPartner(
+        { name: name.trim(), kind, wardIds: Array.from(wardIds) },
+        admin,
+      )
+      setCreated(partner)
+      setError(null)
+      setName('')
+      setKind('other')
+      setWardIds(new Set())
+    } catch (err) {
+      setCreated(null)
+      setError(err instanceof Error ? err.message : 'Could not add this partner.')
+    }
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      aria-label="Add a partner"
+      className="space-y-3 rounded-lg border border-slate-200 p-4"
+    >
+      <div>
+        <label htmlFor="new-partner-name" className="mb-1 block text-sm font-medium text-ink">
+          Partner name
+        </label>
+        <input
+          id="new-partner-name"
+          type="text"
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value)
+            setCreated(null)
+          }}
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+      </div>
+      <div>
+        <label htmlFor="new-partner-kind" className="mb-1 block text-sm font-medium text-ink">
+          Partner type
+        </label>
+        <select
+          id="new-partner-kind"
+          value={kind}
+          onChange={(e) => setKind(e.target.value as PartnerKind)}
+          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          {PARTNER_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+      </div>
+      <WardCoverageFieldset
+        legendId="new-partner-wards-legend"
+        idPrefix="new-partner-ward"
+        wards={wards}
+        wardIds={wardIds}
+        onToggle={toggleWard}
+      />
+      {error && (
+        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </p>
+      )}
+      {created && !error && (
+        <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          Added —{' '}
+          <Link
+            to={`/partner/${created.slug}`}
+            className="underline underline-offset-2 hover:no-underline"
+          >
+            /partner/{created.slug}
+          </Link>
+        </p>
+      )}
+      <button
+        type="submit"
+        className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
+      >
+        Add partner
+      </button>
+    </form>
+  )
+}
+
+interface PartnerRosterRowProps {
+  partner: Partner
+  wards: Ward[]
+  admin: User
+  registrationCount: number
+}
+
+/**
+ * One partner roster row (IA §6.4). Read-only by default; "Edit" reveals an inline draft editor
+ * (matches Roles.tsx's RoleRow explicit-save convention) for name/kind/ward coverage, saved via
+ * `updatePartner`. The slug is never editable here — see `updatePartner`'s doc comment in
+ * store.ts for why a rename must not change it (an already-shared `?src=`/`/partner/{slug}` link
+ * must keep working). Also renders this partner's aggregate registration count (Fix: IA §6.4's
+ * "registrations attributed per partner") — a plain number, never a citizen list.
+ */
+function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerRosterRowProps) {
+  const data = useData()
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(partner.name)
+  const [kind, setKind] = useState<PartnerKind>(partner.kind)
+  const [wardIds, setWardIds] = useState<Set<string>>(new Set(partner.wardIds))
+  const [error, setError] = useState<string | null>(null)
+
+  function toggleWard(id: string): void {
+    setWardIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function startEdit(): void {
+    setName(partner.name)
+    setKind(partner.kind)
+    setWardIds(new Set(partner.wardIds))
+    setError(null)
+    setEditing(true)
+  }
+
+  function handleSave(): void {
+    if (!name.trim()) {
+      setError('Enter a partner name.')
+      return
+    }
+    try {
+      data.updatePartner(
+        partner.slug,
+        { name: name.trim(), kind, wardIds: Array.from(wardIds) },
+        admin,
+      )
+      setError(null)
+      setEditing(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save this partner.')
+    }
+  }
+
+  if (!editing) {
+    return (
+      <li className="rounded border border-slate-200 px-3 py-2 text-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <Link
+              to={`/partner/${partner.slug}`}
+              className="font-medium text-brand underline underline-offset-2 hover:no-underline"
+            >
+              {partner.name}
+            </Link>
+            <span className="ml-2 text-xs uppercase tracking-wide text-ink/60">{partner.kind}</span>
+          </div>
+          <button
+            type="button"
+            onClick={startEdit}
+            aria-label={`Edit ${partner.name}`}
+            className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-ink hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand"
+          >
+            Edit
+          </button>
+        </div>
+        <p className="text-xs text-ink/60">
+          {partner.wardIds.length === 0
+            ? 'No wards yet'
+            : partner.wardIds.map((id) => wards.find((w) => w.id === id)?.name ?? id).join(', ')}
+        </p>
+        <p className="text-xs text-ink/60">
+          {registrationCount} registration{registrationCount === 1 ? '' : 's'} attributed
+        </p>
+      </li>
+    )
+  }
+
+  return (
+    <li className="space-y-3 rounded-lg border border-brand/40 bg-brand/5 p-4 text-sm">
+      <div>
+        <label
+          htmlFor={`edit-partner-name-${partner.slug}`}
+          className="mb-1 block text-sm font-medium text-ink"
+        >
+          Partner name
+        </label>
+        <input
+          id={`edit-partner-name-${partner.slug}`}
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        />
+      </div>
+      <div>
+        <label
+          htmlFor={`edit-partner-kind-${partner.slug}`}
+          className="mb-1 block text-sm font-medium text-ink"
+        >
+          Partner type
+        </label>
+        <select
+          id={`edit-partner-kind-${partner.slug}`}
+          value={kind}
+          onChange={(e) => setKind(e.target.value as PartnerKind)}
+          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          {PARTNER_KINDS.map((k) => (
+            <option key={k} value={k}>
+              {k}
+            </option>
+          ))}
+        </select>
+      </div>
+      <WardCoverageFieldset
+        legendId={`edit-partner-wards-legend-${partner.slug}`}
+        idPrefix={`edit-partner-ward-${partner.slug}`}
+        wards={wards}
+        wardIds={wardIds}
+        onToggle={toggleWard}
+      />
+      {error && (
+        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </p>
+      )}
+      <p className="text-xs text-ink/60">
+        Slug stays <code>{partner.slug}</code> even after a rename — existing tagged links keep
+        working.
+      </p>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          Save
+        </button>
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className="rounded border border-slate-300 px-4 py-1.5 text-sm font-semibold text-ink hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          Cancel
+        </button>
+      </div>
+    </li>
+  )
+}
+
 interface HeldWardRowProps {
   wardId: string
   wardName: string
@@ -243,6 +584,12 @@ export default function Partners() {
   const partners = data.listPartners()
   const interests = data.listInterests()
   const heldWards = data.listHeldWards()
+  const wards = data.listWards()
+  // Fix: IA §6.4's "registrations attributed per partner" — AGGREGATE counts only (see
+  // `partnerRegistrationCounts`'s doc comment in store.ts for the privacy guarantee).
+  const registrationCounts = new Map(
+    data.partnerRegistrationCounts().map((row) => [row.slug, row.count]),
+  )
 
   // IA §6.4: the EOI queue is split by PATH (spread awareness / curate data), not by status — a
   // resolved application stays visible in place (same list, same position) rather than being
@@ -281,23 +628,26 @@ export default function Partners() {
           ) : (
             <ul aria-label="Partner roster" className="mt-2 space-y-2">
               {partners.map((p) => (
-                <li key={p.slug} className="rounded border border-slate-200 px-3 py-2 text-sm">
-                  <Link
-                    to={`/partner/${p.slug}`}
-                    className="font-medium text-brand underline underline-offset-2 hover:no-underline"
-                  >
-                    {p.name}
-                  </Link>
-                  <span className="ml-2 text-xs uppercase tracking-wide text-ink/60">{p.kind}</span>
-                  <p className="text-xs text-ink/60">
-                    {p.wardIds.length === 0
-                      ? 'No wards yet'
-                      : p.wardIds.map((id) => data.getWard(id)?.name ?? id).join(', ')}
-                  </p>
-                </li>
+                <PartnerRosterRow
+                  key={p.slug}
+                  partner={p}
+                  wards={wards}
+                  admin={user}
+                  registrationCount={registrationCounts.get(p.slug) ?? 0}
+                />
               ))}
             </ul>
           )}
+        </div>
+
+        <div>
+          <h3 className="text-sm font-semibold text-ink">Add a partner</h3>
+          <p className="mt-1 text-sm text-ink/70">
+            Provision a partner directly, without an expression-of-interest application.
+          </p>
+          <div className="mt-2">
+            <AddPartnerForm wards={wards} admin={user} />
+          </div>
         </div>
 
         <div>

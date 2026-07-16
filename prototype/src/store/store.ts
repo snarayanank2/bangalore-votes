@@ -159,6 +159,25 @@ export interface CreatePartnerInput {
   name: string
   kind: PartnerKind
   wardIds: string[]
+  /** Set only when this partner is being provisioned from an accepted `awareness` `Interest`
+   *  (PRD §5.13) — becomes `Partner.interestId`, the real foreign key `Partners.tsx` uses to find
+   *  "its own" provisioned kit instead of matching on `name` (Fix: a name-match collides once an
+   *  admin can also add a partner directly, below). Omitted when an admin adds a partner directly
+   *  with no originating EOI. */
+  interestId?: string
+}
+
+/** Patch accepted by `updatePartner` (IA §6.4 — "add/edit partners and their slugs"). Deliberately
+ *  excludes `slug`: a partner's slug is derived once, at creation (`createPartner`), and never
+ *  changes again, even when `name` is edited afterwards — see `updatePartner`'s doc comment for
+ *  why (an already-distributed `?src=`/`/partner/{slug}` link must never silently break). */
+export type PartnerPatch = Partial<Pick<Partner, 'name' | 'kind' | 'wardIds'>>
+
+/** One row of `partnerRegistrationCounts()` — see that selector's doc comment for the privacy
+ *  guarantee (aggregate counts only, no user ids). */
+export interface PartnerRegistrationCount {
+  slug: string
+  count: number
 }
 
 export interface SubmitFlagInput {
@@ -456,6 +475,12 @@ export function createStore() {
     return interest
   }
 
+  function requirePartner(slug: string): Partner {
+    const partner = state.partners.find((p) => p.slug === slug)
+    if (!partner) throw new Error(`Unknown partner: ${slug}`)
+    return partner
+  }
+
   /** Curators may only act within their assigned wards; admins bypass. */
   function requireScope(user: User, wardId: string): void {
     if (user.role === 'admin') return
@@ -632,6 +657,35 @@ export function createStore() {
       uncoveredWardIds,
       byWard,
     })
+  }
+
+  /**
+   * Per-partner registration counts (IA §6.4 — "registrations attributed per partner"; PRD §5.13's
+   * promised "report of what the forwarding achieved"). Counts how many `User` records carry each
+   * partner's slug in `User.src` (set once, at registration — see `createUser`).
+   *
+   * PRIVACY (Critical): AGGREGATE COUNTS ONLY. Returns exactly `{ slug, count }` for every
+   * currently-known partner — never a userId, name, or contact, and never a list of who registered
+   * via a partner. Attribution is measurement-only (§5.12: "grants no permissions and changes
+   * nothing the citizen sees") — this selector must never grow a per-user return shape, the same
+   * standing rule already applied to `issueVoteCounts`/`platformMetrics.citizenSignal.issueRollUp`.
+   *
+   * Every known partner is included even with zero registrations (so the roster can render "0"
+   * rather than omitting a row). An unrecognised/typo'd `src` value stored on a user (by design —
+   * see `createUser`'s doc comment, attribution is never validated at write time) simply matches no
+   * `counts` key here and is silently excluded from every partner's count — it is NOT folded into
+   * any real partner's total (that would misattribute a typo to an organisation that never earned
+   * it), and it never throws.
+   */
+  function partnerRegistrationCounts(): PartnerRegistrationCount[] {
+    const counts = new Map<string, number>()
+    for (const partner of state.partners) counts.set(partner.slug, 0)
+    for (const user of state.users) {
+      if (user.src !== undefined && counts.has(user.src)) {
+        counts.set(user.src, (counts.get(user.src) ?? 0) + 1)
+      }
+    }
+    return structuredClone(Array.from(counts, ([slug, count]) => ({ slug, count })))
   }
 
   /**
@@ -992,22 +1046,55 @@ export function createStore() {
    * what renders on the partner's own `/partner/{slug}` kit page), so recording it in the
    * admin-readable audit log is not a privacy leak the way copying an applicant's contact would be.
    *
-   * Primary caller: `/admin/partners`'s EOI-review flow, on accepting an `awareness` application
-   * (PRD §5.13 — "accepting an awareness applicant provisions a partner slug and kit"). This
-   * function does NOT itself read or touch `state.interests` — nothing here links the new Partner
-   * back to the Interest that prompted it. The UI re-derives that relationship by matching
-   * `Partner.name` to `Interest.name` (see Partners.tsx) rather than the store growing a one-way
-   * foreign key for a single page's convenience.
+   * Two callers: `/admin/partners`'s EOI-review flow, on accepting an `awareness` application
+   * (PRD §5.13 — "accepting an awareness applicant provisions a partner slug and kit"), which
+   * passes `input.interestId` so the new `Partner.interestId` records a real foreign key back to
+   * the `Interest` that prompted it (see `Partner.interestId`'s doc comment in types.ts — this
+   * replaced an earlier name-match lookup that could collide); and `/admin/partners`'s "add
+   * partner" form (IA §6.4), which calls this with no `interestId` for a partner with no
+   * originating EOI.
    */
   function createPartner(input: CreatePartnerInput, admin: User): Partner {
     requireAdmin(admin)
     const slug = uniquePartnerSlug(input.name)
-    const partner: Partner = { slug, name: input.name, kind: input.kind, wardIds: [...input.wardIds] }
+    const partner: Partner = {
+      slug,
+      name: input.name,
+      kind: input.kind,
+      wardIds: [...input.wardIds],
+      interestId: input.interestId,
+    }
     state.partners.push(partner)
     appendAudit({
       actorUserId: admin.id,
       action: 'partner.created',
       detail: `Created partner ${partner.name} (${partner.slug}).`,
+    })
+    persist()
+    return structuredClone(partner)
+  }
+
+  /**
+   * Admin-edits an existing Partner's name/kind/ward coverage (IA §6.4 — "add/edit partners and
+   * their slugs"). Admin-only (`requireAdmin`), checked before any write. `slug` is NOT part of
+   * `PartnerPatch` and never changes here, even when `name` changes: this partner's slug is what
+   * `?src={slug}` links already in the wild and its `/partner/{slug}` kit URL are keyed on — a
+   * rename that also re-derived the slug would silently break both, and this prototype has no way
+   * to redirect an old slug to a new one. So a rename keeps the same slug permanently; if the
+   * name drifts far from the slug, that's a visible, honest trade-off, not a broken link.
+   * Published change: audited, same "the partner's own name is public-facing" reasoning as
+   * `createPartner`'s doc comment.
+   */
+  function updatePartner(slug: string, patch: PartnerPatch, admin: User): Partner {
+    requireAdmin(admin)
+    const partner = requirePartner(slug)
+    if (patch.name !== undefined) partner.name = patch.name
+    if (patch.kind !== undefined) partner.kind = patch.kind
+    if (patch.wardIds !== undefined) partner.wardIds = [...patch.wardIds]
+    appendAudit({
+      actorUserId: admin.id,
+      action: 'partner.updated',
+      detail: `Updated partner ${partner.name} (${partner.slug}).`,
     })
     persist()
     return structuredClone(partner)
@@ -1517,6 +1604,7 @@ export function createStore() {
     getPartner,
     listPartners,
     partnerWardCoverage,
+    partnerRegistrationCounts,
     platformMetrics,
     wardCompleteness,
     wardReadiness,
@@ -1528,6 +1616,7 @@ export function createStore() {
     submitInterest,
     reviewInterest,
     createPartner,
+    updatePartner,
     castIssueVote,
     acceptSubmission,
     rejectSubmission,

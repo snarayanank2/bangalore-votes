@@ -162,10 +162,13 @@ export default function Press() {
             href="#"
             className="font-medium text-brand underline underline-offset-2 hover:no-underline"
           >
-            press@bangaloreVotes.example (placeholder link in this prototype)
+            press@bangalorevotes.example (placeholder link in this prototype)
           </a>
         </p>
-        <p className="text-sm text-ink/80">We aim to respond to press queries within 2 business days.</p>
+        <p className="text-sm text-ink/80">
+          We aim to respond to press queries within 2 business days (a placeholder commitment in
+          this prototype, not a live SLA).
+        </p>
       </section>
 
       <section aria-labelledby="press-neutrality-heading" className="space-y-2">

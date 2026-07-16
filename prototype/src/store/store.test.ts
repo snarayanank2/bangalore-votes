@@ -303,3 +303,59 @@ test('partnerWardCoverage deep-clones its result', () => {
   coverage.uncoveredWardIds.push('hacked')
   expect(s.partnerWardCoverage().uncoveredWardIds).not.toContain('hacked')
 })
+
+// --- Fix 2: partnerRegistrationCounts (IA §6.4 "registrations attributed per partner") ----------
+
+test('partnerRegistrationCounts starts every known partner at 0 and increments only on a matching src', () => {
+  const s = createStore()
+  const partner = s.listPartners()[0]
+  const before = s.partnerRegistrationCounts().find((r) => r.slug === partner.slug)
+  expect(before?.count).toBe(0)
+
+  s.createUser({ contact: 'attributed@example.com', src: partner.slug })
+  const after = s.partnerRegistrationCounts().find((r) => r.slug === partner.slug)
+  expect(after?.count).toBe(1)
+
+  // A registration with no src, or a different partner's src, never inflates this partner's count.
+  s.createUser({ contact: 'no-src@example.com' })
+  expect(s.partnerRegistrationCounts().find((r) => r.slug === partner.slug)?.count).toBe(1)
+})
+
+test('partnerRegistrationCounts: an unrecognised/typo\'d src does not crash and is not attributed to any real partner', () => {
+  const s = createStore()
+  const before = s.partnerRegistrationCounts()
+  expect(() => s.createUser({ contact: 'typo@example.com', src: 'demo-rwa-onee' })).not.toThrow()
+  const after = s.partnerRegistrationCounts()
+  // Every real partner's count is unchanged — the typo slug matches none of them.
+  for (const row of before) {
+    expect(after.find((r) => r.slug === row.slug)?.count).toBe(row.count)
+  }
+  // The typo'd slug itself never appears as a row — this selector only reports real partners.
+  expect(after.some((r) => r.slug === 'demo-rwa-onee')).toBe(false)
+})
+
+test('partnerRegistrationCounts exposes AGGREGATE COUNTS ONLY — no user id, contact, or name anywhere in the shape', () => {
+  const s = createStore()
+  const partner = s.listPartners()[0]
+  const user = s.createUser({
+    contact: 'distinctive-contact@example.com',
+    name: 'Distinctive Citizen Name',
+    src: partner.slug,
+  })
+  const counts = s.partnerRegistrationCounts()
+
+  for (const row of counts) {
+    expect(Object.keys(row).sort()).toEqual(['count', 'slug'])
+  }
+  const serialized = JSON.stringify(counts)
+  expect(serialized).not.toMatch(/distinctive-contact@example\.com/)
+  expect(serialized).not.toMatch(/Distinctive Citizen Name/)
+  expect(serialized).not.toContain(user.id)
+})
+
+test('partnerRegistrationCounts deep-clones its result', () => {
+  const s = createStore()
+  const counts = s.partnerRegistrationCounts()
+  counts.push({ slug: 'hacked', count: 999 })
+  expect(s.partnerRegistrationCounts().some((r) => r.slug === 'hacked')).toBe(false)
+})

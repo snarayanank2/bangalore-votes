@@ -1109,3 +1109,77 @@ test('createPartner is audited exactly once, and the audit detail carries the (p
   expect(audit[audit.length - 1].actorUserId).toBe(admin.id)
   expect(audit[audit.length - 1].detail).toContain(partner.slug)
 })
+
+test('createPartner records interestId when given one, and leaves it undefined otherwise (Fix 3 foreign key)', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const fromEoi = s.createPartner(
+    { name: 'From EOI Org', kind: 'rwa', wardIds: [], interestId: 'interest-42' },
+    admin,
+  )
+  expect(fromEoi.interestId).toBe('interest-42')
+
+  const directlyAdded = s.createPartner({ name: 'Direct Org', kind: 'rwa', wardIds: [] }, admin)
+  expect(directlyAdded.interestId).toBeUndefined()
+})
+
+// --- Fix 1: updatePartner (IA §6.4 "add/edit partners and their slugs") -------------------------
+
+test('updatePartner requires an admin actor and leaves the partner untouched otherwise', () => {
+  const s = createStore()
+  const partner = s.listPartners()[0]
+  expect(() =>
+    s.updatePartner(partner.slug, { name: 'Hacked Name' }, curator()),
+  ).toThrow(/admin/i)
+  expect(s.getPartner(partner.slug)?.name).toBe(partner.name)
+})
+
+test('updatePartner edits name/kind/wardIds but the slug never changes, even on a rename', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const partner = s.listPartners()[0]
+  const originalSlug = partner.slug
+
+  const updated = s.updatePartner(
+    originalSlug,
+    { name: 'A Completely Different Name (fictional demo partner)', kind: 'press', wardIds: ['jayanagar'] },
+    admin,
+  )
+
+  expect(updated.slug).toBe(originalSlug)
+  expect(updated.name).toBe('A Completely Different Name (fictional demo partner)')
+  expect(updated.kind).toBe('press')
+  expect(updated.wardIds).toEqual(['jayanagar'])
+  // The old /partner/{slug} URL and any already-distributed ?src={slug} link still resolve to
+  // this same partner record after the rename.
+  expect(s.getPartner(originalSlug)?.name).toBe('A Completely Different Name (fictional demo partner)')
+})
+
+test('updatePartner applies a partial patch — omitted fields are left as-is', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const partner = s.listPartners()[0]
+
+  const updated = s.updatePartner(partner.slug, { kind: 'other' }, admin)
+  expect(updated.kind).toBe('other')
+  expect(updated.name).toBe(partner.name)
+  expect(updated.wardIds).toEqual(partner.wardIds)
+})
+
+test('updatePartner throws for an unknown slug', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  expect(() => s.updatePartner('not-a-real-partner', { name: 'x' }, admin)).toThrow(/unknown partner/i)
+})
+
+test('updatePartner is audited exactly once per call', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const partner = s.listPartners()[0]
+  const before = s.listAudit().length
+  s.updatePartner(partner.slug, { kind: 'ngo' }, admin)
+  const audit = s.listAudit()
+  expect(audit.length).toBe(before + 1)
+  expect(audit[audit.length - 1].action).toBe('partner.updated')
+  expect(audit[audit.length - 1].actorUserId).toBe(admin.id)
+})

@@ -100,10 +100,18 @@ export type PartnerKind = 'rwa' | 'ngo' | 'press' | 'other'
  * `src/data/partners.ts`) and provides read selectors — no admin CRUD UI yet (later task).
  */
 export interface Partner {
-  slug: string       // URL-safe id, used in ?src={slug} and /partner/{slug}
+  slug: string       // URL-safe id, used in ?src={slug} and /partner/{slug}. Immutable once set —
+                      // `updatePartner` (store.ts) can rename `name` without ever changing `slug`,
+                      // so an already-shared `?src=` link or `/partner/{slug}` URL never breaks.
   name: string
   kind: PartnerKind
   wardIds: string[]  // wards this partner is understood to reach/represent
+  /** The `Interest.id` this partner was provisioned from, if it was created by accepting an
+   *  `awareness` expression of interest (PRD §5.13) — a real foreign key, not a name-match, so
+   *  two partners that happen to share a name (or a directly-added partner that collides with an
+   *  EOI applicant's chosen name) can never be confused with one another. Undefined for a
+   *  seeded demo partner or one added directly by an admin (no originating EOI). */
+  interestId?: string
 }
 
 export type SubmissionStatus = 'pending' | 'accepted' | 'rejected'

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
@@ -320,4 +320,127 @@ test('admin rejects an application — status flips, no partner or role is ever 
     store.listInterests().find((i) => i.contact === 'rejected@example.com')?.status,
   ).toBe('rejected')
   expect(store.listPartners().some((p) => p.name === 'Rejected Applicant')).toBe(false)
+})
+
+// --- Fix 1: add/edit partners directly (IA §6.4) ------------------------------------------------
+
+test('admin adds a partner directly (no EOI) — it appears in the roster with a link to its kit', async () => {
+  const user = userEvent.setup()
+  renderAt('/admin/partners', 'u-admin')
+
+  const form = screen.getByRole('form', { name: /add a partner/i })
+  await user.type(within(form).getByLabelText(/partner name/i), 'Directly Added Org (fictional)')
+  await user.selectOptions(within(form).getByLabelText(/partner type/i), 'ngo')
+  await user.click(within(form).getByLabelText('Jayanagar'))
+  await user.click(within(form).getByRole('button', { name: /add partner/i }))
+
+  const created = store.listPartners().find((p) => p.name === 'Directly Added Org (fictional)')
+  expect(created).toBeDefined()
+  expect(created?.kind).toBe('ngo')
+  expect(created?.wardIds).toEqual(['jayanagar'])
+  expect(created?.interestId).toBeUndefined()
+
+  const roster = screen.getByRole('list', { name: /partner roster/i })
+  expect(
+    within(roster).getByRole('link', { name: /Directly Added Org \(fictional\)/i }),
+  ).toHaveAttribute('href', `/partner/${created!.slug}`)
+})
+
+test('a non-admin can never reach the add-partner form (RoleGuard blocks the whole page)', () => {
+  const router = createMemoryRouter(routeObjects, { initialEntries: ['/admin/partners'] })
+  localStorage.setItem('bv-auth', 'u-curator')
+  render(
+    <AppProviders>
+      <RouterProvider router={router} />
+    </AppProviders>,
+  )
+  expect(screen.queryByRole('form', { name: /add a partner/i })).not.toBeInTheDocument()
+})
+
+test('admin edits an existing partner\'s name/kind/wards — the slug stays the same, so its kit link never breaks', async () => {
+  const user = userEvent.setup()
+  renderAt('/admin/partners', 'u-admin')
+
+  const originalSlug = store.listPartners().find((p) => p.slug === 'demo-rwa-one')!.slug
+  const row = screen.getByText(/Sample Layout Residents Welfare Association/i).closest('li') as HTMLElement
+  await user.click(within(row).getByRole('button', { name: /edit/i }))
+
+  const nameInput = within(row).getByLabelText(/partner name/i)
+  await user.clear(nameInput)
+  await user.type(nameInput, 'Renamed Layout Association (fictional demo partner)')
+  await user.selectOptions(within(row).getByLabelText(/partner type/i), 'other')
+  await user.click(within(row).getByRole('button', { name: /^save$/i }))
+
+  const updated = store.getPartner(originalSlug)
+  expect(updated?.slug).toBe(originalSlug)
+  expect(updated?.name).toBe('Renamed Layout Association (fictional demo partner)')
+  expect(updated?.kind).toBe('other')
+
+  // The kit link in the roster now points at the SAME slug — an already-shared /partner/{slug}
+  // or ?src={slug} link is never broken by a rename.
+  expect(
+    screen.getByRole('link', { name: /Renamed Layout Association/i }),
+  ).toHaveAttribute('href', `/partner/${originalSlug}`)
+})
+
+// --- Fix 2: registrations attributed per partner (IA §6.4), aggregate counts only ---------------
+
+test('partner roster shows the aggregate registration count attributed to each partner', () => {
+  renderAt('/admin/partners', 'u-admin')
+  // Attribute two registrations to demo-rwa-one, none to demo-civic-trust. Store mutations
+  // notify subscribers, and this page calls useStoreVersion(), so it re-renders immediately —
+  // wrapped in act() since these calls happen outside a user-event-driven interaction.
+  act(() => {
+    store.createUser({ contact: 'via-partner-1@example.com', src: 'demo-rwa-one' })
+    store.createUser({ contact: 'via-partner-2@example.com', src: 'demo-rwa-one' })
+  })
+
+  const rwaRow = screen.getByText(/Sample Layout Residents Welfare Association/i).closest('li') as HTMLElement
+  const trustRow = screen.getByText(/Placeholder Civic Trust/i).closest('li') as HTMLElement
+
+  expect(within(rwaRow).getByText(/2 registrations attributed/i)).toBeInTheDocument()
+  expect(within(trustRow).getByText(/0 registrations attributed/i)).toBeInTheDocument()
+
+  // No citizen name/contact is ever rendered on this admin page as a result of attribution.
+  expect(screen.queryByText('via-partner-1@example.com')).not.toBeInTheDocument()
+})
+
+// --- Fix 3: partner<->interest linkage is a real foreign key, not a name-match ------------------
+
+test('accepting an awareness EOI whose applicant name collides with an existing partner still links to its OWN kit, not the pre-existing one', async () => {
+  const user = userEvent.setup()
+  const setup = renderAt('/admin/partners', 'u-admin')
+
+  // A partner with this exact name already exists (added directly, no EOI) BEFORE the EOI below
+  // is even submitted — the old name-match lookup would have found this pre-existing partner
+  // instead of the one this specific application provisions.
+  let preExisting!: ReturnType<typeof store.createPartner>
+  act(() => {
+    preExisting = store.createPartner(
+      { name: 'Colliding Name Org (fictional)', kind: 'other', wardIds: ['shivajinagar'] },
+      store.listUsers().find((u) => u.role === 'admin')!,
+    )
+  })
+  setup.unmount()
+
+  const first = renderAt('/partner-with-us')
+  await user.type(screen.getByLabelText(/name/i), 'Colliding Name Org (fictional)')
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'colliding@example.com')
+  await user.click(screen.getByRole('button', { name: /submit application/i }))
+  first.unmount()
+
+  renderAt('/admin/partners', 'u-admin')
+  const row = screen.getByText('colliding@example.com').closest('li') as HTMLElement
+  await user.click(within(row).getByRole('button', { name: /^accept$/i }))
+
+  const interest = store.listInterests().find((i) => i.contact === 'colliding@example.com')!
+  const provisioned = store.listPartners().find((p) => p.interestId === interest.id)
+  expect(provisioned).toBeDefined()
+  expect(provisioned!.slug).not.toBe(preExisting.slug)
+
+  // The row's rendered kit link points at the newly-provisioned partner's own slug, not the
+  // pre-existing, name-colliding one.
+  expect(
+    within(row).getByRole('link', { name: new RegExp(`/partner/${provisioned!.slug}`) }),
+  ).toHaveAttribute('href', `/partner/${provisioned!.slug}`)
 })
