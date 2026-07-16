@@ -3,15 +3,20 @@ import type { ReactNode } from 'react'
 import { DataProvider, useData } from './context/DataContext'
 import { AuthProvider } from './context/AuthContext'
 import { I18nProvider } from './context/I18nContext'
+import { ModalProvider } from './context/ModalContext'
 import { routeObjects } from './routes'
 
 /** Bridges DataProvider's store instance into AuthProvider, so both share
- * exactly one store (AuthProvider needs it as a prop to stay testable). */
+ * exactly one store (AuthProvider needs it as a prop to stay testable). Also
+ * mounts the single app-wide ModalProvider (Register/Login, Flag, Vote) inside
+ * the Auth/I18n tree so its modals can call useAuth()/useI18n()/useData(). */
 function AuthAndI18n({ children }: { children: ReactNode }) {
   const store = useData()
   return (
     <AuthProvider store={store}>
-      <I18nProvider>{children}</I18nProvider>
+      <I18nProvider>
+        <ModalProvider>{children}</ModalProvider>
+      </I18nProvider>
     </AuthProvider>
   )
 }

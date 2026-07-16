@@ -414,7 +414,12 @@ export function createStore() {
    * audit log's scope of published data changes + moderation/admin actions — individual issue
    * votes remain unaudited (see castIssueVote above).
    */
-  function createUser(input: { contact: string; homeWardId?: string; name?: string }): User {
+  function createUser(input: {
+    contact: string
+    homeWardId?: string
+    name?: string
+    language?: User['language']
+  }): User {
     const n = nextSeq()
     const user: User = {
       id: `u-${n}`,
@@ -422,7 +427,7 @@ export function createStore() {
       contact: input.contact,
       role: 'citizen',
       homeWardId: input.homeWardId,
-      language: 'en',
+      language: input.language ?? 'en',
       curatorWardIds: undefined,
       active: true,
     }

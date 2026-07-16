@@ -19,7 +19,7 @@ interface AuthValue {
   role: Role
   isAuthed: boolean
   loginAs: (userId: string) => void
-  loginNew: (contact: string, homeWardId: string) => void
+  loginNew: (contact: string, homeWardId: string, language?: User['language']) => void
   logout: () => void
   pendingAction: (() => void) | null
   requireAuth: (action: () => void) => void
@@ -32,11 +32,6 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
   const [userId, setUserId] = useState<string>(
     () => localStorage.getItem(STORAGE_KEY) ?? 'anon',
   )
-  // Users created via loginNew() in this session — the store has no
-  // "register user" mutation (out of Task 5's scope), so transient citizen
-  // accounts live here rather than in store state. They do not survive a
-  // page reload; see task-6-8-report.md for the tradeoff.
-  const [transientUsers, setTransientUsers] = useState<User[]>([])
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
 
   useEffect(() => {
@@ -45,35 +40,40 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
   }, [userId])
 
   const user: User =
-    userId === 'anon'
-      ? ANON_USER
-      : (store.listUsers().find((u) => u.id === userId) ??
-        transientUsers.find((u) => u.id === userId) ??
-        ANON_USER)
+    userId === 'anon' ? ANON_USER : (store.listUsers().find((u) => u.id === userId) ?? ANON_USER)
 
   function loginAs(id: string): void {
     setUserId(id)
   }
 
-  function loginNew(contact: string, homeWardId: string): void {
-    const n = store.stamp()
-    const newUser: User = {
-      id: `user-${n}`,
-      name: contact,
-      contact,
-      role: 'citizen',
-      homeWardId,
-      language: 'en',
-      active: true,
-    }
-    setTransientUsers((prev) => [...prev, newUser])
-    setUserId(newUser.id)
+  /**
+   * Registers a new citizen account via `store.createUser` (persists to localStorage — Task 10;
+   * previously this built a transient React-state-only user that vanished on reload, see
+   * task-6-8-report.md) and logs into it immediately.
+   */
+  function loginNew(contact: string, homeWardId: string, language?: User['language']): void {
+    const created = store.createUser({ contact, homeWardId, language })
+    setUserId(created.id)
   }
 
   function logout(): void {
     setUserId('anon')
   }
 
+  /**
+   * Runs `action` immediately if the visitor is already authenticated; otherwise stashes it in
+   * the single `pendingAction` slot to run after login (see `resolvePending`).
+   *
+   * DECISION — last-wins, not queued: only one pending action is held at a time. A second
+   * `requireAuth` call before the first resolves silently replaces the first action; the first
+   * tap's intent is lost. This is intentional for the prototype: `GatedButton` opens the
+   * page-blocking Register/Login modal on the very same gated tap that stashes the action, so
+   * there is no idle window in the shipped UI for an unrelated second gated tap to land while the
+   * first is still pending behind a hidden modal (the modal's full-viewport backdrop blocks
+   * clicks elsewhere). Queuing multiple actions would add real complexity — ordering, and ctx
+   * that may go stale if the page navigates in between — for a case that shouldn't be reachable
+   * through normal use. Pinned by a test in AuthContext.test.tsx.
+   */
   function requireAuth(action: () => void): void {
     if (user.role !== 'anonymous') {
       action()
