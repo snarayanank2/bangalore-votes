@@ -31,9 +31,11 @@ import type { Issue } from '../../types'
  * as-is (see edit.test.tsx) — there is no migration in the store to prune or reassign them, and
  * this page does not fabricate one. If the same issue id is later re-added to `ward.issueIds`,
  * those old votes count again automatically (tally is always computed live from `issueVotes`).
- * The "existing votes" count shown per issue below is read directly from the raw vote records
- * (not `issueTally`, which only reports on CURRENTLY votable issues) so a curator can see the
- * true historical count even for an issue they've unchecked.
+ * The "existing votes" count shown per issue below comes from `data.issueVoteCounts(wardId)` — a
+ * narrow, aggregate-only selector (not `issueTally`, which only reports on CURRENTLY votable
+ * issues) so a curator can see the true historical count even for an issue they've unchecked,
+ * without this page paying for a full-store clone (`getState()`) on every render just to scan
+ * `issueVotes` itself.
  */
 export default function WardIssuesEditor() {
   const { wardId } = useParams<{ wardId: string }>()
@@ -43,15 +45,11 @@ export default function WardIssuesEditor() {
 
   const ward = wardId ? data.getWard(wardId) : undefined
   const catalog = wardId ? data.listIssueCatalog(wardId) : []
-  const voteCountByIssue = new Map<string, number>()
-  if (wardId) {
-    for (const vote of data.getState().issueVotes) {
-      if (vote.wardId !== wardId) continue
-      for (const issueId of vote.issueIds) {
-        voteCountByIssue.set(issueId, (voteCountByIssue.get(issueId) ?? 0) + 1)
-      }
-    }
-  }
+  // Narrow, aggregate-only selector (never per-user vote choices) — avoids cloning the entire
+  // store just to count votes per issue.
+  const voteCountByIssue = new Map<string, number>(
+    (wardId ? data.issueVoteCounts(wardId) : []).map((row) => [row.issueId, row.count]),
+  )
 
   const [selected, setSelected] = useState<Set<string>>(() => new Set(ward?.issueIds ?? []))
   const [error, setError] = useState<string | null>(null)

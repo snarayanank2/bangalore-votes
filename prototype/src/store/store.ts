@@ -267,6 +267,12 @@ export function createStore() {
    * in that order; an id with no matching `Issue` record (shouldn't happen in practice) is
    * silently skipped rather than crashing the page. An unknown wardId returns `[]`, matching the
    * previous filter-based behavior for a ward with no issues.
+   *
+   * DEFENSE IN DEPTH: also drops any resolved issue whose own `wardId` doesn't match the `wardId`
+   * argument. `setWardIssues` guards against a foreign-ward id ever being written into
+   * `ward.issueIds` in the first place, but this filter is a second, independent line of defense
+   * against a corrupt or hand-edited `ward.issueIds` (e.g. a stale value rehydrated from
+   * localStorage) ever leaking another ward's issue onto this ward's public page or tally.
    */
   function listIssues(wardId: string): Issue[] {
     const ward = state.wards.find((w) => w.id === wardId)
@@ -274,7 +280,7 @@ export function createStore() {
     const byId = new Map(state.issues.map((i) => [i.id, i]))
     const ordered = ward.issueIds
       .map((id) => byId.get(id))
-      .filter((i): i is Issue => i !== undefined)
+      .filter((i): i is Issue => i !== undefined && i.wardId === wardId)
     return structuredClone(ordered)
   }
 
@@ -294,6 +300,29 @@ export function createStore() {
         .length,
     }))
     return rows.sort((a, b) => b.count - a.count)
+  }
+
+  /**
+   * Per-issue AGGREGATE vote counts for every issue id referenced by any vote cast in this ward —
+   * unlike `issueTally`, NOT scoped to only the currently-votable issues named by
+   * `ward.issueIds`. Powers `WardIssuesEditor`'s "N existing votes reference this issue" display
+   * (including for an issue a curator has since unchecked), without that page having to call
+   * `getState()` — a `structuredClone` of the ENTIRE store — just to scan `issueVotes` itself.
+   *
+   * PRIVACY: returns AGGREGATE counts only, never which user cast which vote or what else was in
+   * a user's top-3. Individual vote choices never leave the store (see `castIssueVote`'s note on
+   * why it writes no audit entry — the same reasoning applies here: this selector must never grow
+   * a per-user return shape).
+   */
+  function issueVoteCounts(wardId: string): IssueTallyRow[] {
+    const counts = new Map<string, number>()
+    for (const vote of state.issueVotes) {
+      if (vote.wardId !== wardId) continue
+      for (const issueId of vote.issueIds) {
+        counts.set(issueId, (counts.get(issueId) ?? 0) + 1)
+      }
+    }
+    return Array.from(counts, ([issueId, count]) => ({ issueId, count }))
   }
 
   function listQueueForCurator(user: User): Submission[] {
@@ -492,9 +521,23 @@ export function createStore() {
     persist()
   }
 
+  /**
+   * Every id in `issues` must resolve to a known `Issue` that belongs to THIS ward — checked
+   * before any mutation. Without this, a cross-ward id written into `ward.issueIds` would leak
+   * another ward's issue onto this ward's public `/ward/:id/issues` page and into its tally (see
+   * `listIssues`'s defense-in-depth filter for the second half of this guarantee). Guard runs
+   * entirely before `ward.issueIds` is written and before `appendAudit`, so a rejected call leaves
+   * both the ward and the audit log untouched — no partial writes.
+   */
   function setWardIssues(wardId: string, issues: string[], curator: User): void {
     const ward = requireWard(wardId)
     requireScope(curator, wardId)
+    for (const issueId of issues) {
+      const issue = requireIssue(issueId)
+      if (issue.wardId !== wardId) {
+        throw new Error(`Issue ${issueId} does not belong to ward ${wardId}`)
+      }
+    }
     ward.issueIds = [...issues]
     appendAudit({
       actorUserId: curator.id,
@@ -686,6 +729,7 @@ export function createStore() {
     listIssueCatalog,
     getIssueVote,
     issueTally,
+    issueVoteCounts,
     listQueueForCurator,
     getSubmission,
     listSubmissionsByUser,

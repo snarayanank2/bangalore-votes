@@ -20,6 +20,38 @@ test('issueTally returns issues ranked by vote count desc', () => {
     expect(tally[i - 1].count).toBeGreaterThanOrEqual(tally[i].count)
 })
 
+// --- Fix (crossward-fix): narrow, aggregate-only vote-count selector for WardIssuesEditor -----
+
+test('issueVoteCounts returns aggregate per-issue counts for a ward, including for a currently-unchecked issue', () => {
+  const s = createStore()
+  // Seed (src/data/issues.ts): kor-roads and kor-water each appear in all 3 seeded koramangala
+  // votes, kor-waste in 1, kor-lighting in none.
+  const before = new Map(s.issueVoteCounts('koramangala').map((r) => [r.issueId, r.count]))
+  expect(before.get('kor-roads')).toBe(3)
+  expect(before.get('kor-water')).toBe(3)
+  expect(before.get('kor-waste')).toBe(1)
+  expect(before.get('kor-lighting')).toBeUndefined()
+
+  // Unlike issueTally, this selector is NOT scoped to currently-votable issues: unchecking
+  // kor-roads from ward.issueIds must not change its aggregate vote count.
+  const curator = s.listUsers().find((u) => u.role === 'curator')!
+  s.setWardIssues('koramangala', ['kor-water', 'kor-waste', 'kor-lighting'], curator)
+  const after = new Map(s.issueVoteCounts('koramangala').map((r) => [r.issueId, r.count]))
+  expect(after.get('kor-roads')).toBe(3)
+})
+
+test('issueVoteCounts returns [] for a ward with no votes', () => {
+  const s = createStore()
+  expect(s.issueVoteCounts('shivajinagar')).toEqual([])
+})
+
+test('issueVoteCounts rows only ever expose {issueId, count} — no per-user vote choices', () => {
+  const s = createStore()
+  const rows = s.issueVoteCounts('koramangala')
+  expect(rows.length).toBeGreaterThan(0)
+  for (const row of rows) expect(Object.keys(row).sort()).toEqual(['count', 'issueId'])
+})
+
 test('getCandidate resolves by slug', () => {
   const s = createStore()
   const first = s.listWards()[0]

@@ -343,6 +343,50 @@ test('re-adding a removed issue makes its prior votes count again', () => {
   expect(s.issueTally('koramangala').find((r) => r.issueId === 'kor-roads')?.count).toBe(3)
 })
 
+test('setWardIssues throws when a supplied issue id belongs to a different ward, leaving ward + audit unchanged', () => {
+  const s = createStore()
+  const before = s.getWard('koramangala')!.issueIds
+  const auditBefore = s.listAudit().length
+
+  // ind-traffic is a real issue, but it belongs to indiranagar, not koramangala.
+  expect(() =>
+    s.setWardIssues('koramangala', ['kor-water', 'ind-traffic'], curator()),
+  ).toThrow(/does not belong to ward/i)
+
+  expect(s.getWard('koramangala')!.issueIds).toEqual(before)
+  expect(s.listAudit()).toHaveLength(auditBefore)
+})
+
+test('setWardIssues throws when a supplied issue id is unknown, leaving ward + audit unchanged', () => {
+  const s = createStore()
+  const before = s.getWard('koramangala')!.issueIds
+  const auditBefore = s.listAudit().length
+
+  expect(() =>
+    s.setWardIssues('koramangala', ['kor-water', 'issue-does-not-exist'], curator()),
+  ).toThrow(/unknown issue/i)
+
+  expect(s.getWard('koramangala')!.issueIds).toEqual(before)
+  expect(s.listAudit()).toHaveLength(auditBefore)
+})
+
+test('listIssues drops a foreign-ward id even if it is present in a corrupt ward.issueIds (defense in depth)', () => {
+  const s1 = createStore()
+  const corrupted = s1.getState()
+  // jayanagar starts with issueIds: [] (src/data/wards.ts) — hand-corrupt it to reference
+  // koramangala's kor-roads, bypassing setWardIssues' guard entirely (direct localStorage write,
+  // simulating a stale/corrupt rehydrated value).
+  const jayanagar = corrupted.wards.find((w) => w.id === 'jayanagar')!
+  jayanagar.issueIds = ['kor-roads']
+  localStorage.setItem('bv-store', JSON.stringify(corrupted))
+
+  const s2 = createStore() // rehydrates the corrupt state from localStorage
+  expect(s2.listIssues('jayanagar')).toEqual([])
+  expect(s2.issueTally('jayanagar')).toEqual([])
+  // kor-roads itself, and its votes, are of course untouched — this is purely a leak guard.
+  expect(s2.listIssues('koramangala').map((i) => i.id)).toContain('kor-roads')
+})
+
 // --- Fix 4: curators can author new ward issues -----------------------------------------------
 
 test('addIssue creates a new issue, appends it to ward.issueIds, and audits', () => {
