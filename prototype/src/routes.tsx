@@ -17,6 +17,11 @@ import VoterId from './pages/public/VoterId'
 import HowToVote from './pages/public/HowToVote'
 import FindBooth from './pages/public/FindBooth'
 import About from './pages/public/About'
+import Data from './pages/public/Data'
+import PartnerWithUs from './pages/public/PartnerWithUs'
+import Press from './pages/public/Press'
+import Terms from './pages/public/Terms'
+import Privacy from './pages/public/Privacy'
 import Login from './pages/public/Login'
 import NotFound from './pages/public/NotFound'
 
@@ -86,6 +91,11 @@ export const routeObjects: RouteObject[] = [
       { path: 'voting-guide/how-to-vote', element: <HowToVote /> },
       { path: 'voting-guide/find-booth', element: <FindBooth /> },
       { path: 'about', element: <About /> },
+      { path: 'data', element: <Data /> },
+      { path: 'partner-with-us', element: <PartnerWithUs /> },
+      { path: 'press', element: <Press /> },
+      { path: 'terms', element: <Terms /> },
+      { path: 'privacy', element: <Privacy /> },
       { path: 'login', element: <Login /> },
 
       {

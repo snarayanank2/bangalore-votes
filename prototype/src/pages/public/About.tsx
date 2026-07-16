@@ -2,11 +2,18 @@ import { Link } from 'react-router-dom'
 
 /**
  * About & how we source data — the trust page (PRD §5.11 + §11, IA §3.13, `/about`). Anonymous.
- * Establishes who runs the platform, how data is sourced/verified, and the neutrality stance.
+ * Establishes who runs the platform, who funds it, how data is sourced/verified, the neutrality
+ * stance, and the data commitments citizens get in return for registering.
  *
  * MANDATORY HONESTY: must state plainly that this build is a prototype seeded with fictional
  * data — it deploys publicly against a real, upcoming election, so this page is the place a
  * skeptical reader checks first.
+ *
+ * Funding disclosure detail (named funders vs. categories only) is an open question (PRD §17) —
+ * this page states plainly that disclosure is pending that decision and names no funders. The
+ * Oorvani Foundation is a real organisation; only what the docs state about it is asserted here
+ * (that it runs the platform in production and is the trust behind opencity.in) — nothing about
+ * its history, staff, or funders is invented.
  */
 export default function About() {
   return (
@@ -35,10 +42,43 @@ export default function About() {
           Who runs this
         </h2>
         <p className="text-sm text-ink/80">
-          Bangalore Votes is an independent, non-partisan civic information project. It isn&apos;t
-          affiliated with, and doesn&apos;t take money from, any political party or candidate. Its
-          only goal is to give Bengaluru residents accurate, easy-to-find ward election
-          information ahead of voting day.
+          Bangalore Votes is run in production by the <strong>Oorvani Foundation</strong>, the
+          trust that operates <span className="italic">opencity.in</span>. It is an independent,
+          non-partisan civic information project — it isn&apos;t affiliated with, and doesn&apos;t
+          take money from, any political party or candidate. Its only goal is to give Bengaluru
+          residents accurate, easy-to-find ward election information ahead of voting day.
+        </p>
+      </section>
+
+      <section aria-labelledby="funding-heading" className="space-y-2">
+        <h2 id="funding-heading" className="text-lg font-semibold text-ink">
+          Funding
+        </h2>
+        <p className="text-sm text-ink/80">
+          For a platform whose entire value rests on neutrality, who pays for it is the first
+          question a skeptical reader should ask — and the answer shouldn&apos;t have to be
+          requested. This section will disclose who funds Bangalore Votes. How much detail it
+          shows — named funders and amounts, or funder categories only — is <strong>still an
+          open decision</strong>; no funders are named here because that decision hasn&apos;t
+          been made yet, not because there is nothing to disclose.
+        </p>
+      </section>
+
+      <section aria-labelledby="data-commitments-heading" className="space-y-2">
+        <h2 id="data-commitments-heading" className="text-lg font-semibold text-ink">
+          What we do with your data
+        </h2>
+        <p className="text-sm text-ink/80">
+          The Oorvani Foundation <strong>does not sell or share your data with third
+          parties</strong>. If you register, the contact details you give us are used for two
+          things only: <strong>ward election updates</strong> for your area, and{' '}
+          <strong>critical product updates</strong> — meaning service-affecting notices, such as a
+          data breach, a material change to our terms, or the platform shutting down, never to
+          announce new features. Full detail lives on the{' '}
+          <Link to="/privacy" className="text-brand underline underline-offset-2">
+            privacy policy
+          </Link>{' '}
+          page.
         </p>
       </section>
 
