@@ -413,6 +413,14 @@ export function createStore() {
    * ever surfaced in aggregate (issueTally); logging "user X voted for A,B" into the
    * admin-readable audit log would leak individual voting choices, which was never requested
    * and isn't needed to support rollback/provenance of published data.
+   *
+   * Every id in `issueIds` must resolve to a known `Issue` that is currently votable in THIS
+   * ward, i.e. present in `ward.issueIds` (the authoritative source of truth — see `listIssues`
+   * and `setWardIssues`'s matching guard). Checked before any mutation, so a rejected call
+   * leaves `issueVotes` (and, since this function never audits, the audit log too) completely
+   * untouched — no partial writes. Without this, a caller could record a vote for another
+   * ward's issue, or for an id that doesn't exist at all, silently polluting `issueTally` /
+   * `issueVoteCounts` and the public results.
    */
   function castIssueVote(user: User, wardId: string, issueIds: string[]): IssueVote {
     const uniqueCount = new Set(issueIds).size
@@ -421,6 +429,13 @@ export function createStore() {
     }
     if (wardId !== user.homeWardId) {
       throw new Error('You can only vote in your home ward')
+    }
+    const ward = requireWard(wardId)
+    for (const issueId of issueIds) {
+      requireIssue(issueId)
+      if (!ward.issueIds.includes(issueId)) {
+        throw new Error(`Issue ${issueId} is not votable in ward ${wardId}`)
+      }
     }
 
     state.issueVotes = state.issueVotes.filter(

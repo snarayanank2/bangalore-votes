@@ -14,6 +14,39 @@ test('castIssueVote only allows the home ward', () => {
   expect(() => s.castIssueVote(citizen(), 'indiranagar', ['ind-traffic'])).toThrow(/home ward/i)
 })
 
+test('castIssueVote throws when a supplied issue id belongs to a different ward, leaving issueVotes + audit unchanged', () => {
+  const s = createStore()
+  const before = s.getState().issueVotes
+  const beforeAuditLen = s.listAudit().length
+  // kor-roads is a real koramangala issue, ind-traffic is real but belongs to indiranagar.
+  expect(() =>
+    s.castIssueVote(citizen(), 'koramangala', ['kor-roads', 'ind-traffic']),
+  ).toThrow(/not votable/i)
+  expect(s.getState().issueVotes).toEqual(before)
+  expect(s.listAudit().length).toBe(beforeAuditLen)
+})
+
+test('castIssueVote throws when a supplied issue id is unknown, leaving issueVotes + audit unchanged', () => {
+  const s = createStore()
+  const before = s.getState().issueVotes
+  const beforeAuditLen = s.listAudit().length
+  expect(() =>
+    s.castIssueVote(citizen(), 'koramangala', ['issue-does-not-exist']),
+  ).toThrow(/unknown issue/i)
+  expect(s.getState().issueVotes).toEqual(before)
+  expect(s.listAudit().length).toBe(beforeAuditLen)
+})
+
+test('castIssueVote still accepts a valid, in-ward vote end-to-end', () => {
+  const s = createStore()
+  const vote = s.castIssueVote(citizen(), 'koramangala', ['kor-lighting', 'kor-waste'])
+  expect(vote.issueIds).toEqual(['kor-lighting', 'kor-waste'])
+  expect(s.getIssueVote('u-citizen', 'koramangala')?.issueIds).toEqual([
+    'kor-lighting',
+    'kor-waste',
+  ])
+})
+
 test('castIssueVote replaces the user prior vote-set (dedup)', () => {
   const s = createStore()
   s.castIssueVote(citizen(), 'koramangala', ['kor-roads'])
