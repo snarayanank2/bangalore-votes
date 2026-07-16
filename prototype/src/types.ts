@@ -97,6 +97,28 @@ export interface Submission {
   createdAt: string      // ISO string (seed-fixed; new ones use a monotonic stamp)
 }
 
+export type InterestPath = 'awareness' | 'curation'
+export type InterestStatus = 'pending' | 'accepted' | 'rejected'
+
+/**
+ * An anonymous expression of interest submitted via `/partner-with-us` (PRD §5.13). No account
+ * is required to submit — see `submitInterest`'s doc comment in store.ts. Lands as `pending`;
+ * only an admin's `reviewInterest` decision changes its status. Nobody self-activates: accepting
+ * an `awareness` application is what later provisions a partner slug/kit, and accepting a
+ * `curation` application hands off to the existing curator vetting path — neither happens
+ * automatically from this record alone.
+ */
+export interface Interest {
+  id: string
+  path: InterestPath
+  name: string
+  contact: string
+  wardId?: string   // which ward the applicant cares about/would cover (mainly relevant to `curation`)
+  note: string
+  status: InterestStatus
+  createdAt: string
+}
+
 export interface AuditEntry {
   id: string
   at: string

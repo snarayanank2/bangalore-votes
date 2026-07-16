@@ -2,6 +2,9 @@ import { seed } from '../data'
 import type {
   AuditEntry,
   Candidate,
+  Interest,
+  InterestPath,
+  InterestStatus,
   Issue,
   IssueVote,
   NotificationPrefs,
@@ -35,6 +38,11 @@ export interface StoreState {
   /** Partner records (PRD §5.12) — seeded demo data in this prototype; admin-managed CRUD is a
    *  later task, so today this array only ever grows via `seed`, never a mutation. */
   partners: Partner[]
+  /** Anonymous expressions of interest (PRD §5.13, `/partner-with-us`) — deliberately NOT part
+   *  of `seed` (unlike `partners`): there is no demo-data reason to ship with pre-seeded
+   *  applications, so a fresh/reset store always starts with an empty queue (see
+   *  `loadInitialState`/`reset`). */
+  interests: Interest[]
   /** Monotonic counter backing stamp(); persisted so it survives reload. */
   seq: number
 }
@@ -137,6 +145,18 @@ export interface SubmitFlagInput {
   detail: string
   sourceUrl?: string
 }
+
+/** Input to `submitInterest` (PRD §5.13) — deliberately has no actor/User field anywhere in its
+ *  shape, matching the form it backs: `/partner-with-us` is an anonymous write path. */
+export interface SubmitInterestInput {
+  path: InterestPath
+  name: string
+  contact: string
+  wardId?: string
+  note: string
+}
+
+export type InterestDecision = Exclude<InterestStatus, 'pending'>
 
 export type CandidateSourcedField =
   | 'trackRecord'
@@ -255,8 +275,8 @@ function loadInitialState(): StoreState {
       // Malformed JSON — fall through to seed.
     }
   }
-  const cloned = structuredClone(seed) as Omit<StoreState, 'seq'>
-  return { ...cloned, seq: baseSeqFromSeed() }
+  const cloned = structuredClone(seed) as Omit<StoreState, 'seq' | 'interests'>
+  return { ...cloned, seq: baseSeqFromSeed(), interests: [] }
 }
 
 export function createStore() {
@@ -318,6 +338,12 @@ export function createStore() {
     const submission = state.submissions.find((s) => s.id === submissionId)
     if (!submission) throw new Error(`Unknown submission: ${submissionId}`)
     return submission
+  }
+
+  function requireInterest(id: string): Interest {
+    const interest = state.interests.find((i) => i.id === id)
+    if (!interest) throw new Error(`Unknown interest: ${id}`)
+    return interest
   }
 
   /** Curators may only act within their assigned wards; admins bypass. */
@@ -464,6 +490,13 @@ export function createStore() {
     return structuredClone(state.users)
   }
 
+  /** The full expression-of-interest queue (PRD §5.13), any status. No guard here (mirrors
+   *  `listAudit`'s existing precedent — access is restricted at the routing layer, by the
+   *  admin-only RoleGuard on the later admin-review page, not inside the store). */
+  function listInterests(): Interest[] {
+    return structuredClone(state.interests)
+  }
+
   function getPartner(slug: string): Partner | undefined {
     const partner = state.partners.find((p) => p.slug === slug)
     return partner ? structuredClone(partner) : undefined
@@ -569,7 +602,7 @@ export function createStore() {
   }
 
   function reset(): void {
-    state = { ...structuredClone(seed), seq: baseSeqFromSeed() }
+    state = { ...structuredClone(seed), seq: baseSeqFromSeed(), interests: [] }
     persist()
   }
 
@@ -618,6 +651,88 @@ export function createStore() {
     })
     persist()
     return submission
+  }
+
+  /**
+   * Anonymous expression of interest (PRD §5.13, `/partner-with-us`). Deliberately takes NO
+   * User/actor argument and is never wrapped by `requireAuth` anywhere in the UI: requiring
+   * registration before someone can volunteer would filter out exactly the RWA/civic-org
+   * volunteers this recruitment funnel exists to reach (an RWA is an institution, not a citizen
+   * with a home ward). Always lands `pending` — see `reviewInterest` for the only way status
+   * ever changes ("nobody self-activates", §5.13/§14).
+   *
+   * NOT audited: submitting an interest is neither a published data change nor a moderation/
+   * admin action (the audit log's standing scope — see castIssueVote's note above for the same
+   * reasoning applied elsewhere), and it would put an anonymous applicant's name/contact into an
+   * admin-readable log before any admin has even looked at the application.
+   *
+   * RATE-LIMIT GUARD (§6.3) — HONEST SCOPE: this is a client-side, single-browser prototype with
+   * no server, no IP address, and (per project ban) no Date.now() to build a real time-window
+   * limiter from. The guard below refuses a second submission for the same (contact, path) pair
+   * while an earlier one from that contact is still `pending` — enough to stop a naive repeated
+   * submit (double-click, a resubmitted form, a dumb retry loop) from queuing duplicate
+   * admin-review items, mirroring submitFlag's existing "collapse duplicates" pattern above. It
+   * does NOT: limit submission frequency/rate in any real sense, identify or block a specific
+   * browser/device/IP, or stop an abuser who simply varies the contact field each time. This is
+   * NOT abuse protection — real rate-limiting needs a real backend, which this prototype has
+   * none of.
+   */
+  function submitInterest(input: SubmitInterestInput): Interest {
+    const contactKey = input.contact.trim().toLowerCase()
+    const duplicate = state.interests.find(
+      (i) =>
+        i.status === 'pending' &&
+        i.path === input.path &&
+        i.contact.trim().toLowerCase() === contactKey,
+    )
+    if (duplicate) {
+      throw new Error(
+        'You already have a pending application for this path — an admin will review it soon.',
+      )
+    }
+
+    const n = nextSeq()
+    const interest: Interest = {
+      id: `interest-${n}`,
+      path: input.path,
+      name: input.name,
+      contact: input.contact,
+      wardId: input.wardId,
+      note: input.note,
+      status: 'pending',
+      createdAt: `t${n}`,
+    }
+    state.interests.push(interest)
+    persist()
+    return interest
+  }
+
+  /**
+   * Admin decision on an anonymous expression of interest (PRD §5.13 — "nobody self-activates").
+   * This function ONLY records the decision — flips `status` and writes one audit entry for the
+   * moderation action itself. It does NOT provision a partner slug/kit for an accepted
+   * `awareness` applicant, or hand a `curation` applicant off into the curator-vetting flow: both
+   * are real admin-facing workflows that build on top of this store API in the later
+   * admin-review-page task (this task's scope is "provide the store API").
+   *
+   * Audited as a moderation action, per the audit log's standing scope of "published data changes
+   * + moderation/admin actions". Deliberately does NOT copy the applicant's name/contact into the
+   * audit detail string — the audit log is admin-readable, and the same judgment applied to
+   * citizen votes/prefs applies here: the moderation trail needs to record WHAT decision was made
+   * and on WHICH application id, not re-expose an anonymous applicant's personal contact details
+   * a second time in a differently-scoped, differently-audienced log.
+   */
+  function reviewInterest(id: string, decision: InterestDecision, admin: User): void {
+    requireAdmin(admin)
+    const interest = requireInterest(id)
+    interest.status = decision
+    appendAudit({
+      actorUserId: admin.id,
+      action: 'interest.reviewed',
+      wardId: interest.wardId,
+      detail: `${decision === 'accepted' ? 'Accepted' : 'Rejected'} ${interest.path} interest application ${interest.id}.`,
+    })
+    persist()
   }
 
   /**
@@ -974,6 +1089,7 @@ export function createStore() {
     listSubmissionsByUser,
     listAudit,
     listUsers,
+    listInterests,
     getPartner,
     listPartners,
     partnerWardCoverage,
@@ -982,6 +1098,8 @@ export function createStore() {
     reset,
     stamp,
     submitFlag,
+    submitInterest,
+    reviewInterest,
     castIssueVote,
     acceptSubmission,
     rejectSubmission,

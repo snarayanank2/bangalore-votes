@@ -590,3 +590,135 @@ test('createUser does not leak the src partner slug into the audit log', () => {
   const audit = s.listAudit()
   expect(audit.some((a) => a.detail.includes('demo-rwa-one'))).toBe(false)
 })
+
+// --- Task 4: /partner-with-us anonymous expression-of-interest funnel (PRD §5.13) --------------
+
+test('submitInterest requires no User/actor argument at all — it is a genuinely anonymous write', () => {
+  const s = createStore()
+  // TypeScript-level proof lives in the call below (no user object is ever passed); this
+  // assertion is the runtime half: the submission succeeds and lands `pending` with nobody
+  // logged in and no account created as a side effect.
+  const before = s.listUsers().length
+  const interest = s.submitInterest({
+    path: 'awareness',
+    name: 'Jane Doe',
+    contact: 'jane@example.com',
+    note: 'Happy to forward to our building WhatsApp group.',
+  })
+  expect(interest.status).toBe('pending')
+  expect(s.listUsers().length).toBe(before) // no account was created or required
+})
+
+test('submitInterest captures both paths', () => {
+  const s = createStore()
+  const awareness = s.submitInterest({
+    path: 'awareness',
+    name: 'A',
+    contact: 'a@example.com',
+    note: '',
+  })
+  const curation = s.submitInterest({
+    path: 'curation',
+    name: 'B',
+    contact: 'b@example.com',
+    wardId: 'jayanagar',
+    note: 'I live in the ward and want to help keep it accurate.',
+  })
+  expect(awareness.path).toBe('awareness')
+  expect(curation.path).toBe('curation')
+  expect(curation.wardId).toBe('jayanagar')
+})
+
+test('submissions land in the admin queue as pending, listed by listInterests', () => {
+  const s = createStore()
+  s.submitInterest({ path: 'awareness', name: 'A', contact: 'a@example.com', note: '' })
+  const all = s.listInterests()
+  expect(all).toHaveLength(1)
+  expect(all[0].status).toBe('pending')
+})
+
+test('submitInterest rate-limit guard: refuses a second submission from the same contact+path while the first is still pending', () => {
+  const s = createStore()
+  s.submitInterest({ path: 'awareness', name: 'A', contact: 'dup@example.com', note: '' })
+  expect(() =>
+    s.submitInterest({ path: 'awareness', name: 'A again', contact: 'dup@example.com', note: '' }),
+  ).toThrow(/already have a pending application/i)
+  expect(s.listInterests()).toHaveLength(1)
+})
+
+test('submitInterest rate-limit guard does not block a different contact, a different path, or a resubmission after the first was resolved', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const first = s.submitInterest({ path: 'awareness', name: 'A', contact: 'dup2@example.com', note: '' })
+
+  // Different path, same contact -> allowed.
+  expect(() =>
+    s.submitInterest({ path: 'curation', name: 'A', contact: 'dup2@example.com', note: '' }),
+  ).not.toThrow()
+
+  // Different contact, same path -> allowed.
+  expect(() =>
+    s.submitInterest({ path: 'awareness', name: 'C', contact: 'someone-else@example.com', note: '' }),
+  ).not.toThrow()
+
+  // Same contact+path, but the first was already resolved -> allowed again.
+  s.reviewInterest(first.id, 'accepted', admin)
+  expect(() =>
+    s.submitInterest({ path: 'awareness', name: 'A', contact: 'dup2@example.com', note: '' }),
+  ).not.toThrow()
+})
+
+test('reviewInterest requires an admin actor', () => {
+  const s = createStore()
+  const cur = curator()
+  const interest = s.submitInterest({ path: 'awareness', name: 'A', contact: 'a2@example.com', note: '' })
+  expect(() => s.reviewInterest(interest.id, 'accepted', cur)).toThrow(/admin/i)
+  expect(s.listInterests().find((i) => i.id === interest.id)?.status).toBe('pending')
+})
+
+test('reviewInterest: nobody self-activates — status only changes via an explicit admin decision, and only that decision is audited', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const interest = s.submitInterest({ path: 'curation', name: 'A', contact: 'a3@example.com', wardId: 'koramangala', note: '' })
+
+  // Submitting alone never grants/activates anything.
+  expect(s.listInterests().find((i) => i.id === interest.id)?.status).toBe('pending')
+  const auditBefore = s.listAudit().length
+
+  s.reviewInterest(interest.id, 'accepted', admin)
+
+  expect(s.listInterests().find((i) => i.id === interest.id)?.status).toBe('accepted')
+  const audit = s.listAudit()
+  expect(audit.length).toBe(auditBefore + 1) // exactly one entry, for the admin's decision
+  expect(audit[audit.length - 1].actorUserId).toBe(admin.id)
+})
+
+test('reviewInterest can also reject', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const interest = s.submitInterest({ path: 'awareness', name: 'A', contact: 'a4@example.com', note: '' })
+  s.reviewInterest(interest.id, 'rejected', admin)
+  expect(s.listInterests().find((i) => i.id === interest.id)?.status).toBe('rejected')
+})
+
+test('reviewInterest throws for an unknown interest id', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  expect(() => s.reviewInterest('interest-does-not-exist', 'accepted', admin)).toThrow(/unknown interest/i)
+})
+
+test('reviewInterest does not dump the applicant name/contact into the audit-log detail string', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const interest = s.submitInterest({
+    path: 'awareness',
+    name: 'Very Identifiable Name',
+    contact: 'private-contact@example.com',
+    note: '',
+  })
+  s.reviewInterest(interest.id, 'accepted', admin)
+  const audit = s.listAudit()
+  const entry = audit[audit.length - 1]
+  expect(entry.detail).not.toContain('Very Identifiable Name')
+  expect(entry.detail).not.toContain('private-contact@example.com')
+})
