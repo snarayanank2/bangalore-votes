@@ -146,3 +146,57 @@ test('setHomeWard rejects an unknown ward id', () => {
   const c = citizen()
   expect(() => s.setHomeWard(c.id, 'not-a-real-ward')).toThrow(/unknown ward/i)
 })
+
+// --- Task 19: setLanguagePref, setNotificationPrefs (account pages) ---------------------------
+
+test('setLanguagePref updates the user language and persists, without writing an audit entry', () => {
+  const s = createStore()
+  const c = citizen()
+  expect(c.language).toBe('en') // sanity: seed citizen starts in English
+
+  const before = s.listAudit().length
+  s.setLanguagePref(c.id, 'kn')
+
+  expect(s.listUsers().find((u) => u.id === c.id)?.language).toBe('kn')
+  expect(s.listAudit().length).toBe(before) // personal setting — not audited (privacy)
+})
+
+test('setLanguagePref persists across a fresh createStore() (reload)', () => {
+  const s1 = createStore()
+  s1.setLanguagePref(citizen().id, 'kn')
+  const s2 = createStore()
+  expect(s2.listUsers().find((u) => u.id === 'u-citizen')?.language).toBe('kn')
+})
+
+test('setNotificationPrefs updates the user prefs and persists, without writing an audit entry', () => {
+  const s = createStore()
+  const c = citizen()
+  const before = s.listAudit().length
+
+  s.setNotificationPrefs(c.id, {
+    emailEnabled: true,
+    whatsappEnabled: false,
+    subscriptions: { electionNotice: true, rollDeadlines: false, candidateChanges: true },
+  })
+
+  const updated = s.listUsers().find((u) => u.id === c.id)
+  expect(updated?.notificationPrefs).toEqual({
+    emailEnabled: true,
+    whatsappEnabled: false,
+    subscriptions: { electionNotice: true, rollDeadlines: false, candidateChanges: true },
+  })
+  expect(s.listAudit().length).toBe(before) // personal setting — not audited (privacy)
+})
+
+test('setNotificationPrefs persists across a fresh createStore() (reload)', () => {
+  const s1 = createStore()
+  s1.setNotificationPrefs(citizen().id, {
+    emailEnabled: true,
+    whatsappEnabled: true,
+    subscriptions: { electionNotice: false, rollDeadlines: true, candidateChanges: false },
+  })
+  const s2 = createStore()
+  expect(s2.listUsers().find((u) => u.id === 'u-citizen')?.notificationPrefs?.whatsappEnabled).toBe(
+    true,
+  )
+})

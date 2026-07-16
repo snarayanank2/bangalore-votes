@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Role, User } from '../types'
 import type { Store } from '../store/store'
+import { useStoreVersion } from './DataContext'
 
 const STORAGE_KEY = 'bv-auth'
 
@@ -34,6 +35,13 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
     () => localStorage.getItem(STORAGE_KEY) ?? 'anon',
   )
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
+  // Re-render whenever ANY store mutation happens (not just auth's own login/logout state), so
+  // `user` below is recomputed from the latest store data. Without this, a page that fires two
+  // store mutations in a row (e.g. Notifications.tsx toggling two prefs back to back) would read
+  // a stale `user` object on the second mutation's derived-state computation — the first
+  // mutation's effect would never have reached this context, since nothing here forced
+  // AuthProvider itself to re-render on a store change that didn't originate from loginAs/logout.
+  useStoreVersion()
 
   useEffect(() => {
     if (userId === 'anon') localStorage.removeItem(STORAGE_KEY)

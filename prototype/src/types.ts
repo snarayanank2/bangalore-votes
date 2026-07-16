@@ -35,6 +35,19 @@ export interface Issue { id: string; wardId: string; title: string; description:
 export interface IssueVote { userId: string; wardId: string; issueIds: string[] } // up to 3
 
 export type Role = 'anonymous' | 'citizen' | 'curator' | 'admin'
+
+/** A registered user's notification preferences (IA §4.2). Purely a personal setting — never
+ * written to the audit log (see the "no audit" comment on setNotificationPrefs in store.ts). */
+export interface NotificationPrefs {
+  emailEnabled: boolean
+  whatsappEnabled: boolean
+  subscriptions: {
+    electionNotice: boolean   // election date / official notice updates
+    rollDeadlines: boolean    // voter roll deadline reminders
+    candidateChanges: boolean // candidate profile changes in the user's ward
+  }
+}
+
 export interface User {
   id: string
   name: string
@@ -44,6 +57,7 @@ export interface User {
   language: 'en' | 'kn'
   curatorWardIds?: string[] // scope for curators
   active: boolean
+  notificationPrefs?: NotificationPrefs // undefined until the user visits /account/notifications
 }
 
 export type SubmissionStatus = 'pending' | 'accepted' | 'rejected'

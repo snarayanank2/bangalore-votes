@@ -4,12 +4,21 @@ import type {
   Candidate,
   Issue,
   IssueVote,
+  NotificationPrefs,
   Role,
   Source,
   Submission,
   User,
   Ward,
 } from '../types'
+
+/** Starting point for a user's notification prefs before they've ever visited
+ * /account/notifications — everything off, so nothing is implied as already subscribed. */
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  emailEnabled: false,
+  whatsappEnabled: false,
+  subscriptions: { electionNotice: false, rollDeadlines: false, candidateChanges: false },
+}
 
 const KEY = 'bv-store'
 
@@ -470,6 +479,38 @@ export function createStore() {
     persist()
   }
 
+  /**
+   * Sets a user's saved UI/notification language (PRD §8 — governs their notifications, and
+   * (via the Account page) the session-wide language toggle when they change it there).
+   *
+   * NOT audited, by controller decision: the audit log's scope is published data changes and
+   * moderation/admin actions (see the file-level comment on castIssueVote above for the same
+   * reasoning applied to individual issue votes). A citizen's own language preference is a
+   * personal setting, not published data — writing it into the admin-readable audit log would
+   * only add noise, not provenance anyone needs.
+   */
+  function setLanguagePref(userId: string, language: User['language']): void {
+    const user = requireUser(userId)
+    user.language = language
+    persist()
+  }
+
+  /**
+   * Sets a user's notification channel + subscription preferences (IA §4.2 — email/WhatsApp
+   * toggles, ward-update subscriptions). Simulated only: this store never sends anything, it just
+   * records the preference (see Notifications.tsx for the user-facing "simulated" disclosure).
+   *
+   * NOT audited, by controller decision, for the same privacy reason as setLanguagePref/
+   * castIssueVote above: a user's own notification settings are a personal preference, not
+   * published data or a moderation action — dumping "user X subscribed to Y" into the
+   * admin-visible audit log would be a privacy leak with no provenance value.
+   */
+  function setNotificationPrefs(userId: string, prefs: NotificationPrefs): void {
+    const user = requireUser(userId)
+    user.notificationPrefs = { ...prefs, subscriptions: { ...prefs.subscriptions } }
+    persist()
+  }
+
   // Persist the freshly-seeded (or rehydrated) state immediately so that
   // 'localStorage.getItem(KEY)' is truthy right after construction.
   persist()
@@ -502,6 +543,8 @@ export function createStore() {
     setUserRole,
     createUser,
     setHomeWard,
+    setLanguagePref,
+    setNotificationPrefs,
   }
 }
 
