@@ -2,8 +2,16 @@ export type Corporation = 'North' | 'South' | 'East' | 'West' | 'Central'
 export type SourceType = 'affidavit' | 'curator'
 
 export interface Source { type: SourceType; label: string; url?: string }
-/** A value paired with its provenance. */
-export interface Sourced<T> { value: T; source: Source }
+/** A value paired with its provenance.
+ *  `notDeclared` (PRD §9.1): marks this field as an EXPLICIT "not declared" answer — a valid,
+ *  COMPLETE fact about the underlying affidavit (e.g. "the candidate declared no pending cases"
+ *  is different from "nobody has looked yet"), not a gap. Meaningful primarily for the three
+ *  affidavit-derived candidate fields (`pendingCases`, `assets`, `education`); the store's
+ *  ward-readiness completeness check (`wardCompleteness` in store.ts) treats a field with
+ *  `notDeclared: true` as complete regardless of whether `value` is empty. A `notDeclared` field
+ *  still MUST carry a real `source` — "not declared" is a fact about the affidavit, so it still
+ *  needs sourcing to that affidavit; `updateCandidate`'s sourcing guard applies unchanged. */
+export interface Sourced<T> { value: T; source: Source; notDeclared?: boolean }
 
 export interface Ward {
   id: string            // slug, e.g. "koramangala"
@@ -12,6 +20,23 @@ export interface Ward {
   corporation: Corporation
   oldWardsNote: string  // human description of old→new mapping
   issueIds: string[]    // curator-defined votable issues for this ward
+  /** PRD §9.1 ward data-readiness gating — curator sign-off that this ward is ready for a
+   *  candidate-referencing send. Present only once a curator has explicitly marked the ward
+   *  ready via `signOffWard`; cleared automatically by `addCandidate`/`withdrawCandidate` in
+   *  store.ts whenever the ward's candidate set materially changes (see
+   *  `signOffClearedByCandidateChange` below) — a sign-off given against one candidate list must
+   *  never silently apply to a different one. */
+  readySignOff?: { by: string; at: string }
+  /** True once a sign-off above has been cleared automatically by a candidate-set change, and no
+   *  fresh sign-off has happened since (a fresh `signOffWard` resets this to `false`). Lets the
+   *  curator dashboard call these wards out ahead of wards that were simply never signed off. */
+  signOffClearedByCandidateChange?: boolean
+  /** PRD §9.1 admin override of a comms hold — lets a candidate-referencing send go out for this
+   *  ward despite it not being (mechanically complete AND signed off), e.g. a known
+   *  curator-coverage gap an admin has chosen not to block a send on. Admin-only
+   *  (`overrideHold`). NOT auto-cleared by a candidate-set change — §9.1 only specifies
+   *  auto-clearing for `readySignOff`. */
+  holdOverride?: { by: string; at: string }
 }
 
 export interface NewsLink { title: string; url: string; publisher: string }

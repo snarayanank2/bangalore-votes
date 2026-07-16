@@ -37,6 +37,15 @@ export default function Dashboard() {
 
   const candidates = wards.flatMap((ward) => data.listCandidatesByWard(ward.id))
 
+  // PRD §9.1 / IA curator dashboard: wards in scope not yet signed off for candidate-referencing
+  // comms, with a ward whose sign-off was CLEARED BY A CANDIDATE-SET CHANGE called out ahead of a
+  // ward that was simply never signed off — the failure is invisible from the curator's side
+  // unless this list says so.
+  const awaitingSignOff = wards
+    .map((ward) => ({ ward, readiness: data.wardReadiness(ward.id) }))
+    .filter((row) => !row.readiness.signedOff)
+    .sort((a, b) => Number(b.readiness.clearedByCandidateChange) - Number(a.readiness.clearedByCandidateChange))
+
   const scopedWardIds = new Set(wards.map((w) => w.id))
   const recentActivity = data
     .listAudit()
@@ -62,6 +71,39 @@ export default function Dashboard() {
           {pendingCount} pending review{pendingCount === 1 ? '' : 's'}
         </p>
       </Link>
+
+      <section aria-labelledby="readiness-heading" className="space-y-3">
+        <h2 id="readiness-heading" className="text-lg font-semibold text-ink">
+          Ward readiness for candidate comms
+        </h2>
+        {awaitingSignOff.length === 0 ? (
+          <p className="text-sm text-ink/70">
+            {wards.length === 0
+              ? 'No wards are assigned to you yet.'
+              : 'Every ward in scope is signed off and ready.'}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {awaitingSignOff.map(({ ward, readiness }) => (
+              <li key={ward.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+                <Link
+                  to={`/curator/ward/${ward.id}`}
+                  className="font-medium text-brand underline underline-offset-2 hover:no-underline"
+                >
+                  {ward.name}
+                </Link>
+                <span className="ml-2 text-ink/70">
+                  {readiness.clearedByCandidateChange
+                    ? 'Sign-off cleared — the candidate list changed since the last sign-off.'
+                    : readiness.complete
+                      ? 'Complete — awaiting sign-off.'
+                      : 'Not yet complete.'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section aria-labelledby="quick-links-heading" className="space-y-3">
         <h2 id="quick-links-heading" className="text-lg font-semibold text-ink">

@@ -1,7 +1,39 @@
-import { createStore } from './store'
+import { createStore, type NewCandidateInput } from './store'
+import type { Sourced } from '../types'
 
 const curator = () => createStore().listUsers().find(u => u.role === 'curator')!
 const citizen = () => createStore().listUsers().find(u => u.role === 'citizen')!
+
+// --- Task 5 fixtures: ward data-readiness gating (PRD §9.1) ------------------------------------
+
+function validSourced(value: string): Sourced<string> {
+  return { value, source: { type: 'affidavit', label: 'EC affidavit' } }
+}
+
+/** A field explicitly marked "not declared" — PRD §9.1: a valid, complete answer, not a gap.
+ *  Still carries a real source, since it's a fact about the affidavit. */
+function notDeclaredSourced(): Sourced<string> {
+  return { value: '', source: { type: 'affidavit', label: 'EC affidavit — Form 26' }, notDeclared: true }
+}
+
+/** A field with no value and no `notDeclared` marker — a genuine gap, not yet transcribed from
+ *  the affidavit (still carries a source, since addCandidate's own guard requires one). */
+function gapSourced(): Sourced<string> {
+  return { value: '', source: { type: 'affidavit', label: 'EC affidavit' } }
+}
+
+function fullCandidateInput(overrides: Partial<NewCandidateInput> = {}): NewCandidateInput {
+  return {
+    name: 'New Nominee',
+    party: 'Independent',
+    trackRecord: validSourced('First-time contestant.'),
+    pendingCases: validSourced('No pending cases.'),
+    assets: validSourced('Rs 10 lakh.'),
+    education: validSourced('B.A.'),
+    approachability: validSourced('Contactable via phone.'),
+    ...overrides,
+  }
+}
 
 test('castIssueVote rejects more than 3 issues', () => {
   const s = createStore()
@@ -721,4 +753,286 @@ test('reviewInterest does not dump the applicant name/contact into the audit-log
   const entry = audit[audit.length - 1]
   expect(entry.detail).not.toContain('Very Identifiable Name')
   expect(entry.detail).not.toContain('private-contact@example.com')
+})
+
+// --- Task 5: ward data-readiness gating (PRD §9.1) ----------------------------------------------
+
+// -- wardCompleteness: the mechanical check --
+
+test('wardCompleteness: a freshly-seeded ward with fully sourced candidates is complete', () => {
+  const s = createStore()
+  const result = s.wardCompleteness('koramangala')
+  expect(result.complete).toBe(true)
+  expect(result.candidateCount).toBe(3)
+  expect(result.issues).toEqual([])
+})
+
+test('wardCompleteness: a ward with zero candidates on record is vacuously complete', () => {
+  const s = createStore()
+  const result = s.wardCompleteness('jayanagar')
+  expect(result.complete).toBe(true)
+  expect(result.candidateCount).toBe(0)
+})
+
+test('wardCompleteness: an empty, un-marked field is a gap, not complete', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  s.addCandidate('jayanagar', fullCandidateInput({ pendingCases: gapSourced() }), admin)
+
+  const result = s.wardCompleteness('jayanagar')
+  expect(result.complete).toBe(false)
+  expect(result.issues).toHaveLength(1)
+  expect(result.issues[0].reasons.join(' ')).toMatch(/pendingCases/)
+})
+
+test('wardCompleteness: "not declared" is a valid, complete answer — not a gap', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  s.addCandidate(
+    'jayanagar',
+    fullCandidateInput({
+      pendingCases: notDeclaredSourced(),
+      assets: notDeclaredSourced(),
+      education: notDeclaredSourced(),
+    }),
+    admin,
+  )
+
+  const result = s.wardCompleteness('jayanagar')
+  expect(result.complete).toBe(true)
+  expect(result.issues).toEqual([])
+})
+
+test('wardCompleteness: a "not declared" field still requires a real source', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  // addCandidate's own guard requires a source label at creation time, so build the gap by
+  // patching it in afterwards via a direct (still-guarded) updateCandidate call is not possible
+  // either — the guard applies there too. This proves the two guards agree: there is no store
+  // path that can produce a sourceless notDeclared field to begin with.
+  expect(() =>
+    s.addCandidate(
+      'jayanagar',
+      fullCandidateInput({
+        pendingCases: { value: '', source: { type: 'affidavit', label: '' }, notDeclared: true },
+      }),
+      admin,
+    ),
+  ).toThrow(/source/i)
+})
+
+// -- wardReadiness / signOffWard: the human half --
+
+test('wardReadiness: a mechanically complete ward is not ready until a curator signs off', () => {
+  const s = createStore()
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.complete).toBe(true)
+  expect(readiness.signedOff).toBe(false)
+  expect(readiness.ready).toBe(false)
+})
+
+test('signOffWard: a scoped curator can sign off a complete ward — it becomes ready and is audited', () => {
+  const s = createStore()
+  const auditBefore = s.listAudit().length
+
+  s.signOffWard('koramangala', curator())
+
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.signedOff).toBe(true)
+  expect(readiness.ready).toBe(true)
+  expect(s.listAudit().length).toBe(auditBefore + 1)
+  expect(s.listAudit()[s.listAudit().length - 1].action).toMatch(/signoff/i)
+})
+
+test('signOffWard: out-of-scope curator is refused inline, and never leaves a false "signed off" state', () => {
+  const s = createStore()
+  const auditBefore = s.listAudit().length
+  // malleshwaram is outside u-curator's scope (koramangala + indiranagar).
+  expect(() => s.signOffWard('malleshwaram', curator())).toThrow(/scope/i)
+  expect(s.wardReadiness('malleshwaram').signedOff).toBe(false)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('signOffWard: admin bypasses ward scope', () => {
+  const s = createStore()
+  expect(() => s.signOffWard('malleshwaram', s.listUsers().find((u) => u.role === 'admin')!)).not.toThrow()
+  expect(s.wardReadiness('malleshwaram').signedOff).toBe(true)
+})
+
+test('signOffWard: refuses to sign off an incomplete ward, leaving state + audit unchanged', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  s.addCandidate('jayanagar', fullCandidateInput({ assets: gapSourced() }), admin)
+  const auditBefore = s.listAudit().length
+
+  expect(() => s.signOffWard('jayanagar', admin)).toThrow(/complete/i)
+  expect(s.wardReadiness('jayanagar').signedOff).toBe(false)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+// -- addCandidate / withdrawCandidate: the only two store paths that change a ward's candidate set
+
+test('addCandidate records a new nomination, scoped, sourced, and audited', () => {
+  const s = createStore()
+  const auditBefore = s.listAudit().length
+
+  const candidate = s.addCandidate('koramangala', fullCandidateInput({ name: 'Fresh Filer' }), curator())
+
+  expect(candidate.wardId).toBe('koramangala')
+  expect(candidate.name).toBe('Fresh Filer')
+  expect(s.listCandidatesByWard('koramangala')).toHaveLength(4)
+  expect(s.listAudit().length).toBe(auditBefore + 1)
+})
+
+test('addCandidate respects curator ward scope, leaving candidates + audit unchanged', () => {
+  const s = createStore()
+  const before = s.listCandidatesByWard('malleshwaram').length
+  const auditBefore = s.listAudit().length
+  expect(() => s.addCandidate('malleshwaram', fullCandidateInput(), curator())).toThrow(/scope/i)
+  expect(s.listCandidatesByWard('malleshwaram')).toHaveLength(before)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('addCandidate refuses a field with no source, leaving candidates + audit unchanged', () => {
+  const s = createStore()
+  const before = s.listCandidatesByWard('koramangala').length
+  const auditBefore = s.listAudit().length
+  expect(() =>
+    s.addCandidate(
+      'koramangala',
+      fullCandidateInput({ assets: { value: 'Rs 1', source: { type: 'affidavit', label: '' } } }),
+      curator(),
+    ),
+  ).toThrow(/source/i)
+  expect(s.listCandidatesByWard('koramangala')).toHaveLength(before)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('withdrawCandidate removes the candidate record, scoped and audited', () => {
+  const s = createStore()
+  const auditBefore = s.listAudit().length
+  s.withdrawCandidate('c-kor-2', curator())
+  expect(s.listCandidatesByWard('koramangala')).toHaveLength(2)
+  expect(s.getCandidate('koramangala-s-gowda')).toBeUndefined()
+  expect(s.listAudit().length).toBe(auditBefore + 1)
+})
+
+test('withdrawCandidate respects curator ward scope, leaving candidates + audit unchanged', () => {
+  const s = createStore()
+  const before = s.listCandidatesByWard('malleshwaram').length
+  const auditBefore = s.listAudit().length
+  // c-mal-1 is in malleshwaram, outside u-curator's scope.
+  expect(() => s.withdrawCandidate('c-mal-1', curator())).toThrow(/scope/i)
+  expect(s.listCandidatesByWard('malleshwaram')).toHaveLength(before)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('withdrawCandidate throws for an unknown candidate id', () => {
+  const s = createStore()
+  expect(() => s.withdrawCandidate('does-not-exist', curator())).toThrow(/unknown candidate/i)
+})
+
+// -- THE SUBTLEST REQUIREMENT: sign-off is cleared automatically on a material candidate-set change --
+
+test('a new nomination clears an existing sign-off (subtlest requirement, add path)', () => {
+  const s = createStore()
+  s.signOffWard('koramangala', curator())
+  expect(s.wardReadiness('koramangala').signedOff).toBe(true)
+
+  s.addCandidate('koramangala', fullCandidateInput({ name: 'Late Filer' }), curator())
+
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.signedOff).toBe(false)
+  expect(readiness.ready).toBe(false)
+  expect(readiness.clearedByCandidateChange).toBe(true)
+})
+
+test('a withdrawal clears an existing sign-off (subtlest requirement, withdraw path)', () => {
+  const s = createStore()
+  s.signOffWard('koramangala', curator())
+  expect(s.wardReadiness('koramangala').signedOff).toBe(true)
+
+  s.withdrawCandidate('c-kor-3', curator())
+
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.signedOff).toBe(false)
+  // The remaining 2 candidates are still each fully sourced/complete — proves this is NOT just
+  // completeness incidentally flipping false; sign-off itself was cleared.
+  expect(readiness.complete).toBe(true)
+  expect(readiness.clearedByCandidateChange).toBe(true)
+})
+
+test('a plain field edit (updateCandidate) does NOT clear sign-off — only a set change does', () => {
+  const s = createStore()
+  s.signOffWard('koramangala', curator())
+
+  s.updateCandidate(
+    'koramangala-r-menon',
+    { assets: { value: 'Rs 9 crore', source: { type: 'affidavit', label: 'Revised EC affidavit' } } },
+    curator(),
+  )
+
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.signedOff).toBe(true)
+  expect(readiness.clearedByCandidateChange).toBe(false)
+})
+
+test('a fresh sign-off after a clearing candidate-set change resets clearedByCandidateChange', () => {
+  const s = createStore()
+  s.signOffWard('koramangala', curator())
+  s.addCandidate('koramangala', fullCandidateInput({ name: 'Another Filer' }), curator())
+  expect(s.wardReadiness('koramangala').clearedByCandidateChange).toBe(true)
+
+  s.signOffWard('koramangala', curator())
+
+  const readiness = s.wardReadiness('koramangala')
+  expect(readiness.signedOff).toBe(true)
+  expect(readiness.clearedByCandidateChange).toBe(false)
+})
+
+// -- overrideHold: admin-only release of a comms hold --
+
+test('overrideHold: admin releases a hold on an unready ward — it becomes ready and is audited', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  const auditBefore = s.listAudit().length
+
+  expect(s.wardReadiness('malleshwaram').ready).toBe(false)
+  s.overrideHold('malleshwaram', admin)
+
+  const readiness = s.wardReadiness('malleshwaram')
+  expect(readiness.overridden).toBe(true)
+  expect(readiness.ready).toBe(true)
+  expect(s.listAudit().length).toBe(auditBefore + 1)
+})
+
+test('overrideHold is admin-only', () => {
+  const s = createStore()
+  expect(() => s.overrideHold('malleshwaram', curator())).toThrow(/admin/i)
+  expect(s.wardReadiness('malleshwaram').overridden).toBe(false)
+})
+
+test('overrideHold refuses to override a ward that is already ready', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+  s.signOffWard('koramangala', admin)
+  expect(s.wardReadiness('koramangala').ready).toBe(true)
+
+  expect(() => s.overrideHold('koramangala', admin)).toThrow(/already ready|no.*hold/i)
+})
+
+// -- listHeldWards: the work queue /admin/partners (later task) will consume --
+
+test('listHeldWards lists every not-ready ward and excludes an overridden one', () => {
+  const s = createStore()
+  const admin = s.listUsers().find((u) => u.role === 'admin')!
+
+  const before = s.listHeldWards()
+  expect(before.map((w) => w.wardId)).toContain('malleshwaram')
+  expect(before.map((w) => w.wardId)).toContain('koramangala') // never signed off yet
+
+  s.overrideHold('malleshwaram', admin)
+  const after = s.listHeldWards()
+  expect(after.map((w) => w.wardId)).not.toContain('malleshwaram')
+  expect(after.map((w) => w.wardId)).toContain('koramangala')
 })

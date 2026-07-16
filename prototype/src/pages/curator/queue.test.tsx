@@ -56,6 +56,54 @@ test('admin dashboard sees the citywide pending count', () => {
   expect(screen.getByText(/1 pending review/i)).toBeInTheDocument()
 })
 
+// --- Task 5: ward readiness for candidate comms (PRD §9.1), curator dashboard --------------
+
+test('dashboard lists scoped wards awaiting sign-off', () => {
+  renderAt('/curator', 'u-curator')
+  // u-curator's scope is koramangala + indiranagar, and neither has ever been signed off.
+  expect(screen.getByRole('heading', { name: /ward readiness/i })).toBeInTheDocument()
+  const koramangalaLinks = screen.getAllByRole('link', { name: /koramangala/i })
+  expect(koramangalaLinks.length).toBeGreaterThan(0)
+  expect(screen.getAllByRole('link', { name: /indiranagar/i }).length).toBeGreaterThan(0)
+})
+
+test('a ward signed off drops off the awaiting-sign-off list', () => {
+  renderAt('/curator', 'u-curator')
+  act(() => {
+    store.signOffWard('koramangala', curatorUser())
+  })
+  const readinessSection = screen.getByRole('heading', { name: /ward readiness/i }).closest('section')!
+  expect(readinessSection).not.toHaveTextContent('Koramangala')
+  expect(readinessSection).toHaveTextContent('Indiranagar')
+})
+
+test('a ward whose sign-off was cleared by a candidate-set change is called out ahead of a never-signed-off ward', () => {
+  renderAt('/curator', 'u-curator')
+  act(() => {
+    store.signOffWard('koramangala', curatorUser())
+    store.addCandidate(
+      'koramangala',
+      {
+        name: 'Late Filer',
+        party: 'Independent',
+        trackRecord: { value: 'x', source: { type: 'curator', label: 'Curator note' } },
+        pendingCases: { value: 'x', source: { type: 'affidavit', label: 'EC affidavit' } },
+        assets: { value: 'x', source: { type: 'affidavit', label: 'EC affidavit' } },
+        education: { value: 'x', source: { type: 'affidavit', label: 'EC affidavit' } },
+        approachability: { value: 'x', source: { type: 'curator', label: 'Curator note' } },
+      },
+      curatorUser(),
+    )
+  })
+
+  const readinessSection = screen.getByRole('heading', { name: /ward readiness/i }).closest('section')!
+  expect(readinessSection).toHaveTextContent(/candidate list changed/i)
+  const items = readinessSection.querySelectorAll('li')
+  // Koramangala (cleared by candidate change) is called out first, ahead of Indiranagar (never
+  // signed off at all).
+  expect(items[0]).toHaveTextContent('Koramangala')
+})
+
 // --- /curator/queue ---------------------------------------------------------------------------
 
 test('queue lists only the pending, in-scope submission with its flag count', () => {

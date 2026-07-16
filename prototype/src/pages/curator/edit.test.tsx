@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
@@ -149,6 +149,75 @@ test('curator cannot save a ward outside their scope — inline error, no crash'
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   expect(screen.getByRole('alert')).toHaveTextContent(/scope/i)
+})
+
+// --- Task 5: ward data-readiness gating readiness panel (PRD §9.1) -----------------------------
+
+test('readiness panel shows a mechanically complete, not-yet-signed-off ward', () => {
+  renderAt('/curator/ward/koramangala', 'u-curator')
+  expect(screen.getByRole('heading', { name: /ward data.readiness/i })).toBeInTheDocument()
+  expect(screen.getByText(/not.*signed off/i)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeEnabled()
+})
+
+test('curator signs off a complete, in-scope ward — publishes immediately and audits', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/ward/koramangala', 'u-curator')
+  const auditBefore = store.listAudit().length
+
+  await user.click(screen.getByRole('button', { name: /mark ward ready/i }))
+
+  expect(store.wardReadiness('koramangala').signedOff).toBe(true)
+  expect(store.wardReadiness('koramangala').ready).toBe(true)
+  expect(store.listAudit().length).toBe(auditBefore + 1)
+  expect(screen.getAllByText(/ready for candidate-referencing comms/i).length).toBeGreaterThan(0)
+})
+
+test('signing off outside scope surfaces the store error inline and never leaves a false "signed off" state', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/ward/malleshwaram', 'u-curator')
+
+  await user.click(screen.getByRole('button', { name: /mark ward ready/i }))
+
+  expect(screen.getByRole('alert')).toHaveTextContent(/scope/i)
+  expect(store.wardReadiness('malleshwaram').signedOff).toBe(false)
+})
+
+test('a ward with an incomplete candidate lists the gap and disables sign-off', async () => {
+  // Seed the gap directly via the store (admin bypasses scope) before rendering the target page,
+  // mirroring the "re-adds a previously removed issue" pattern elsewhere in this file: mutate,
+  // unmount, then render fresh so the new DataProvider rehydrates from the persisted state.
+  const first = renderAt('/curator', 'u-admin')
+  act(() => {
+    store.addCandidate(
+      'jayanagar',
+      {
+        name: 'Incomplete Filer',
+        party: 'Independent',
+        trackRecord: { value: 'x', source: { type: 'curator', label: 'Curator note' } },
+        pendingCases: { value: '', source: { type: 'affidavit', label: 'EC affidavit' } }, // gap
+        assets: { value: 'x', source: { type: 'affidavit', label: 'EC affidavit' } },
+        education: { value: 'x', source: { type: 'affidavit', label: 'EC affidavit' } },
+        approachability: { value: 'x', source: { type: 'curator', label: 'Curator note' } },
+      },
+      store.listUsers().find((u) => u.role === 'admin')!,
+    )
+  })
+  first.unmount()
+
+  renderAt('/curator/ward/jayanagar', 'u-admin')
+  expect(screen.getByText(/incomplete filer/i)).toBeInTheDocument()
+  expect(screen.getByText(/pendingCases/)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeDisabled()
+})
+
+test('a ward with zero candidates on record is vacuously complete and can be signed off', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/ward/jayanagar', 'u-admin')
+
+  expect(screen.getByRole('button', { name: /mark ward ready/i })).toBeEnabled()
+  await user.click(screen.getByRole('button', { name: /mark ward ready/i }))
+  expect(store.wardReadiness('jayanagar').signedOff).toBe(true)
 })
 
 // --- /curator/ward/:wardId/issues ---------------------------------------------------------------

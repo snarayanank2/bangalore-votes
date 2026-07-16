@@ -7,6 +7,7 @@ import type {
   InterestStatus,
   Issue,
   IssueVote,
+  NewsLink,
   NotificationPrefs,
   Partner,
   Role,
@@ -189,6 +190,10 @@ function isValidSourcedPatchValue(value: unknown): value is Sourced<string> {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
   if (typeof v.value !== 'string') return false
+  // PRD §9.1: notDeclared is optional, but if present it must be a real boolean — a field marked
+  // "not declared" still MUST carry a valid source (checked below, unconditionally), since "not
+  // declared" is a fact about the affidavit, not the absence of sourcing.
+  if (v.notDeclared !== undefined && typeof v.notDeclared !== 'boolean') return false
   if (typeof v.source !== 'object' || v.source === null) return false
   const source = v.source as Record<string, unknown>
   if (typeof source.label !== 'string' || source.label.trim() === '') return false
@@ -202,10 +207,15 @@ function isValidSourcedPatchValue(value: unknown): value is Sourced<string> {
  *  however many wards this demo happens to seed. */
 const TOTAL_WARDS_CITYWIDE = 369
 
-/** A candidate's report card is "complete" (PRD §5.14 coverage) when every one of its five
- *  Sourced fields carries both a non-empty value and a non-empty source label. */
+/** A candidate's report card field is "complete" (PRD §5.14 coverage, and PRD §9.1's ward
+ *  completeness check — shared by both so the two definitions never drift apart) when it carries
+ *  a non-empty source label AND either a non-empty value OR an explicit `notDeclared: true`
+ *  marker. "Not declared" is a valid, complete answer (§9.1) — it still needs a real source, but
+ *  never needs a populated value on top of that. */
 function isCompleteSourcedField(field: Sourced<string>): boolean {
-  return field.value.trim() !== '' && field.source.label.trim() !== ''
+  if (field.source.label.trim() === '') return false
+  if (field.notDeclared) return true
+  return field.value.trim() !== ''
 }
 
 /** The five Sourced fields on a Candidate record, in a fixed order — reused by both the
@@ -237,6 +247,63 @@ export interface SubmissionEdit {
   field?: CandidateSourcedField
   value?: string
   source?: Source
+}
+
+// ---- Task 5: ward data-readiness gating (PRD §9.1) --------------------------------------------
+
+/** Everything needed to record a brand-new nomination in a ward (`addCandidate`) — the one of
+ *  two store paths (with `withdrawCandidate`) that can change a ward's candidate SET, as opposed
+ *  to `updateCandidate`, which only edits an existing candidate's field content. Sourcing is
+ *  mandatory on all five fields at creation time too (same guard as `updateCandidate`) — a
+ *  candidate can never enter the store without a source, "not declared" included. */
+export interface NewCandidateInput {
+  name: string
+  party: string
+  photoUrl?: string
+  trackRecord: Sourced<string>
+  pendingCases: Sourced<string>
+  assets: Sourced<string>
+  education: Sourced<string>
+  approachability: Sourced<string>
+  news?: NewsLink[]
+}
+
+/** Per-candidate gaps found by `wardCompleteness` — empty `reasons` never appears (a candidate
+ *  with no gaps is simply absent from `WardCompleteness.issues`). */
+export interface WardCompletenessCandidateIssue {
+  candidateId: string
+  candidateName: string
+  reasons: string[]
+}
+
+/** PRD §9.1's MECHANICAL half of ward readiness — see `wardCompleteness`'s doc comment. */
+export interface WardCompleteness {
+  wardId: string
+  complete: boolean
+  candidateCount: number
+  issues: WardCompletenessCandidateIssue[]
+}
+
+/** PRD §9.1: `{ complete, signedOff, ready }` plus two extra fields this codebase's UI needs —
+ *  see `wardReadiness`'s doc comment for what each means. */
+export interface WardReadiness {
+  wardId: string
+  complete: boolean
+  signedOff: boolean
+  /** True when a PRIOR sign-off was cleared by a candidate-set change and nothing has re-signed
+   *  it off since — PRD §9.1's subtlest requirement, surfaced so a curator dashboard can call out
+   *  these wards ahead of ones that were simply never signed off. */
+  clearedByCandidateChange: boolean
+  overridden: boolean
+  ready: boolean
+}
+
+/** One row of `listHeldWards()` — the work queue `/admin/partners` (later task) shows admins so
+ *  they can see curator-coverage gaps and, where warranted, `overrideHold`. */
+export interface HeldWard {
+  wardId: string
+  wardName: string
+  readiness: WardReadiness
 }
 
 /**
@@ -594,6 +661,91 @@ export function createStore() {
     return structuredClone(metrics)
   }
 
+  /** PRD §9.1 completeness: does one candidate's report card carry everything required for a
+   *  ward's data to be ready for a candidate-referencing send? Returns a list of human-readable
+   *  gaps — empty when the candidate has none. Name/party come straight off the EC nomination and
+   *  must simply be present (non-empty); each of the five Sourced fields must carry a real
+   *  source, and either a populated value or an explicit `notDeclared` marker (§9.1: a valid,
+   *  complete answer, not a gap) — see `isCompleteSourcedField`. */
+  function candidateReadinessIssues(candidate: Candidate): string[] {
+    const issues: string[] = []
+    if (!candidate.name.trim()) issues.push('Candidate name is missing.')
+    if (!candidate.party.trim()) issues.push('Party / independent status is missing.')
+    for (const field of CANDIDATE_SOURCED_FIELDS) {
+      if (!isCompleteSourcedField(candidate[field])) {
+        issues.push(
+          `"${field}" needs a source, and either a value or an explicit "not declared" marker.`,
+        )
+      }
+    }
+    return issues
+  }
+
+  /**
+   * PRD §9.1's MECHANICAL completeness check — half of what makes a ward "ready" for a
+   * candidate-referencing send (the other half is human curator sign-off — see `signOffWard`).
+   * Every candidate currently on record for the ward (i.e. who has filed a nomination) must carry
+   * name + party and every Sourced field either populated or explicitly `notDeclared`, each with
+   * a real source. A ward with zero candidates on record is vacuously complete — there is nothing
+   * to check yet (it still needs sign-off before `wardReadiness` calls it `ready`).
+   *
+   * Read selector: does not throw for an unknown wardId (matches `listCandidatesByWard`'s
+   * convention) — an id with no matching candidates is just reported as 0 candidates, complete.
+   */
+  function wardCompleteness(wardId: string): WardCompleteness {
+    const candidates = state.candidates.filter((c) => c.wardId === wardId)
+    const issues: WardCompletenessCandidateIssue[] = []
+    for (const candidate of candidates) {
+      const reasons = candidateReadinessIssues(candidate)
+      if (reasons.length > 0) {
+        issues.push({ candidateId: candidate.id, candidateName: candidate.name, reasons })
+      }
+    }
+    return structuredClone({
+      wardId,
+      complete: issues.length === 0,
+      candidateCount: candidates.length,
+      issues,
+    })
+  }
+
+  /**
+   * PRD §9.1: a ward is `ready` for a candidate-referencing send only when BOTH `complete`
+   * (mechanical, see `wardCompleteness`) AND `signedOff` (human, see `signOffWard`) hold — or an
+   * admin has explicitly `overridden` the hold (see `overrideHold`). `clearedByCandidateChange`
+   * flags a ward whose sign-off was automatically cleared by a candidate-set change (§9.1's
+   * subtlest requirement) so a curator dashboard can call it out ahead of a ward that was simply
+   * never signed off. Read selector: does not throw for an unknown wardId.
+   */
+  function wardReadiness(wardId: string): WardReadiness {
+    const ward = state.wards.find((w) => w.id === wardId)
+    const completeness = wardCompleteness(wardId)
+    const signedOff = ward?.readySignOff !== undefined
+    const overridden = ward?.holdOverride !== undefined
+    const clearedByCandidateChange = ward?.signOffClearedByCandidateChange === true
+    const ready = (completeness.complete && signedOff) || overridden
+    return structuredClone({
+      wardId,
+      complete: completeness.complete,
+      signedOff,
+      clearedByCandidateChange,
+      overridden,
+      ready,
+    })
+  }
+
+  /** Wards NOT currently ready for a candidate-referencing send (PRD §9.1) — the work queue
+   *  `/admin/partners` (later task) surfaces so admins can see curator-coverage gaps and, where
+   *  warranted, `overrideHold`. An overridden ward is `ready` (see `wardReadiness`), so it never
+   *  appears here once overridden. */
+  function listHeldWards(): HeldWard[] {
+    return structuredClone(
+      state.wards
+        .map((ward) => ({ wardId: ward.id, wardName: ward.name, readiness: wardReadiness(ward.id) }))
+        .filter((row) => !row.readiness.ready),
+    )
+  }
+
   // ---- lifecycle -----------------------------------------------------------
 
   function subscribe(fn: () => void): () => void {
@@ -850,6 +1002,94 @@ export function createStore() {
     persist()
   }
 
+  /**
+   * PRD §9.1's subtlest requirement: a ward's sign-off is only ever valid against the exact
+   * candidate set it was given for. Called by every store path that changes WHICH candidates
+   * exist in a ward — today that is exactly `addCandidate` and `withdrawCandidate` below, and NO
+   * other mutation (in particular, NOT `updateCandidate`, which only edits an existing
+   * candidate's field content and is not a "candidate set" change). Any future mutation that adds
+   * or removes a candidate from a ward MUST call this too. No-op on `signOffClearedByCandidateChange`
+   * if the ward was not currently signed off, so this never fabricates a "was cleared" flag for a
+   * ward that was never signed off in the first place.
+   */
+  function clearReadySignOffForCandidateChange(ward: Ward): void {
+    if (ward.readySignOff !== undefined) {
+      ward.signOffClearedByCandidateChange = true
+    }
+    ward.readySignOff = undefined
+  }
+
+  /**
+   * Records a new nomination filed in a ward (PRD §9.1: "...a new nomination..." materially
+   * changes the candidate set). Ward-scoped like every other curator write. Sourcing is mandatory
+   * on every one of the five report-card fields at creation time too — reuses the exact same
+   * `isValidSourcedPatchValue` guard as `updateCandidate`, so a candidate can never enter the
+   * store with an invalid/missing source (a `notDeclared` field still needs a real source — see
+   * `Sourced.notDeclared`'s doc comment in types.ts). All guards run before any write. Clears the
+   * ward's sign-off (see `clearReadySignOffForCandidateChange`) since the candidate list it was
+   * given against no longer exists unchanged. Published change: audited.
+   */
+  function addCandidate(wardId: string, input: NewCandidateInput, curator: User): Candidate {
+    const ward = requireWard(wardId)
+    requireScope(curator, wardId)
+    if (!input.name.trim()) throw new Error("Enter the candidate's name.")
+    if (!input.party.trim()) throw new Error('Enter the candidate’s party (or "Independent").')
+    for (const field of CANDIDATE_SOURCED_FIELDS) {
+      if (!isValidSourcedPatchValue(input[field])) {
+        throw new Error(
+          `Cannot record this candidate: "${field}" needs a non-empty source label and a source type of 'affidavit' or 'curator'.`,
+        )
+      }
+    }
+    const n = nextSeq()
+    const candidate: Candidate = {
+      id: `c-${n}`,
+      slug: `${wardId}-candidate-${n}`,
+      wardId,
+      name: input.name.trim(),
+      photoUrl: input.photoUrl ?? '',
+      party: input.party.trim(),
+      trackRecord: input.trackRecord,
+      pendingCases: input.pendingCases,
+      assets: input.assets,
+      education: input.education,
+      approachability: input.approachability,
+      news: input.news ?? [],
+    }
+    state.candidates.push(candidate)
+    clearReadySignOffForCandidateChange(ward)
+    appendAudit({
+      actorUserId: curator.id,
+      action: 'candidate.nominated',
+      wardId,
+      detail: `Recorded new nomination: ${candidate.name} (${candidate.id}).`,
+    })
+    persist()
+    return structuredClone(candidate)
+  }
+
+  /**
+   * Records a withdrawn nomination (PRD §9.1: "...or a withdrawal") — removes the candidate
+   * record entirely, mirroring how a withdrawn candidate no longer appears anywhere
+   * citizen-facing. Ward-scoped by the candidate's own wardId, checked before any write. Clears
+   * the ward's sign-off for the same reason as `addCandidate`. Published change: audited.
+   */
+  function withdrawCandidate(candidateId: string, curator: User): void {
+    const candidate = state.candidates.find((c) => c.id === candidateId)
+    if (!candidate) throw new Error(`Unknown candidate: ${candidateId}`)
+    requireScope(curator, candidate.wardId)
+    const ward = requireWard(candidate.wardId)
+    state.candidates = state.candidates.filter((c) => c.id !== candidateId)
+    clearReadySignOffForCandidateChange(ward)
+    appendAudit({
+      actorUserId: curator.id,
+      action: 'candidate.withdrawn',
+      wardId: candidate.wardId,
+      detail: `Recorded withdrawal: ${candidate.name} (${candidate.id}).`,
+    })
+    persist()
+  }
+
   function updateWard(id: string, patch: WardPatch, curator: User): void {
     const ward = requireWard(id)
     requireScope(curator, id)
@@ -859,6 +1099,64 @@ export function createStore() {
       action: 'ward.updated',
       wardId: id,
       detail: `Updated ward fields: ${Object.keys(patch).join(', ') || '(none)'}.`,
+    })
+    persist()
+  }
+
+  /**
+   * PRD §9.1's human half of ward readiness: a curator explicitly marks a ward ready for
+   * candidate-referencing comms. Requires mechanical completeness first (`wardCompleteness`) — a
+   * curator cannot sign off a ward with known gaps; "the mechanical check alone cannot tell a
+   * thin ward from a finished one" (§9.1) describes what sign-off adds ON TOP of completeness,
+   * not a bypass of it. Ward-scoped like every other curator mutation (`requireScope`), checked
+   * BEFORE any write, so an out-of-scope call never produces a false "signed off" state. Resets
+   * `signOffClearedByCandidateChange` — this is a fresh sign-off against the current candidate
+   * set. Published change: audited (§9.1 says so explicitly).
+   */
+  function signOffWard(wardId: string, curator: User): void {
+    const ward = requireWard(wardId)
+    requireScope(curator, wardId)
+    const completeness = wardCompleteness(wardId)
+    if (!completeness.complete) {
+      throw new Error(
+        "Cannot sign off: this ward's report cards are not complete yet — see the gaps listed above.",
+      )
+    }
+    const n = nextSeq()
+    ward.readySignOff = { by: curator.id, at: `t${n}` }
+    ward.signOffClearedByCandidateChange = false
+    appendAudit({
+      actorUserId: curator.id,
+      action: 'ward.readySignOff.set',
+      wardId,
+      detail: `Signed off ${ward.name} as ready for candidate-referencing comms.`,
+    })
+    persist()
+  }
+
+  /**
+   * PRD §9.1: admin override of a comms hold — releases a candidate-referencing send for a ward
+   * that isn't (mechanically complete AND signed off), e.g. a known curator-coverage gap the
+   * admin has decided not to block a send on. Admin-only (§7's "Override ward comms hold" = Admin
+   * column only, no Scope) — `requireAdmin`, not `requireScope`. Refuses to override a ward
+   * that's already ready without one, so the audit trail never claims to have released a hold
+   * that didn't exist. Published change: audited.
+   */
+  function overrideHold(wardId: string, admin: User): void {
+    const ward = requireWard(wardId)
+    requireAdmin(admin)
+    const completeness = wardCompleteness(wardId)
+    const alreadySignedOff = ward.readySignOff !== undefined
+    if (completeness.complete && alreadySignedOff) {
+      throw new Error('This ward is already ready — there is no comms hold to override.')
+    }
+    const n = nextSeq()
+    ward.holdOverride = { by: admin.id, at: `t${n}` }
+    appendAudit({
+      actorUserId: admin.id,
+      action: 'ward.holdOverride.set',
+      wardId,
+      detail: `Overrode the comms hold on ${ward.name}.`,
     })
     persist()
   }
@@ -1094,6 +1392,9 @@ export function createStore() {
     listPartners,
     partnerWardCoverage,
     platformMetrics,
+    wardCompleteness,
+    wardReadiness,
+    listHeldWards,
     subscribe,
     reset,
     stamp,
@@ -1104,7 +1405,11 @@ export function createStore() {
     acceptSubmission,
     rejectSubmission,
     updateCandidate,
+    addCandidate,
+    withdrawCandidate,
     updateWard,
+    signOffWard,
+    overrideHold,
     setWardIssues,
     addIssue,
     updateIssue,
