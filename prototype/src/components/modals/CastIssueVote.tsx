@@ -23,25 +23,29 @@ interface CastIssueVoteProps {
  * place via `useAuth().resolvePending()` (see ModalContext / GatedButton), mirroring
  * FlagMisinformation.
  *
- * Does NOT pre-populate from the citizen's existing vote-set — like FlagMisinformation, the form
- * resets blank each time it opens. Submitting always replaces the prior set (castIssueVote's
- * job), which is the "changeable later" product rule from IA §7.3.
+ * PRE-POPULATES from the citizen's existing vote-set (`getIssueVote`) when they've already voted
+ * in this ward: "changeable" (IA §7.3) only actually means editable if the citizen can see what
+ * they previously picked before submitting a replacement. Submitting still always REPLACES the
+ * prior set (castIssueVote's job) — the form just starts from that prior set instead of blank.
  */
 export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
   const { user } = useAuth()
-  const { listIssues, getWard, castIssueVote } = useData()
+  const { listIssues, getWard, getIssueVote, castIssueVote } = useData()
 
   const [selected, setSelected] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
   useEffect(() => {
-    if (open) {
-      setSelected([])
+    if (open && ctx) {
+      const existing = getIssueVote(user.id, ctx.wardId)
+      setSelected(existing ? [...existing.issueIds] : [])
+      setIsEditing(!!existing)
       setError(null)
       setSubmitted(false)
     }
-  }, [open, ctx])
+  }, [open, ctx, user.id, getIssueVote])
 
   const issues = ctx ? listIssues(ctx.wardId) : []
   const wardMismatch = !!ctx && ctx.wardId !== user.homeWardId
@@ -97,6 +101,12 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
+              {isEditing && (
+                <p className="rounded bg-slate-50 px-3 py-2 text-sm text-ink">
+                  You already voted in this ward. Your previous picks are shown below — change
+                  them and submit to update your vote.
+                </p>
+              )}
               <p className="text-sm text-ink">
                 Select up to three issues that matter most to you.{' '}
                 <span className="font-medium">
@@ -133,7 +143,7 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
                 disabled={selected.length === 0}
                 className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Submit
+                {isEditing ? 'Update my vote' : 'Submit'}
               </button>
             </form>
           )}

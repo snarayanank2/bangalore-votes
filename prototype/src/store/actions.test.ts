@@ -23,6 +23,20 @@ test('castIssueVote replaces the user prior vote-set (dedup)', () => {
   expect(mine[0].issueIds).toEqual(['kor-water'])
 })
 
+test('getIssueVote returns the seeded vote-set, then reflects a later replacement', () => {
+  const s = createStore()
+  // Seed: u-citizen already voted {kor-roads, kor-water} in koramangala (src/data/issues.ts).
+  expect(s.getIssueVote('u-citizen', 'koramangala')?.issueIds).toEqual(['kor-roads', 'kor-water'])
+
+  s.castIssueVote(citizen(), 'koramangala', ['kor-waste'])
+  expect(s.getIssueVote('u-citizen', 'koramangala')?.issueIds).toEqual(['kor-waste'])
+})
+
+test('getIssueVote returns undefined when the user has not voted in that ward', () => {
+  const s = createStore()
+  expect(s.getIssueVote('u-citizen', 'indiranagar')).toBeUndefined()
+})
+
 test('submitFlag routes to the scoped curator queue and dedups by field', () => {
   const s = createStore()
   s.submitFlag({ wardId: 'koramangala', candidateId: 'c1', field: 'assets', detail: 'wrong' }, citizen())

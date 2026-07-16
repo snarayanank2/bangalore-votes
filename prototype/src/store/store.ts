@@ -190,6 +190,14 @@ export function createStore() {
     return structuredClone(state.issues.filter((i) => i.wardId === wardId))
   }
 
+  /** The user's current vote-set for a ward, if they've cast one — `undefined` otherwise. Used to
+   *  pre-populate the Cast-issue-vote modal so a returning voter can see and edit their existing
+   *  picks instead of the form silently resetting blank (IA §7.3's "changeable" vote). */
+  function getIssueVote(userId: string, wardId: string): IssueVote | undefined {
+    const vote = state.issueVotes.find((v) => v.userId === userId && v.wardId === wardId)
+    return vote ? structuredClone(vote) : undefined
+  }
+
   function issueTally(wardId: string): IssueTallyRow[] {
     const issues = listIssues(wardId)
     const rows = issues.map((issue) => ({
@@ -473,6 +481,7 @@ export function createStore() {
     getCandidate,
     listCandidatesByWard,
     listIssues,
+    getIssueVote,
     issueTally,
     listQueueForCurator,
     getSubmission,

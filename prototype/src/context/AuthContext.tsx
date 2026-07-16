@@ -24,6 +24,7 @@ interface AuthValue {
   pendingAction: (() => void) | null
   requireAuth: (action: () => void) => void
   resolvePending: () => void
+  cancelPending: () => void
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -65,14 +66,18 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
    * the single `pendingAction` slot to run after login (see `resolvePending`).
    *
    * DECISION — last-wins, not queued: only one pending action is held at a time. A second
-   * `requireAuth` call before the first resolves silently replaces the first action; the first
-   * tap's intent is lost. This is intentional for the prototype: `GatedButton` opens the
-   * page-blocking Register/Login modal on the very same gated tap that stashes the action, so
-   * there is no idle window in the shipped UI for an unrelated second gated tap to land while the
-   * first is still pending behind a hidden modal (the modal's full-viewport backdrop blocks
-   * clicks elsewhere). Queuing multiple actions would add real complexity — ordering, and ctx
-   * that may go stale if the page navigates in between — for a case that shouldn't be reachable
-   * through normal use. Pinned by a test in AuthContext.test.tsx.
+   * `requireAuth` call before the first resolves replaces the first action; the first tap's
+   * intent is lost. This IS reachable in normal use: the Register/Login modal can be dismissed
+   * without completing auth (Esc, backdrop click, the explicit close button — see Modal.tsx),
+   * which leaves the page interactive again while a `pendingAction` is still stashed. To avoid a
+   * later, unrelated gated tap silently overwriting (or a completed login silently firing) an
+   * action the user already walked away from, every non-success dismissal of the login modal
+   * calls `cancelPending()` (see below) to clear the slot first. So the only way `requireAuth` can
+   * ever overwrite a still-pending action is two gated taps landing back-to-back before either the
+   * login modal or its dismissal has run — genuinely concurrent, not something the UI's normal
+   * click-tap-click sequence produces. Queuing multiple actions would add real complexity —
+   * ordering, and ctx that may go stale if the page navigates in between — for that edge case.
+   * Pinned by tests in AuthContext.test.tsx.
    */
   function requireAuth(action: () => void): void {
     if (user.role !== 'anonymous') {
@@ -88,6 +93,16 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
     if (action) action()
   }
 
+  /**
+   * Clears the stashed pending action WITHOUT running it. Called when the Register/Login modal is
+   * dismissed without completing auth (Esc, backdrop click, explicit close) — a dismissed prompt
+   * means the user abandoned that gated action, so it must not silently fire on some later,
+   * unrelated login, nor sit around to be silently overwritten by a second gated tap.
+   */
+  function cancelPending(): void {
+    setPendingAction(null)
+  }
+
   const value: AuthValue = {
     user,
     role: user.role,
@@ -98,6 +113,7 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
     pendingAction,
     requireAuth,
     resolvePending,
+    cancelPending,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

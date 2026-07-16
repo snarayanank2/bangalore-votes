@@ -17,13 +17,14 @@ function Probe() {
 
 // NB: the seed already carries koramangala issue votes — u-citizen has an existing vote
 // {kor-roads, kor-water} (seed-voter-1 and seed-voter-2 also vote in koramangala). This modal
-// does NOT pre-populate from the citizen's prior vote (it resets blank on each open, matching
-// FlagMisinformation's convention) — submitting always REPLACES the prior set, which is exactly
-// what castIssueVote already does and what the store tests pin. Also: koramangala was extended
-// with a 4th issue, `kor-lighting` (see src/data/issues.ts), specifically so the "4th selection
-// is prevented" behaviour has a real unchecked box to exercise — every seed ward otherwise has
-// exactly 3 issues, which would make that case untestable through the real UI.
-test('logged-in citizen selects 3 of 4 issues; 4th checkbox disables; submit updates the tally', async () => {
+// PRE-POPULATES from the citizen's prior vote (Fix 2), so it opens with road quality and water
+// supply already checked — the test below asserts that, then adds one more issue to reach the
+// 3-of-3 cap. Submitting always REPLACES the prior set, which is exactly what castIssueVote
+// already does and what the store tests pin. Also: koramangala was extended with a 4th issue,
+// `kor-lighting` (see src/data/issues.ts), specifically so the "4th selection is prevented"
+// behaviour has a real unchecked box to exercise — every seed ward otherwise has exactly 3
+// issues, which would make that case untestable through the real UI.
+test('logged-in citizen with an existing vote sees it pre-checked; adding a 3rd hits the cap; submit updates the tally', async () => {
   const user = userEvent.setup()
   render(
     <AppProviders>
@@ -37,8 +38,12 @@ test('logged-in citizen selects 3 of 4 issues; 4th checkbox disables; submit upd
 
   expect(screen.getByRole('dialog', { name: /vote your top 3 issues/i })).toBeInTheDocument()
 
-  await user.click(screen.getByLabelText(/road quality/i))
-  await user.click(screen.getByLabelText(/water supply/i))
+  // Pre-populated from the existing seed vote {kor-roads, kor-water} — nothing to click yet.
+  expect(screen.getByLabelText(/road quality/i)).toBeChecked()
+  expect(screen.getByLabelText(/water supply/i)).toBeChecked()
+  expect(screen.getByText(/2 of 3 selected/i)).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /update my vote/i })).toBeInTheDocument()
+
   await user.click(screen.getByLabelText(/garbage collection/i))
 
   expect(screen.getByText(/3 of 3 selected/i)).toBeInTheDocument()
@@ -46,7 +51,7 @@ test('logged-in citizen selects 3 of 4 issues; 4th checkbox disables; submit upd
   expect(lightingBox).toBeDisabled()
   expect(lightingBox).not.toBeChecked()
 
-  await user.click(screen.getByRole('button', { name: /submit/i }))
+  await user.click(screen.getByRole('button', { name: /update my vote/i }))
 
   const tally = store.issueTally('koramangala')
   const roads = tally.find((r) => r.issueId === 'kor-roads')
@@ -76,8 +81,8 @@ test('unchecking a selected issue re-enables the disabled ones', async () => {
   act(() => auth.loginAs('u-citizen'))
   act(() => modal.openVote({ wardId: 'koramangala' }))
 
-  await user.click(screen.getByLabelText(/road quality/i))
-  await user.click(screen.getByLabelText(/water supply/i))
+  // Pre-populated with {kor-roads, kor-water} (2 of 3) — one more click hits the 3-of-3 cap.
+  expect(screen.getByText(/2 of 3 selected/i)).toBeInTheDocument()
   await user.click(screen.getByLabelText(/garbage collection/i))
   expect(screen.getByLabelText(/street lighting/i)).toBeDisabled()
 
@@ -141,4 +146,44 @@ test('anonymous vote: login modal shows first, then the vote modal reopens with 
     .issueVotes.filter((v) => v.userId === newUserId && v.wardId === 'indiranagar')
   expect(mine).toHaveLength(1)
   expect(mine[0].issueIds).toEqual(['ind-traffic'])
+})
+
+// --- Fix 2: reopening the modal pre-populates the citizen's own current vote-set, so a returning
+// voter can see and edit their picks instead of the form silently resetting blank and risking an
+// unintentionally smaller/different replacement set on submit.
+test('closing and reopening the vote modal shows the picks just submitted, not the stale seed set', async () => {
+  const user = userEvent.setup()
+  render(
+    <AppProviders>
+      <Probe />
+    </AppProviders>,
+  )
+  act(() => auth.loginAs('u-citizen')) // home ward: koramangala
+
+  act(() => modal.openVote({ wardId: 'koramangala' }))
+  // Seed vote {kor-roads, kor-water} is pre-checked.
+  expect(screen.getByLabelText(/road quality/i)).toBeChecked()
+  expect(screen.getByLabelText(/water supply/i)).toBeChecked()
+  expect(screen.getByLabelText(/garbage collection/i)).not.toBeChecked()
+  expect(screen.getByLabelText(/street lighting/i)).not.toBeChecked()
+
+  // Change the vote: drop water supply, add garbage collection and street lighting.
+  await user.click(screen.getByLabelText(/water supply/i))
+  await user.click(screen.getByLabelText(/garbage collection/i))
+  await user.click(screen.getByLabelText(/street lighting/i))
+  await user.click(screen.getByRole('button', { name: /update my vote/i }))
+  expect(screen.getByText(/recorded/i)).toBeInTheDocument()
+
+  act(() => modal.close())
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+
+  act(() => modal.openVote({ wardId: 'koramangala' }))
+  expect(screen.getByRole('dialog', { name: /vote your top 3 issues/i })).toBeInTheDocument()
+
+  // Reopened form shows the vote just submitted, not the original seed set.
+  expect(screen.getByLabelText(/road quality/i)).toBeChecked()
+  expect(screen.getByLabelText(/water supply/i)).not.toBeChecked()
+  expect(screen.getByLabelText(/garbage collection/i)).toBeChecked()
+  expect(screen.getByLabelText(/street lighting/i)).toBeChecked()
+  expect(screen.getByText(/3 of 3 selected/i)).toBeInTheDocument()
 })

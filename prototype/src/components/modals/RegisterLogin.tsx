@@ -225,8 +225,20 @@ interface RegisterLoginProps {
  * the URL; `/login` (pages/public/Login.tsx) renders the same `RegisterLoginForm` full-page as a
  * fallback for deep links / no-JS, per the IA. */
 export function RegisterLogin({ open, onClose }: RegisterLoginProps) {
+  const { cancelPending } = useAuth()
+
+  // Dismissing WITHOUT completing auth (Esc, backdrop click, or the explicit "X" — all three
+  // route through Modal's onClose) means the user abandoned whatever gated action opened this
+  // modal, so the stash must be cleared here. The success path (RegisterLoginForm.handleFinish)
+  // calls `onDone` = `onClose` directly, bypassing this handler, then resolvePending() — so a
+  // completed login still runs the stashed action.
+  function handleDismiss(): void {
+    cancelPending()
+    onClose()
+  }
+
   return (
-    <Modal open={open} onClose={onClose} title="Sign in">
+    <Modal open={open} onClose={handleDismiss} title="Sign in">
       <RegisterLoginForm onDone={onClose} open={open} />
     </Modal>
   )
