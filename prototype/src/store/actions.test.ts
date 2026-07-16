@@ -275,7 +275,7 @@ test('setUserRole sets curatorWardIds when promoting to curator', () => {
   expect(promoted.curatorWardIds).toEqual(['malleshwaram'])
 })
 
-// --- Task 14: setHomeWard, backing WardResult's "Set as my ward" action -----------------------
+// --- Task 14: setHomeWard, backing /account's home-ward select ---------------------------------
 
 test('setHomeWard updates the user home ward and writes an audit entry', () => {
   const s = createStore()
@@ -290,6 +290,32 @@ test('setHomeWard updates the user home ward and writes an audit entry', () => {
   const audit = s.listAudit()
   expect(audit.length).toBe(before + 1)
   expect(audit[audit.length - 1]?.action).toMatch(/homeWard/i)
+})
+
+// --- PRD §5.5 / IA §7.3: changing home ward retires the previous ward's issue vote-set --------
+
+test('setHomeWard retires the issue vote-set cast in the previous home ward', () => {
+  const s = createStore()
+  const c = citizen()
+  s.castIssueVote(c, 'koramangala', ['kor-roads', 'kor-water'])
+  expect(s.getIssueVote(c.id, 'koramangala')).toBeDefined()
+  const before = s.issueTally('koramangala').find((row) => row.issueId === 'kor-roads')!.count
+
+  s.setHomeWard(c.id, 'indiranagar', c)
+
+  expect(s.getIssueVote(c.id, 'koramangala')).toBeUndefined()
+  const after = s.issueTally('koramangala').find((row) => row.issueId === 'kor-roads')!.count
+  expect(after).toBe(before - 1)
+})
+
+test('setHomeWard is a no-op for issue votes when the ward does not actually change', () => {
+  const s = createStore()
+  const c = citizen()
+  s.castIssueVote(c, 'koramangala', ['kor-roads'])
+
+  s.setHomeWard(c.id, 'koramangala', c)
+
+  expect(s.getIssueVote(c.id, 'koramangala')).toBeDefined()
 })
 
 test('setHomeWard rejects an unknown ward id', () => {
@@ -349,14 +375,12 @@ test('setNotificationPrefs updates the user prefs and persists, without writing 
   s.setNotificationPrefs(c.id, {
     emailEnabled: true,
     whatsappEnabled: false,
-    subscriptions: { electionNotice: true, rollDeadlines: false, candidateChanges: true },
   })
 
   const updated = s.listUsers().find((u) => u.id === c.id)
   expect(updated?.notificationPrefs).toEqual({
     emailEnabled: true,
     whatsappEnabled: false,
-    subscriptions: { electionNotice: true, rollDeadlines: false, candidateChanges: true },
   })
   expect(s.listAudit().length).toBe(before) // personal setting — not audited (privacy)
 })
@@ -366,7 +390,6 @@ test('setNotificationPrefs persists across a fresh createStore() (reload)', () =
   s1.setNotificationPrefs(citizen().id, {
     emailEnabled: true,
     whatsappEnabled: true,
-    subscriptions: { electionNotice: false, rollDeadlines: true, candidateChanges: false },
   })
   const s2 = createStore()
   expect(s2.listUsers().find((u) => u.id === 'u-citizen')?.notificationPrefs?.whatsappEnabled).toBe(
@@ -599,6 +622,19 @@ test('createUser leaves src undefined when none is given (no attribution)', () =
   const s = createStore()
   const user = s.createUser({ contact: 'unattributed@example.com', homeWardId: 'koramangala' })
   expect(user.src).toBeUndefined()
+})
+
+// --- PRD §10 / IA §7.1: registration is the recorded consent act ------------------------------
+
+test('createUser records a registration-consent stamp and wording version', () => {
+  const s = createStore()
+  const user = s.createUser({ contact: 'consenting@example.com', homeWardId: 'koramangala' })
+
+  expect(user.registrationConsent?.at).toBeTruthy()
+  expect(user.registrationConsent?.wordingVersion).toBeTruthy()
+  expect(s.listUsers().find((u) => u.id === user.id)?.registrationConsent).toEqual(
+    user.registrationConsent,
+  )
 })
 
 test('src attribution grants no permissions and changes no other field on the created user', () => {

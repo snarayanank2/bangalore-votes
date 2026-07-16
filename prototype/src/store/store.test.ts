@@ -273,7 +273,7 @@ test('platformMetrics: asOf reflects the most recent recorded audit event and ad
   expect(before).toBeTruthy()
 
   const curator = s.listUsers().find((u) => u.role === 'curator')!
-  s.updateWard('koramangala', { oldWardsNote: 'Updated note for asOf test.' }, curator)
+  s.updateWard('koramangala', { name: 'Koramangala Updated' }, curator)
 
   const after = s.platformMetrics().asOf
   expect(after).not.toBe(before)

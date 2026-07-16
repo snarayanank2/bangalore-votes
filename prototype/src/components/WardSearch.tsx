@@ -6,10 +6,11 @@ import { useData } from '../context/DataContext'
  * Ward-name search — the site's #1 entry point ("which ward am I in now?").
  * Filters `listWards()` by name; selecting a result navigates to `/ward/{id}`.
  *
- * Real address/voter-ID → ward geocoding is out of scope for this static
+ * Real address/pincode → ward geocoding is out of scope for this static
  * prototype (see task brief); this only searches the ward NAME a citizen
  * already knows or can guess, and says so plainly rather than implying a
- * working address lookup.
+ * working address lookup. (PRD §5.1: ward lookup is by address or pincode —
+ * not voter ID, which this platform never collects for ward-finding.)
  */
 export function WardSearch() {
   const navigate = useNavigate()
@@ -40,7 +41,7 @@ export function WardSearch() {
         className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
       />
       <p className="mt-1 text-xs text-ink/60">
-        Looking up your ward by address or voter ID isn&apos;t available yet — search by ward name.
+        Looking up your ward by address or pincode isn&apos;t available yet — search by ward name.
       </p>
 
       {trimmed &&

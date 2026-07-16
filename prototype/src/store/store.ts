@@ -24,8 +24,12 @@ import type {
 export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   emailEnabled: false,
   whatsappEnabled: false,
-  subscriptions: { electionNotice: false, rollDeadlines: false, candidateChanges: false },
 }
+
+/** Names which registration-consent wording (RegisterLoginForm's final step) a user saw when
+ *  they registered (PRD §10). Bump this whenever that copy materially changes, so an existing
+ *  user's recorded consent is never silently reattributed to text they never saw. */
+export const REGISTRATION_CONSENT_WORDING_VERSION = 'v1'
 
 const KEY = 'bv-store'
 
@@ -285,7 +289,7 @@ function candidateSourcedFieldValues(candidate: Candidate): Sourced<string>[] {
   ]
 }
 
-export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation' | 'oldWardsNote'>>
+export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation'>>
 
 export type CandidatePatch = Partial<Omit<Candidate, 'id' | 'slug' | 'wardId'>>
 
@@ -1512,6 +1516,10 @@ export function createStore() {
       curatorWardIds: undefined,
       active: true,
       src: input.src,
+      registrationConsent: {
+        at: `t${nextSeq()}`,
+        wordingVersion: REGISTRATION_CONSENT_WORDING_VERSION,
+      },
     }
     state.users.push(user)
     appendAudit({
@@ -1525,24 +1533,41 @@ export function createStore() {
   }
 
   /**
-   * Lets a citizen set/change their own registered home ward (WardResult's "Set as my ward"
-   * action, IA §3.2). Takes an actor `User` like the other actor-sensitive mutators
+   * Lets a citizen set/change their own registered home ward — `/account`'s home-ward select
+   * (IA §4.1) is the only UI that calls this directly; a ward page's "register for updates" slot
+   * (IA §3.2) sets it implicitly via registration instead (PRD §5.1: home-ward switching lives on
+   * `/account` only). Takes an actor `User` like the other actor-sensitive mutators
    * (`castIssueVote`, `acceptSubmission`, `setUserRole`) and asserts self-only: the actor must be
    * the same user as `userId`, UNLESS the actor is an admin (admins may set another user's home
    * ward, e.g. from an admin support flow). Audited like the other account/data mutations, and
    * validates the ward exists (requireWard throws otherwise) so a bad id can never silently
    * corrupt a user's homeWardId.
+   *
+   * PRD §5.5 / IA §7.3: "one active vote-set" means only the CURRENT home ward's issue vote
+   * counts. Moving to a new ward therefore retires (deletes) any issue vote the user cast in
+   * their previous ward — otherwise a stale vote-set would keep counting in that ward's public
+   * issueTally/issueVoteCounts forever, even though the voter no longer lives there. A first-time
+   * set (no previous ward) retires nothing.
    */
   function setHomeWard(userId: string, wardId: string, actor: User): void {
     if (actor.id !== userId) requireAdmin(actor)
     const user = requireUser(userId)
     requireWard(wardId)
+    const previousWardId = user.homeWardId
     user.homeWardId = wardId
+    if (previousWardId && previousWardId !== wardId) {
+      state.issueVotes = state.issueVotes.filter(
+        (v) => !(v.userId === userId && v.wardId === previousWardId),
+      )
+    }
     appendAudit({
       actorUserId: actor.id,
       action: 'user.homeWard.updated',
       wardId,
-      detail: `Set home ward to ${wardId} for ${user.id}.`,
+      detail:
+        previousWardId && previousWardId !== wardId
+          ? `Set home ward to ${wardId} for ${user.id}, retiring their issue vote-set in ${previousWardId}.`
+          : `Set home ward to ${wardId} for ${user.id}.`,
     })
     persist()
   }
@@ -1575,7 +1600,7 @@ export function createStore() {
    */
   function setNotificationPrefs(userId: string, prefs: NotificationPrefs): void {
     const user = requireUser(userId)
-    user.notificationPrefs = { ...prefs, subscriptions: { ...prefs.subscriptions } }
+    user.notificationPrefs = { ...prefs }
     persist()
   }
 

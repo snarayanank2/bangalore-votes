@@ -1,18 +1,17 @@
 import { Link, useParams } from 'react-router-dom'
 import { useData, useStoreVersion } from '../../context/DataContext'
-import { useAuth } from '../../context/AuthContext'
+import { RegisterForUpdatesSlot } from '../../components/RegisterForUpdatesSlot'
 
 /**
  * Ward result / hub page (IA §3.2, `/ward/:wardId`). Anonymous-readable: shows the
  * post-delimitation ward's identity and links out to the ward's candidates, issues, and voting
- * logistics. Registered users get a "Set as my ward" action here (PRD §5.1 — this page is
- * reused to set a registered user's home ward).
+ * logistics. Carries the "register for updates" slot (PRD §5.1) — home-ward SWITCHING lives on
+ * `/account` only, not here; see `RegisterForUpdatesSlot`.
  */
 export default function WardResult() {
   const { wardId } = useParams<{ wardId: string }>()
   const data = useData()
-  const { user, isAuthed } = useAuth()
-  useStoreVersion() // re-render after setHomeWard mutates the store
+  useStoreVersion() // re-render after registration/setHomeWard mutates the store
 
   const ward = wardId ? data.getWard(wardId) : undefined
 
@@ -31,8 +30,6 @@ export default function WardResult() {
     )
   }
 
-  const isHomeWard = isAuthed && user.homeWardId === ward.id
-
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div>
@@ -41,13 +38,6 @@ export default function WardResult() {
         </p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">{ward.name}</h1>
       </div>
-
-      <section aria-labelledby="old-ward-note-heading" className="space-y-1">
-        <h2 id="old-ward-note-heading" className="text-sm font-semibold text-ink">
-          Old ward → new ward
-        </h2>
-        <p className="text-sm text-ink/80">{ward.oldWardsNote}</p>
-      </section>
 
       <section aria-label="Ward boundary map">
         <div
@@ -60,23 +50,7 @@ export default function WardResult() {
         </div>
       </section>
 
-      {isAuthed && (
-        <section>
-          {isHomeWard ? (
-            <p className="rounded border border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink">
-              This is your registered home ward.
-            </p>
-          ) : (
-            <button
-              type="button"
-              onClick={() => data.setHomeWard(user.id, ward.id, user)}
-              className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-            >
-              Set as my ward
-            </button>
-          )}
-        </section>
-      )}
+      <RegisterForUpdatesSlot wardId={ward.id} />
 
       <nav aria-label="Ward pages" className="grid gap-3 sm:grid-cols-3">
         <Link

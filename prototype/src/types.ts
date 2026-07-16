@@ -18,7 +18,6 @@ export interface Ward {
   number: number
   name: string
   corporation: Corporation
-  oldWardsNote: string  // human description of old→new mapping
   issueIds: string[]    // curator-defined votable issues for this ward
   /** PRD §9.1 ward data-readiness gating — curator sign-off that this ward is ready for a
    *  candidate-referencing send. Present only once a curator has explicitly marked the ward
@@ -62,15 +61,14 @@ export interface IssueVote { userId: string; wardId: string; issueIds: string[] 
 export type Role = 'anonymous' | 'citizen' | 'curator' | 'admin'
 
 /** A registered user's notification preferences (IA §4.2). Purely a personal setting — never
- * written to the audit log (see the "no audit" comment on setNotificationPrefs in store.ts). */
+ * written to the audit log (see the "no audit" comment on setNotificationPrefs in store.ts).
+ *
+ * Channel toggles only — no per-topic subscriptions. The campaign is a small, fixed calendar of
+ * ward-scoped sends (PRD §9.3), not an open-ended stream a user picks topics from; the only real
+ * choice is how to receive it, or not at all. */
 export interface NotificationPrefs {
   emailEnabled: boolean
   whatsappEnabled: boolean
-  subscriptions: {
-    electionNotice: boolean   // election date / official notice updates
-    rollDeadlines: boolean    // voter roll deadline reminders
-    candidateChanges: boolean // candidate profile changes in the user's ward
-  }
 }
 
 export interface User {
@@ -87,6 +85,11 @@ export interface User {
    *  MEASUREMENT ONLY — never read to grant a permission or change what the citizen sees. Set
    *  once at registration (createUser) and never changed afterwards. */
   src?: string
+  /** PRD §10 / IA §7.1: registration is the affirmative consent act for ward election updates.
+   *  Recorded once at `createUser` as the opt-in evidence WhatsApp policy requires — `at` is a
+   *  stamp (see lib/stamps.ts) and `wordingVersion` names which consent copy was shown, so a
+   *  later wording change never gets misattributed to consent given under the old text. */
+  registrationConsent?: { at: string; wordingVersion: string }
 }
 
 /** The kind of organisation a partner is (PRD §5.12) — free enough to cover the partner-led

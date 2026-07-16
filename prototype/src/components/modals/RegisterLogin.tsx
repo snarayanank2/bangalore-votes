@@ -3,6 +3,7 @@ import { Modal } from '../Modal'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { useI18n, type Lang } from '../../context/I18nContext'
+import type { LoginContext } from '../../context/ModalContext'
 import { getAttributedSrc } from '../../lib/attribution'
 
 type Step = 'contact' | 'otp' | 'ward'
@@ -27,13 +28,26 @@ interface RegisterLoginFormProps {
    *  Defaults to true, which is correct for the `/login` page (a fresh mount already starts
    *  clean). */
   open?: boolean
+  /** PRD §5.1/§10, IA §3.2/§7.1: when opened from a ward page's "Register for updates" slot, the
+   *  ward the visitor is already viewing is carried in here and the ward step shows it read-only
+   *  instead of asking the visitor to pick one. Omitted for every other entry point (Sign in,
+   *  gated flag/vote actions, the `/login` page), which still ask the visitor to choose. */
+  prefillWardId?: string
 }
 
 /** The contact → OTP → ward/language wizard, shared by the modal (`RegisterLogin`) and the
- * `/login` full-page fallback (IA §7.1) so both stay in sync with exactly one implementation. */
-export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProps) {
+ * `/login` full-page fallback (IA §7.1) so both stay in sync with exactly one implementation.
+ *
+ * CONSENT (PRD §10): the final step links to Terms/Privacy and states what registering signs the
+ * user up for — completing it is the affirmative opt-in, recorded by `createUser` as a stamp +
+ * wording version (see `REGISTRATION_CONSENT_WORDING_VERSION` in store.ts). The links are plain
+ * `<a target="_blank">` anchors, not react-router `Link`: `ModalProvider` renders this modal as a
+ * SIBLING of `RouterProvider` (see ModalContext.tsx), so there is no router context available
+ * when this form renders as the modal — only when it renders as the `/login` page. Opening in a
+ * new tab also means checking Terms/Privacy never loses the in-progress wizard state. */
+export function RegisterLoginForm({ onDone, open = true, prefillWardId }: RegisterLoginFormProps) {
   const { loginNew, resolvePending } = useAuth()
-  const { listWards } = useData()
+  const { listWards, getWard } = useData()
   const { setLang } = useI18n()
 
   const [step, setStep] = useState<Step>('contact')
@@ -44,17 +58,19 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
   const [error, setError] = useState<string | null>(null)
 
   // Reset the wizard every time it (re)opens, so a closed-then-reopened modal doesn't resume
-  // mid-flow with stale input.
+  // mid-flow with stale input. homeWardId starts pre-filled when this open came from a ward
+  // page's "Register for updates" slot (see prefillWardId above); otherwise it starts blank,
+  // same as always.
   useEffect(() => {
     if (open) {
       setStep('contact')
       setContact('')
       setOtp('')
-      setHomeWardId('')
+      setHomeWardId(prefillWardId ?? '')
       setLangChoice('en')
       setError(null)
     }
-  }, [open])
+  }, [open, prefillWardId])
 
   const sentCode = useMemo(() => simulatedOtp(contact), [contact])
   const wards = listWards()
@@ -165,24 +181,37 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
 
       {step === 'ward' && (
         <form onSubmit={handleFinish} className="space-y-3">
-          <div>
-            <label htmlFor="rl-ward" className="mb-1 block text-sm font-medium text-ink">
-              Home ward
-            </label>
-            <select
-              id="rl-ward"
-              value={homeWardId}
-              onChange={(e) => setHomeWardId(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-            >
-              <option value="">Select your ward…</option>
-              {wards.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {prefillWardId ? (
+            <div>
+              <p className="mb-1 block text-sm font-medium text-ink">Home ward</p>
+              <p className="w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-ink">
+                {getWard(prefillWardId)?.name ?? prefillWardId}
+              </p>
+              <p className="mt-1 text-xs text-ink/60">
+                Set from the ward page you registered from. You can change it later on your
+                account page.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="rl-ward" className="mb-1 block text-sm font-medium text-ink">
+                Home ward
+              </label>
+              <select
+                id="rl-ward"
+                value={homeWardId}
+                onChange={(e) => setHomeWardId(e.target.value)}
+                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              >
+                <option value="">Select your ward…</option>
+                {wards.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <fieldset>
             <legend className="mb-1 block text-sm font-medium text-ink">Language</legend>
             <div role="group" aria-label="Language" className="flex gap-4 text-sm">
@@ -208,6 +237,28 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
               </label>
             </div>
           </fieldset>
+          <p className="text-xs text-ink/70">
+            By finishing registration, you&apos;re signing up for ward election updates on your
+            chosen channels, in your chosen language. Read our{' '}
+            <a
+              href={`${import.meta.env.BASE_URL}terms`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand underline underline-offset-2"
+            >
+              Terms
+            </a>{' '}
+            and{' '}
+            <a
+              href={`${import.meta.env.BASE_URL}privacy`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-brand underline underline-offset-2"
+            >
+              Privacy Policy
+            </a>
+            {' '}(open in a new tab — your registration progress here is kept).
+          </p>
           <button
             type="submit"
             className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
@@ -222,13 +273,14 @@ export function RegisterLoginForm({ onDone, open = true }: RegisterLoginFormProp
 
 interface RegisterLoginProps {
   open: boolean
+  ctx: LoginContext | null
   onClose: () => void
 }
 
 /** The Register/Login modal (IA §7.1) — the app-wide overlay ModalContext mounts. Never changes
  * the URL; `/login` (pages/public/Login.tsx) renders the same `RegisterLoginForm` full-page as a
  * fallback for deep links / no-JS, per the IA. */
-export function RegisterLogin({ open, onClose }: RegisterLoginProps) {
+export function RegisterLogin({ open, ctx, onClose }: RegisterLoginProps) {
   const { cancelPending } = useAuth()
 
   // Dismissing WITHOUT completing auth (Esc, backdrop click, or the explicit "X" — all three
@@ -243,7 +295,7 @@ export function RegisterLogin({ open, onClose }: RegisterLoginProps) {
 
   return (
     <Modal open={open} onClose={handleDismiss} title="Sign in">
-      <RegisterLoginForm onDone={onClose} open={open} />
+      <RegisterLoginForm onDone={onClose} open={open} prefillWardId={ctx?.prefillWardId} />
     </Modal>
   )
 }

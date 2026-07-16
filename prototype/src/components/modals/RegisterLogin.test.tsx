@@ -46,6 +46,37 @@ test('register/login modal: contact -> OTP -> ward, then resumes the pending act
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument() // modal closed, no URL change
 })
 
+// --- PRD §10 / IA §7.1: registration is the recorded consent act ------------------------------
+
+test('the ward step links to Terms and Privacy (plain anchors — the modal sits outside the router) and finishing records consent', async () => {
+  const user = userEvent.setup()
+  render(
+    <AppProviders>
+      <Probe />
+    </AppProviders>,
+  )
+
+  act(() => {
+    modal.openLogin()
+  })
+  await user.type(screen.getByLabelText(/email or whatsapp/i), 'consenting@example.com')
+  await user.click(screen.getByRole('button', { name: /send otp/i }))
+  await user.type(screen.getByLabelText(/enter the 6-digit code/i), '123456')
+  await user.click(screen.getByRole('button', { name: /verify/i }))
+
+  const termsLink = screen.getByRole('link', { name: /terms/i })
+  const privacyLink = screen.getByRole('link', { name: /privacy policy/i })
+  expect(termsLink).toHaveAttribute('href', expect.stringContaining('terms'))
+  expect(privacyLink).toHaveAttribute('href', expect.stringContaining('privacy'))
+  expect(termsLink).toHaveAttribute('target', '_blank')
+
+  await user.selectOptions(screen.getByLabelText(/home ward/i), 'koramangala')
+  await user.click(screen.getByRole('button', { name: /finish/i }))
+
+  expect(auth.user.registrationConsent?.at).toBeTruthy()
+  expect(auth.user.registrationConsent?.wordingVersion).toBeTruthy()
+})
+
 // --- Fix 1: dismissing the login modal (Esc) must abandon the action it was opened for --------
 // Reproduces the 4-step scenario from the code review, end to end through the real modal: (1) a
 // gated tap stashes action A and opens the login modal, (2) Esc dismisses the modal WITHOUT

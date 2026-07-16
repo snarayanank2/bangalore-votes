@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { SourceBadge } from '../../components/SourceBadge'
+import { RegisterForUpdatesSlot } from '../../components/RegisterForUpdatesSlot'
 import type { Candidate, Sourced } from '../../types'
 
 interface FieldSpec {
@@ -60,6 +61,8 @@ export default function CompareCandidates() {
         <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Compare candidates</h1>
       </div>
+
+      <RegisterForUpdatesSlot wardId={ward.id} />
 
       {candidates.length === 0 ? (
         <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">

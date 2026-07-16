@@ -169,14 +169,14 @@ test('curator edits ward metadata — publishes immediately and audits', async (
   renderAt('/curator/ward/koramangala', 'u-curator')
   const auditBefore = store.listAudit().length
 
-  const noteBox = screen.getByLabelText(/old.new mapping note/i)
-  await user.clear(noteBox)
-  await user.type(noteBox, 'Updated mapping note after a boundary clarification.')
+  const nameBox = screen.getByLabelText(/ward name/i)
+  await user.clear(nameBox)
+  await user.type(nameBox, 'Koramangala Extension')
 
   await user.click(screen.getByRole('button', { name: /save changes/i }))
 
   const ward = store.getWard('koramangala')
-  expect(ward?.oldWardsNote).toBe('Updated mapping note after a boundary clarification.')
+  expect(ward?.name).toBe('Koramangala Extension')
   expect(store.listAudit().length).toBe(auditBefore + 1)
 })
 

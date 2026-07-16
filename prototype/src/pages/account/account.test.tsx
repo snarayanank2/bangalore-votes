@@ -94,16 +94,14 @@ test('notifications page discloses that delivery is simulated', () => {
   expect(screen.getByText(/simulated/i)).toBeInTheDocument()
 })
 
-test('toggling a channel and a subscription persists both on the user record', async () => {
+test('toggling a channel persists it on the user record', async () => {
   const user = userEvent.setup()
   renderAt('/account/notifications', 'u-citizen')
 
   await user.click(screen.getByLabelText(/email/i))
-  await user.click(screen.getByLabelText(/election date|election notice/i))
 
   const updated = store.listUsers().find((u) => u.id === 'u-citizen')
   expect(updated?.notificationPrefs?.emailEnabled).toBe(true)
-  expect(updated?.notificationPrefs?.subscriptions.electionNotice).toBe(true)
 })
 
 test('toggling a preference does not write an audit entry (personal setting, not published data)', async () => {

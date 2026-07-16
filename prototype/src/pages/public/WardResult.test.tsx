@@ -12,21 +12,8 @@ test('shows the ward name, number, and corporation', () => {
   )
 
   expect(screen.getByRole('heading', { name: /koramangala/i })).toBeInTheDocument()
-  // Regex is specific to "Ward #151" (not just /151/) because the old-ward mapping note below
-  // also mentions "151" ("Formed from parts of old wards 151 and 174.").
   expect(screen.getByText(/ward #151/i)).toBeInTheDocument()
   expect(screen.getByText(/south/i)).toBeInTheDocument()
-})
-
-test('shows the old-ward to new-ward mapping note', () => {
-  const router = createMemoryRouter(routeObjects, { initialEntries: ['/ward/koramangala'] })
-  render(
-    <AppProviders>
-      <RouterProvider router={router} />
-    </AppProviders>,
-  )
-
-  expect(screen.getByText(/formed from parts of old wards 151 and 174/i)).toBeInTheDocument()
 })
 
 test('an unknown ward id does not crash and shows an honest not-found message', () => {

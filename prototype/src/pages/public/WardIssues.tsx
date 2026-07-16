@@ -2,6 +2,7 @@ import { Link, useParams } from 'react-router-dom'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { useModal } from '../../context/ModalContext'
 import { GatedButton } from '../../components/GatedButton'
+import { RegisterForUpdatesSlot } from '../../components/RegisterForUpdatesSlot'
 
 /**
  * Ward issues & voting (PRD §5.4/§5.5, IA §3.6, `/ward/:wardId/issues`). Anonymous-readable:
@@ -52,6 +53,8 @@ export default function WardIssues() {
         <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Ward issues &amp; voting</h1>
       </div>
+
+      <RegisterForUpdatesSlot wardId={ward.id} />
 
       <section aria-labelledby="issues-heading" className="space-y-3">
         <h2 id="issues-heading" className="text-lg font-semibold text-ink">

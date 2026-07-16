@@ -47,11 +47,7 @@ export default function Notifications() {
   const prefs: NotificationPrefs = user.notificationPrefs ?? DEFAULT_NOTIFICATION_PREFS
 
   function update(patch: Partial<NotificationPrefs>): void {
-    data.setNotificationPrefs(user.id, {
-      ...prefs,
-      ...patch,
-      subscriptions: { ...prefs.subscriptions, ...patch.subscriptions },
-    })
+    data.setNotificationPrefs(user.id, { ...prefs, ...patch })
   }
 
   return (
@@ -68,6 +64,12 @@ export default function Notifications() {
         <h2 id="channels-heading" className="text-lg font-semibold text-ink">
           Channels
         </h2>
+        <p className="text-sm text-ink/70">
+          The campaign sends a small, fixed set of ward-scoped updates — election dates and
+          notices, the roll deadline, candidate milestones, issue voting, and booth logistics.
+          There&apos;s no list of topics to pick from; the only choice is how you receive them, or
+          not at all.
+        </p>
         <div className="space-y-2">
           <ToggleRow
             id="notif-email"
@@ -80,38 +82,6 @@ export default function Notifications() {
             label="WhatsApp updates"
             checked={prefs.whatsappEnabled}
             onChange={(checked) => update({ whatsappEnabled: checked })}
-          />
-        </div>
-      </section>
-
-      <section aria-labelledby="subscriptions-heading" className="space-y-3 border-t border-slate-200 pt-6">
-        <h2 id="subscriptions-heading" className="text-lg font-semibold text-ink">
-          Ward updates
-        </h2>
-        <div className="space-y-2">
-          <ToggleRow
-            id="notif-election-notice"
-            label="Election date & official notice updates"
-            checked={prefs.subscriptions.electionNotice}
-            onChange={(checked) =>
-              update({ subscriptions: { ...prefs.subscriptions, electionNotice: checked } })
-            }
-          />
-          <ToggleRow
-            id="notif-roll-deadlines"
-            label="Voter roll deadline reminders"
-            checked={prefs.subscriptions.rollDeadlines}
-            onChange={(checked) =>
-              update({ subscriptions: { ...prefs.subscriptions, rollDeadlines: checked } })
-            }
-          />
-          <ToggleRow
-            id="notif-candidate-changes"
-            label="Candidate profile changes in your ward"
-            checked={prefs.subscriptions.candidateChanges}
-            onChange={(checked) =>
-              update({ subscriptions: { ...prefs.subscriptions, candidateChanges: checked } })
-            }
           />
         </div>
       </section>

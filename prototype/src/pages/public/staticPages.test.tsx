@@ -58,16 +58,11 @@ test('voter-id renders numbered step lists', () => {
   expect(main.getAllByRole('listitem').length).toBeGreaterThanOrEqual(3)
 })
 
-test('check-registration: the lookup result is clearly labelled as a prototype demo, not a real roll check', () => {
+test('check-registration: is a guided link-out, with no on-platform voter-detail form', () => {
   const main = renderAt('/check-registration')
 
-  const input = main.getByRole('textbox', { name: /voter id|epic|name/i })
-  expect(input).toBeInTheDocument()
-  const button = main.getByRole('button', { name: /check/i })
-  fireEvent.click(button)
-
-  expect(main.getAllByText(/prototype/i).length).toBeGreaterThan(0)
-  expect(main.getAllByText(/demo|not a real|sample/i).length).toBeGreaterThan(0)
+  expect(main.queryByRole('textbox')).not.toBeInTheDocument()
+  expect(main.getAllByText(/no voter details are entered or stored/i).length).toBeGreaterThan(0)
 })
 
 test('check-registration: the official EC link is an inert placeholder, never implied to work', () => {

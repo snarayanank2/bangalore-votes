@@ -9,12 +9,12 @@ const CORPORATIONS: Corporation[] = ['North', 'South', 'East', 'West', 'Central'
 
 /**
  * Edit ward (PRD §5.1, IA §5.5, `/curator/ward/:wardId`) — ward metadata (name, number,
- * corporation zone) plus the human-readable old→new boundary mapping note.
+ * corporation zone).
  *
  * NO PER-FIELD SOURCE HERE: unlike Candidate, `Ward` (types.ts) carries no `Sourced<T>` fields —
- * name/number/corporation/oldWardsNote are all plain values with no provenance wrapper in the
- * data model. So, per the brief's "source per field where the model carries one", this form
- * intentionally does NOT fabricate a source selector that the store has nowhere to persist.
+ * name/number/corporation are all plain values with no provenance wrapper in the data model. So,
+ * per the brief's "source per field where the model carries one", this form intentionally does
+ * NOT fabricate a source selector that the store has nowhere to persist.
  *
  * SCOPE: same pattern as EditCandidate — never pre-checked, only surfaced inline (as the store's
  * `/scope/i` error) at save time, so a curator can still open the page for an out-of-scope ward
@@ -31,7 +31,6 @@ export default function EditWard() {
   const [name, setName] = useState(ward?.name ?? '')
   const [number, setNumber] = useState(ward ? String(ward.number) : '')
   const [corporation, setCorporation] = useState<Corporation>(ward?.corporation ?? 'South')
-  const [oldWardsNote, setOldWardsNote] = useState(ward?.oldWardsNote ?? '')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [readinessError, setReadinessError] = useState<string | null>(null)
@@ -68,10 +67,6 @@ export default function EditWard() {
       setError('Enter a valid ward number.')
       return
     }
-    if (!oldWardsNote.trim()) {
-      setError('Enter the old→new mapping note.')
-      return
-    }
 
     try {
       data.updateWard(
@@ -80,7 +75,6 @@ export default function EditWard() {
           name: name.trim(),
           number: parsedNumber,
           corporation,
-          oldWardsNote: oldWardsNote.trim(),
         },
         user,
       )
@@ -172,19 +166,6 @@ export default function EditWard() {
               </option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <label htmlFor="ward-old-note" className="mb-1 block text-sm font-medium text-ink">
-            Old→new mapping note
-          </label>
-          <textarea
-            id="ward-old-note"
-            value={oldWardsNote}
-            onChange={(e) => setOldWardsNote(e.target.value)}
-            rows={3}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
-          />
         </div>
 
         <button

@@ -3,6 +3,14 @@ import { RegisterLogin } from '../components/modals/RegisterLogin'
 import { FlagMisinformation } from '../components/modals/FlagMisinformation'
 import { CastIssueVote } from '../components/modals/CastIssueVote'
 
+/** Context passed to `openLogin` — carries the ward to pre-fill as home ward when the modal is
+ * opened from a ward page's "Register for updates" slot (PRD §5.1/§10, IA §3.2/§7.1), instead of
+ * asking the visitor to pick one. Omitted (or `{}`) for every other trigger (Sign in control,
+ * gated flag/vote actions), which still ask the visitor to choose their ward as today. */
+export interface LoginContext {
+  prefillWardId?: string
+}
+
 /** A field the citizen can flag as wrong, shown as a choice in the Flag modal. */
 export interface FlagField {
   key: string
@@ -25,12 +33,12 @@ export interface VoteContext {
 
 type ModalState =
   | { kind: 'none' }
-  | { kind: 'login' }
+  | { kind: 'login'; ctx: LoginContext }
   | { kind: 'flag'; ctx: FlagContext }
   | { kind: 'vote'; ctx: VoteContext }
 
 interface ModalValue {
-  openLogin: () => void
+  openLogin: (ctx?: LoginContext) => void
   openFlag: (ctx: FlagContext) => void
   openVote: (ctx: VoteContext) => void
   close: () => void
@@ -52,7 +60,7 @@ export function ModalProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<ModalState>({ kind: 'none' })
 
   const value: ModalValue = {
-    openLogin: () => setState({ kind: 'login' }),
+    openLogin: (ctx = {}) => setState({ kind: 'login', ctx }),
     openFlag: (ctx) => setState({ kind: 'flag', ctx }),
     openVote: (ctx) => setState({ kind: 'vote', ctx }),
     close: () => setState({ kind: 'none' }),
@@ -61,7 +69,11 @@ export function ModalProvider({ children }: { children: ReactNode }) {
   return (
     <ModalContext.Provider value={value}>
       {children}
-      <RegisterLogin open={state.kind === 'login'} onClose={value.close} />
+      <RegisterLogin
+        open={state.kind === 'login'}
+        ctx={state.kind === 'login' ? state.ctx : null}
+        onClose={value.close}
+      />
       <FlagMisinformation
         open={state.kind === 'flag'}
         ctx={state.kind === 'flag' ? state.ctx : null}
