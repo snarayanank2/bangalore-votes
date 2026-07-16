@@ -1,0 +1,146 @@
+# Go-to-Market Plan Design
+
+**Date:** 2026-07-16
+**Status:** Approved
+**Scope:** How the platform reaches Bengaluru citizens before the GBA ward elections — launch phasing, distribution, and the citizen comms calendar. This document decides *how we go to market*, not *what we build*. Feature behaviour remains governed by `docs/prd.md` and `docs/information-architecture.md`.
+
+---
+
+## 1. Goal
+
+Grow **registered citizens with a home ward set**, spread across all 369 wards, and convert them into informed voters who reach the right polling booth on election day.
+
+Registration is the chosen metric because it is the only outcome that is both measurable and re-contactable. Anonymous readers are the majority of traffic and remain fully served, but they cannot be told that their electoral roll deadline is a week away. The list is what makes every later message possible.
+
+Distribution is **partner-led and earned**: RWA and community networks, civic organisations, and press. There is no paid acquisition.
+
+---
+
+## 2. Decisions
+
+| Area | Choice | Why |
+|---|---|---|
+| Primary metric | Registered citizens with home ward set | Measurable and re-contactable. Ward breadth tracked as a guardrail against central-Bengaluru skew. |
+| Distribution shape | Partner-led cascade | The only shape that reaches ward breadth without paid spend. Press is an amplifier inside it, not a strategy. |
+| Paid acquisition | None | Costs money the project does not have, and paid political-adjacent ads undermine the neutrality claim that the whole platform rests on. |
+| Teaser asset | The ward finder itself | The platform's premise is that citizens don't know their new ward. A finder gives a real answer today, earns the forward, and captures ward at registration — which a "notify me" box cannot. |
+| Teaser scope | A launch subset of the existing IA | No throwaway product surface, no second launch. IA §3.3 already specifies the pre-nomination empty state. |
+| Calendar anchors | Relative to **N** (EC notification) and **E** (election day) | GBA poll dates slip. Absolute dates would break the entire calendar on announcement. |
+| Silence period | Logistics-only from E−48h | Representation of the People Act §126 bans electioneering in the 48h before poll close. Booth/timings/ID content is safe; candidate content is not. |
+| Curator + partner recruitment | One motion | The RWA and civic-org people who would distribute the teaser *are* the curator candidate pool. Two separate outreach efforts waste the relationship. |
+| Partner kit | A platform page, `/partner/{partner-slug}` | Unlisted, anonymous-access. Adds no fifth role and no login wall — consistent with the platform's shareable-URL model. |
+
+---
+
+## 3. Launch phasing
+
+Two anchors: **N** = EC notification, **E** = election day.
+
+The Indian election sequence runs notification → nominations (~7d) → scrutiny → withdrawal (~2d) → campaign → poll. So **N lands around E−4w**, and the *final* candidate list only exists after withdrawals close, around **E−2w**. There are therefore two distinct candidate-data moments, and announcing "here are your candidates" at nomination time risks profiling people who subsequently withdraw.
+
+| Phase | Trigger | Public surface | Purpose |
+|---|---|---|---|
+| **0 — Network** | Now | None | Recruit partners and curators in the same conversations. Submit WhatsApp templates for approval. Exit: partner coverage across target wards, curators assigned. |
+| **1 — Teaser** | Ward + logistics data ready | `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}` | Build the list. Ward finder is the forwardable asset. |
+| **2 — Launch** | At N | Adds `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare` | Candidates provisional. The press moment. |
+| **3 — Countdown** | E−3w → E−1w | Adds `/ward/{id}/issues` results at scale | E−2w is the real content beat: final list, report cards complete. |
+| **4 — Final 48h** | E−2d | No change | Logistics only. Candidate content is frozen. |
+
+`docs/overview.md` §8 already establishes that ward and logistics tools can launch before candidate content. Phase 1 is that sentence made operational.
+
+---
+
+## 4. Comms calendar
+
+Ten sends across the whole campaign. The restraint is deliberate: the list lives substantially on WhatsApp, and WhatsApp opt-outs are permanent. Over-sending during the quiet months costs the list precisely when the election beats arrive.
+
+All sends are ward-scoped and in the recipient's saved language preference (PRD §8, §9).
+
+| # | Trigger | Channel | Content |
+|---|---|---|---|
+| W1 | On register | Email + WA | Confirms ward, language, and what they will receive |
+| R1 | Roll close −7d | Email + WA | Last date to join the electoral roll; check registration |
+| L1 | At N | Email + WA | Candidates have filed in your ward (provisional) |
+| C1 | E−3w | Email + WA | Vote on your ward's top 3 issues |
+| C2 | E−2w | Email + WA | Final candidate list; report cards complete |
+| C3 | E−1w | Email + WA | Your ward's top issues; compare candidates; booth locator |
+| F1 | E−3d | Email + WA | Last candidate push — compare before you vote |
+| F2 | E−2d | Email + WA | **Silence begins.** Booth, timings, ID to carry |
+| F3 | E−1d | Email + WA | Tomorrow: booth, hours, what to bring |
+| F4 | E, 07:00 | WA only | Polls are open. Your booth is X |
+
+Three of these carry reasoning that is not obvious from the table:
+
+**R1 is the highest-value message in the plan.** Missing the electoral roll deadline is the one failure in this funnel that is *irreversible* — no quantity of good candidate information helps someone who is not on the roll. R1 is also what justifies the teaser shipping months early. It is anchored to the roll deadline, an absolute date that moves independently of N and E.
+
+**C1 is issue voting, not candidates.** At E−3w nominations are still churning, so candidate data is the one thing the platform cannot yet stand behind. Issue voting fills the slot with something true, drives the contribution loop, and produces the ward results that make C3 worth opening.
+
+**F1 is the last legal moment for candidate content.** It sits three days out precisely so it clears the E−48h silence window. From F2 onward, outbound content is booth location, timings, what ID to carry, and how to vote — nothing else.
+
+---
+
+## 5. Distribution mechanics
+
+**Ward-tagged partner links.** Each partner receives `/?src={partner-slug}`, persisted through registration onto the user record. Without attribution there is no way to tell which of the three channels works, and no way to tell a partner what their forward actually achieved — which is what earns the second forward.
+
+**The partner kit** (`/partner/{partner-slug}`, unlisted, anonymous-access) carries:
+
+- the partner's tagged link
+- pre-written WhatsApp forward text in English and Kannada — the unit of distribution is a message pasted into an apartment group, not a press release
+- a poster image sized for WhatsApp
+- a one-paragraph neutrality statement
+
+The neutrality statement is not optional. An RWA secretary forwarding an election link will be accused of campaigning, and a partner who cannot answer that accusation stops forwarding.
+
+**Ward coverage as the operating dashboard** (`/admin/partners`, IA §6.4). Partner slug → wards covered, against all 369. The uncovered set is the Phase 0 and Phase 1 work queue, and the early-warning signal for the failure mode where the plan quietly becomes "central Bengaluru only."
+
+---
+
+## 6. Measurement
+
+North star: registered citizens with a home ward set.
+
+- **Funnel:** `/` visit → ward found → register → OTP confirmed. Ward-found-but-didn't-register is the diagnostic for whether the teaser's promise lands; if citizens take their answer and leave, the "we'll tell you who's standing here" line is too weak.
+- **Ward coverage:** wards with ≥1 registration, and wards with ≥1 partner, both against 369.
+- **Attribution:** registrations per `src`, per channel.
+- **List health:** WhatsApp opt-out rate and email bounce rate. Treat opt-out rate as a brake — if it climbs, cut sends. The list does not grow back.
+
+---
+
+## 7. Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| **Comms promise data curators haven't filled in** | L1/C2 sent ward-scoped to a ward with no curator lands on an empty page — converting the best message into the worst impression, exactly as press attention peaks | **Per-ward send gating**: a ward receives L1/C2/C3 only after its data passes a readiness check. Unready wards are held, not sent a broken promise. Now a PRD requirement (§9.1). |
+| WhatsApp Business API approval slips | Half the channel plan disappears | Submit all templates in Phase 0 (~20: ten sends × EN/KN). Email is the baseline; WhatsApp is the fast-follow. |
+| Election date moves | Calendar invalid | Relative anchors absorb it. Note R1 is anchored to the roll deadline, which moves independently. |
+| Partner network doesn't materialise | Ward coverage skews to affluent central wards | Coverage dashboard surfaces it early; press is the fallback amplifier. |
+| Neutrality attack | Loss of the trust the platform rests on | Source on every field (PRD §11); partner neutrality statement; no paid spend, as evidence. |
+| Booth data doesn't land | C3/F2/F3/F4 lose most of their value | Degrade to ward-level messaging. IA §3.12 commits to address-accurate booth data; treat as a launch dependency. |
+| Silence-period violation | Legal exposure under RPA §126 | Hard content freeze on outbound comms from E−48h (PRD §9.2). |
+
+---
+
+## 8. Dependencies
+
+- **Partner network (offline).** Now a hard launch dependency alongside curator recruitment, and recruited in the same conversations.
+- **WhatsApp Business API.** Template approval has weeks of lead time; ~20 templates across EN/KN. Belongs in Phase 0.
+- **Electoral roll deadline date.** R1's anchor. Must be tracked independently of N and E.
+- **Booth-level data.** Required for C3/F2/F3/F4 to be worth sending.
+- **Ward + delimitation data.** Gates Phase 1 entirely — the teaser *is* the ward finder.
+
+---
+
+## 9. Out of scope
+
+Paid acquisition. Candidate outreach or engagement of any kind. Post-election comms, including results coverage and turnout reporting. Partner self-service signup — partners are onboarded by an admin.
+
+---
+
+## 10. Open questions
+
+- **Registration targets.** No number is set for total registrations or for the ward-coverage floor. Needs an owner's read on realistic scale before Phase 1 exit criteria can be written.
+- **Ward data-readiness check.** What concretely makes a ward "ready" to receive L1/C2 — a curator assigned, a minimum field completeness, or a curator's explicit sign-off?
+- **F4 send window.** 07:00 assumes poll open; confirm against the actual notified hours.
+- **Partner kit localisation.** Is the kit page itself bilingual, or English-only with bilingual assets inside it?
+- **Press embargo.** Does the Phase 2 press push go out at N, or at E−2w when report cards are actually complete?

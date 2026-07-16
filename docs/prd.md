@@ -138,6 +138,17 @@ Let citizens signal which local issues matter most, and show that signal publicl
 - Explain who runs the platform, how data is sourced and verified, and the neutrality stance.
 - Supports the trust requirement in §11; links to primary sources.
 
+### 5.12 Partner attribution & partner kit
+*Page: `/partner/{partner-slug}`*
+
+Distribution is partner-led and unpaid (§14), so the platform must equip partners to forward links and must measure what that forwarding achieves.
+
+- **Attribution.** Any page accepts a `?src={partner-slug}` parameter. The value survives the visit and is **persisted onto the user record at registration**, so a signup can be attributed to the partner who sent it. Attribution is for measurement only — it grants no permissions and changes nothing the citizen sees.
+- **Partner kit page.** An unlisted, anonymous-access page per partner carrying: their tagged link; ready-to-paste WhatsApp forward text in English and Kannada; a poster image sized for WhatsApp; and a short neutrality statement. Unlisted means not indexed and not linked from navigation — but not access-controlled, since it holds nothing sensitive and a login wall would defeat its purpose.
+- **No new role.** Partners are not a role. The kit is a public page; partner records are managed by admins (§7).
+- **Why the neutrality statement.** An RWA secretary forwarding an election link *will* be accused of campaigning. A partner who cannot answer that stops forwarding — so the answer ships with the kit.
+- **Coverage view.** Admins can see partner → ward coverage against all 369 wards. The uncovered set is a work queue and the early warning for reach skewing to central Bengaluru.
+
 ---
 
 ## 6. Contribution & moderation
@@ -171,6 +182,7 @@ Registered citizens can see the **status of everything they have submitted** —
 |---|:--:|:--:|:--:|:--:|
 | Search / read published info | ✅ | ✅ | ✅ | ✅ |
 | View public issue-vote results | ✅ | ✅ | ✅ | ✅ |
+| View a partner kit page | ✅ | ✅ | ✅ | ✅ |
 | Switch language (session) | ✅ | ✅ | ✅ | ✅ |
 | Save language preference | – | ✅ | ✅ | ✅ |
 | Subscribe to ward updates | – | ✅ | ✅ | ✅ |
@@ -182,6 +194,8 @@ Registered citizens can see the **status of everything they have submitted** —
 | Publish live | – | – | ✅ | ✅ |
 | Review submissions | – | – | Scope | All |
 | Manage roles, scope & users | – | – | – | ✅ |
+| Manage partners & view ward coverage | – | – | – | ✅ |
+| Override ward comms hold | – | – | – | ✅ |
 | View audit log | – | – | Scope | All |
 
 ---
@@ -201,6 +215,26 @@ Registered citizens can see the **status of everything they have submitted** —
 - Registered users receive ward-scoped updates: election date / official notice, roll deadlines, and changes to candidates in their ward.
 - Channels: email and/or WhatsApp, per the user's contact details and language preference.
 - Ward is the routing key; it is set via the address→ward lookup (not free text) so updates route correctly.
+
+### 9.1 Ward data-readiness gating
+
+- A ward-scoped send that references candidate data **must not go out to a ward whose data is not ready**. Each such send is gated per ward on a readiness check; unready wards are **held**, not sent.
+- Rationale: sends are ward-scoped across 369 wards, and curator coverage will be uneven. Telling a citizen "your ward's report cards are complete" and landing them on an empty page is worse than sending nothing — and it would happen exactly when press attention peaks.
+- Held wards must be visible to admins (`/admin/partners`), since a held ward is a curator-coverage gap that needs fixing, not a silent skip. Admins can override a hold and release the send — consistent with their oversight role (§7).
+- The concrete readiness criterion is an open question (§17).
+
+### 9.2 Election-silence content freeze
+
+- From **48 hours before poll close** until polls close, outbound comms are restricted to logistics only: booth location, poll timings, ID to carry, and how to vote.
+- **No candidate content, comparisons, or issue-vote results** may be sent in this window. Representation of the People Act §126 bans electioneering during it; neutral sourced report cards are not worth testing against that line.
+- The freeze applies to outbound messaging only. The site itself remains fully available.
+
+### 9.3 Send cadence
+
+- The campaign is a small, fixed set of ward-scoped sends (defined in the GTM spec), not an open-ended stream. WhatsApp opt-outs are permanent, so send volume is a budget to spend, not a dial to turn up.
+- Every send honours the user's saved language preference (§8) and their channel toggles on `/account/notifications`.
+
+*Calendar, triggers, and per-message content: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md`.*
 
 ---
 
@@ -235,15 +269,24 @@ Registered citizens can see the **status of everything they have submitted** —
 
 Full detail is in the IA document. Each URL is a distinct page (one URL → one screen); modals overlay the current page with no URL change.
 
-**Public:** `/` · `/ward/{id}` · `/ward/{id}/candidates` · `/candidate/{slug}` · `/ward/{id}/compare` · `/ward/{id}/issues` · `/check-registration` · `/about-election` · `/voting-guide` · `/voting-guide/voter-id` · `/voting-guide/how-to-vote` · `/voting-guide/find-booth` · `/about`
+**Public:** `/` · `/ward/{id}` · `/ward/{id}/candidates` · `/candidate/{slug}` · `/ward/{id}/compare` · `/ward/{id}/issues` · `/check-registration` · `/about-election` · `/voting-guide` · `/voting-guide/voter-id` · `/voting-guide/how-to-vote` · `/voting-guide/find-booth` · `/about` · `/partner/{partner-slug}` (unlisted)
 
 **Registered:** `/account` · `/account/notifications` · `/account/submissions`
 
 **Curator:** `/curator` · `/curator/queue` · `/curator/queue/{submission-id}` · `/curator/candidate/{id}` · `/curator/ward/{id}` · `/curator/ward/{id}/issues`
 
-**Admin:** `/admin` · `/admin/roles` · `/admin/users` · `/admin/audit`
+**Admin:** `/admin` · `/admin/roles` · `/admin/users` · `/admin/audit` · `/admin/partners`
 
 **Modals:** Register / Login (fallback `/login`) · Flag misinformation · Cast issue vote (top 3)
+
+### 13.1 Phased launch
+
+Pages do not all ship at once, because candidate data cannot exist before the EC notification (**N**).
+
+- **Phase 1 (teaser).** `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`. The ward finder is the public entry point and the thing partners forward.
+- **Phase 2 (at N).** `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare` open up.
+
+Before N, the candidate routes show the pre-nomination empty state already specified in IA §3.3 rather than 404ing — the URLs are shareable and will be shared early.
 
 ---
 
@@ -262,14 +305,23 @@ Full detail is in the IA document. Each URL is a distinct page (one URL → one 
 | Report card content | Includes curator-maintained links to news articles about the candidate. |
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
+| Launch phasing | Ward + logistics pages ship first; candidate pages open at the EC notification (§13.1). |
+| Distribution | Partner-led and unpaid — RWAs, civic orgs, press. No paid acquisition, on both cost and neutrality grounds. |
+| Teaser asset | The ward finder itself, not a standalone "notify me" page. Citizens don't know their new ward; the finder answers that and captures ward at registration. |
+| Election-silence rule | Outbound comms are logistics-only from 48h before poll close (§9.2). |
+| Ward send gating | Candidate-referencing sends are gated per ward on data readiness; unready wards are held (§9.1). |
+| Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). |
 
 ---
 
 ## 15. Dependencies & assumptions
 
-- **Curator recruitment & vetting (offline).** Data quality depends on enough trusted curators with the right ward coverage. Hard dependency for launch.
+- **Curator recruitment & vetting (offline).** Data quality depends on enough trusted curators with the right ward coverage. Hard dependency for launch. Also the source of the partner network below — the same people, recruited in the same conversations.
+- **Partner network (offline).** Reach depends on RWAs and civic orgs forwarding ward links. Hard dependency for launch: with no paid channel, there is no fallback if this doesn't materialise.
 - **Authoritative data sources.** Reliable access to EC affidavits, official notifications, and ward-delimitation data.
-- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow.
+- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow. Template approval runs to **weeks of lead time** (~20 templates across EN/KN) and must start before the teaser ships — the lead time, not the code, gates the launch.
+- **Electoral roll deadline.** Anchors the roll-deadline alert, the most time-critical send in the campaign. Moves independently of the notification and election dates, so it must be tracked separately.
+- **Booth-level data.** The final-48h logistics sends are only worth making if booth location resolves per citizen (§5.10). Without it they degrade to ward-level.
 - **Election timeline.** Candidate content can only be populated near the official notification; ward and logistics tools can launch earlier.
 
 ---
@@ -288,4 +340,8 @@ Promise / accountability tracking against elected corporators, ward budget trans
 - Candidate comparison: maximum number of candidates shown at once on mobile.
 - News links: curator-added only, or auto-suggested for curator approval?
 - Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
+- Ward data-readiness (§9.1): what concretely makes a ward ready to receive candidate comms — a curator assigned, a field-completeness threshold, or explicit curator sign-off?
+- Registration and ward-coverage targets: no numbers are set, so Phase 1 has no exit criteria yet.
+- Is the partner kit page itself bilingual, or English-only with bilingual assets inside it?
+- Press timing: does the launch push go out at the notification, or at E−2w when report cards are actually complete?
 

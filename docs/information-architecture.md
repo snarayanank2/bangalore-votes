@@ -34,7 +34,8 @@ bangalore-votes.opencity.in
 │   ├─ /voting-guide/voter-id            Voter-ID issuance & update
 │   ├─ /voting-guide/how-to-vote         How to vote
 │   ├─ /voting-guide/find-booth          Find polling booth
-│   └─ /about                            About & how we source data
+│   ├─ /about                            About & how we source data
+│   └─ /partner/{partner-slug}           Partner kit (unlisted)
 │
 ├─ REGISTERED CITIZEN (OTP)
 │   ├─ /account                          My account (profile & language)
@@ -53,6 +54,7 @@ bangalore-votes.opencity.in
 │   ├─ /admin                            Admin console
 │   ├─ /admin/roles                      Roles & access
 │   ├─ /admin/users                      Manage users
+│   ├─ /admin/partners                   Partners & ward coverage
 │   └─ /admin/audit                      Audit log
 │
 └─ MODALS (overlay current page, no dedicated URL)
@@ -153,6 +155,13 @@ bangalore-votes.opencity.in
 - **Key elements:** sourcing/verification explanation; contact; links to primary sources.
 - **Notes:** *Added from the PRD cross-check (trust & provenance, §10) — see Section 7.*
 
+### 3.14 Partner kit
+- **URL:** `/partner/{partner-slug}`
+- **Access:** Anonymous, **unlisted** (not indexed, not linked from navigation; no login wall — it holds nothing sensitive, and gating it would defeat its purpose)
+- **Purpose:** Give a distribution partner — an RWA, a civic org — everything needed to forward the platform to their network, and an answer ready when someone accuses them of campaigning.
+- **Key elements:** the partner's tagged link (`/?src={partner-slug}`); ready-to-paste WhatsApp forward text in English and Kannada; a poster image sized for WhatsApp; a short neutrality statement.
+- **Notes:** *Added from the GTM plan (PRD §5.12). Partners are **not a role** — this is a public page, and partner records are managed at `/admin/partners`. The unit of distribution is a message pasted into an apartment WhatsApp group, so the copy blocks matter more than the page design.*
+
 ---
 
 ## 4. Registered citizen pages
@@ -231,7 +240,7 @@ bangalore-votes.opencity.in
 - **URL:** `/admin`
 - **Access:** Admin
 - **Purpose:** Governance home.
-- **Links to:** Roles & access, Manage users, Audit log.
+- **Links to:** Roles & access, Manage users, Partners & ward coverage, Audit log.
 
 ### 6.2 Roles & access
 - **URL:** `/admin/roles`
@@ -246,7 +255,14 @@ bangalore-votes.opencity.in
 - **Key elements:** search users; deactivate/ban accounts; view submission history.
 - **Notes:** *Added from the PRD cross-check (admin deactivate/ban, §4/§7).*
 
-### 6.4 Audit log
+### 6.4 Partners & ward coverage
+- **URL:** `/admin/partners`
+- **Access:** Admin
+- **Purpose:** Manage the distribution partner roster and watch reach across the city.
+- **Key elements:** add/edit partners and their slugs; registrations attributed per partner; **partner → ward coverage against all 369 wards**, with the uncovered set surfaced as a work queue; wards currently **held** from candidate comms for failing the data-readiness check (PRD §9.1).
+- **Notes:** *Added from the GTM plan. Coverage is the early warning for reach skewing to affluent central wards; the held-wards list is the early warning for curator gaps.*
+
+### 6.5 Audit log
 - **URL:** `/admin/audit`
 - **Access:** Admin
 - **Purpose:** Immutable record of all changes.
@@ -296,6 +312,9 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 | §7 Roles & permissions | Auth across all curator/admin pages |
 | §8 Language toggle & saved preference | Global toggle + `/account` |
 | §9 Notifications & delivery | `/account/notifications` |
+| 5.12 Partner attribution & kit | `/partner/{slug}`, `?src=` on any page, `/admin/partners` |
+| §9.1 Ward data-readiness gating | `/admin/partners` (held-wards view + override) |
+| §13.1 Phased launch | Candidate routes show the §3.3 empty state before notification |
 | §10 Trust, neutrality & provenance | Sources on report card; `/about`; `/admin/audit` |
 | Registration | Register/Login modal (`/login` fallback) |
 | Curator: define issues | `/curator/ward/{id}/issues` |
@@ -304,6 +323,8 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 | Admin: audit | `/admin/audit` |
 
 **Gaps found and added this revision:** `/about` (trust/sourcing page), `/account/notifications` (split from account), `/curator/queue/{submission-id}` (submission review), `/admin/users` (account moderation).
+
+**Added by the GTM plan:** `/partner/{partner-slug}` (partner kit, unlisted public), `/admin/partners` (partner roster, ward coverage, held-wards view).
 
 ---
 
@@ -315,3 +336,5 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 - Compare: maximum number of candidates shown at once on mobile.
 - News links on the report card: curator-added only, or auto-suggested for curator approval?
 - Do we need a public `/login` fallback page, or is the modal sufficient for all entry paths?
+- Is `/partner/{slug}` bilingual itself, or English-only with bilingual copy blocks inside it?
+- Does the Home page need a pre-notification state distinct from its post-notification one, given the ward finder is the teaser?
