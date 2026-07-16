@@ -53,23 +53,53 @@ Every arrow is someone else's queue. The chain is measured in months, and it sta
 
 ## 3. Messaging & delivery
 
+Both channels go through **Twilio** — SendGrid is a Twilio product, so email and WhatsApp are one vendor, one bill, one support relationship (stack spec §7).
+
+### 3a. WhatsApp, via Twilio
+
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
-| 3.1 | **Meta Business verification** — legal entity documents for Oorvani; Meta's process, Meta's timeline | WhatsApp entirely | unassigned |
-| 3.2 | **WhatsApp Business API access** via Meta Cloud API (stack spec §7) | WhatsApp OTP + all WhatsApp sends | unassigned |
-| 3.3 | **Published `/privacy` URL** | 3.1 — Meta will not onboard without it | unassigned |
-| 3.4 | **Dedicated phone number** for the WhatsApp Business account | 3.2 | unassigned |
-| 3.5 | **~28 message templates** submitted and approved — 14 sends × EN/KN | The comms calendar | unassigned |
-| 3.6 | **Template category classification** — Meta's Marketing vs Utility distinction | 3.5, and the budget in 3.7 | unassigned |
-| 3.7 | **WhatsApp conversation budget** — see below | Whether the plan is affordable | unassigned |
-| 3.8 | **Email service provider** + domain authentication (SPF, DKIM, DMARC) | The email baseline — i.e. everything, if WhatsApp slips | unassigned |
-| 3.9 | **Sender reputation warm-up** | Deliverability of the first real send | unassigned |
+| 3.1 | **Meta Business Manager account + business verification** — Oorvani trust documents, registered address | WhatsApp entirely | unassigned |
+| 3.2 | **Published `/privacy` URL** | 3.1 — Meta will not verify without it | unassigned |
+| 3.3 | **Twilio account** + India billing setup | 3.4 onward | unassigned |
+| 3.4 | **Sender number (+91)** — see the walkthrough below | Any WhatsApp send | unassigned |
+| 3.5 | **WhatsApp sender registration** in Twilio, linked to the Meta business | 3.6 | unassigned |
+| 3.6 | **Display name approval** — the name citizens see, reviewed by Meta | Sending | unassigned |
+| 3.7 | **~28 templates** submitted via Twilio, approved by Meta — 14 sends × EN/KN | The comms calendar | unassigned |
+| 3.8 | **Template category classification** — Meta's Marketing vs Utility split | 3.7, and the budget in 3.9 | unassigned |
+| 3.9 | **Message budget** — Meta's per-message fee **plus Twilio's markup** | Whether the plan is affordable | unassigned |
+| 3.10 | **Recorded opt-in evidence** — WhatsApp policy requires it, stored, not implied | Policy compliance | unassigned |
 
-**3.6 and 3.7 are not accounted for anywhere else, and they should be.** Meta classifies templates as Utility (transactional, cheap) or Marketing (announcements, dearer, and separately blockable by the user). Of our seven sends, only W1 is unambiguously Utility. The rest — candidates have filed, vote on your issues, report cards are complete — read as Marketing under Meta's definitions however civic their intent.
+**Twilio does not shorten Path A.** Meta business verification and per-template Meta approval are unchanged; Twilio forwards templates to the same queue. It removes plumbing, not waiting. Nothing about the launch date improves by having chosen it.
 
-That has a price. At the Phase 1 target of 25,000 registered citizens × 7 sends ≈ **175,000 WhatsApp conversations**, and Indian marketing conversations are billed per conversation. Nobody has costed this, and it scales linearly with the success of the registration drive: hitting the target makes the bill bigger, not smaller. Worth resolving before Phase 0 exits, because the answer could reasonably change the channel mix — email carries no per-message fee.
+**The sender number is the fiddly part.** A `+91` number is a trust requirement, not an aesthetic one — Bengaluru citizens receiving election information from a US `+1` sender have every reason to distrust it.
 
-**3.8 is the real baseline.** Email is not the fallback; it is the thing that works while Path A is still in Meta's queue. It deserves to be set up first and properly, not treated as the consolation prize.
+1. **Bring your own number (BYON)** is the practical route. Twilio-provisioned Indian numbers require a **regulatory bundle** — local entity proof and address — which Oorvani can satisfy as an Indian trust, but it is more paperwork than using a number already held.
+2. **The number must be clean.** It cannot be active on consumer WhatsApp or the WhatsApp Business app. If Oorvani already uses it there, it must be deleted from WhatsApp first — and that is irreversible.
+3. **It becomes one-way.** Once a number is a WhatsApp Business API sender, nobody can use it in the normal WhatsApp app again. Do not use a number the office depends on.
+4. **Landlines are legitimate.** Verification is by voice call, so an existing landline works.
+5. Verification code → sender registered → display name submitted for Meta review.
+
+**Recipients (`+91` "to") are unremarkable** — messaging Indian numbers works normally at India rates. Two consequences that do bite: all seven sends are proactive, i.e. outside WhatsApp's 24-hour service window, so **every one requires an approved template** (3.7); and **opt-in must be recorded as evidence** at registration (3.10).
+
+**DLT registration does not apply.** India's TRAI DLT regime governs **SMS, not WhatsApp**, so it is off the critical path — *unless* someone later adds SMS as an OTP fallback, at which point it becomes a weeks-long dependency that arrives as a surprise. The stack uses email and WhatsApp only (stack spec §7).
+
+**3.8 and 3.9 are the costs nobody has written down.** Meta classifies templates as Utility (transactional, cheaper) or Marketing (announcements, dearer, and separately blockable by the recipient). Of the seven sends, only W1 is unambiguously Utility; *candidates have filed*, *vote on your issues*, *report cards are complete* all read as Marketing under Meta's definitions however civic the intent.
+
+At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, billed at Meta's India rate **plus Twilio's markup** (roughly 30–50% on top). It scales linearly with the success of the registration drive — hitting the target makes the bill bigger, not smaller. Get real quotes rather than estimates: Meta moved from conversation-based to per-message pricing during 2025, so any rate figure repeated from memory is suspect. If the number is bad, the channel mix is the lever — email has no per-message fee.
+
+### 3b. Email, via SendGrid
+
+| # | Dependency | Blocks | Owner |
+|---|---|---|---|
+| 3.11 | **Twilio SendGrid account** + a plan sized for ~175k sends | Email at all | unassigned |
+| 3.12 | **Domain authentication** — SPF, DKIM, DMARC on the sending domain | Deliverability; not landing in spam | unassigned |
+| 3.13 | **Sender identity verification** | Sending | unassigned |
+| 3.14 | **Sender reputation warm-up** — volume ramped, not dumped | The first real send actually arriving | unassigned |
+| 3.15 | **Bounce and complaint handling** — webhooks wired to suppression | List health; reputation | unassigned |
+| 3.16 | **Unsubscribe mechanism** — one-click, honoured | DPDP consent withdrawal (§2.3) | unassigned |
+
+**Email is the baseline, not the fallback.** It is what works while Path A sits in Meta's queue, and it carries no per-message fee. It deserves to be set up first and properly rather than treated as the consolation prize — 3.12 and 3.14 in particular, because a cold domain sending 25,000 messages on day one is how a campaign discovers spam filters.
 
 ---
 
@@ -117,15 +147,26 @@ That has a price. At the Phase 1 target of 25,000 registered citizens × 7 sends
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
 | 6.1 | **Cloud hosting account + billing** — the VM running Compose (stack spec §4) | Any deployment | unassigned |
-| 6.2 | **Google Cloud billing + Geocoding API key** | Address→ward lookup | unassigned |
-| 6.3 | **Anthropic API key + billing** | Kannada auto-translation (stack spec §5) | unassigned |
-| 6.4 | **CDN account** — absorbs election-day read traffic (stack spec §4) | The traffic spike | unassigned |
-| 6.5 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
-| 6.6 | **Off-box backup storage** + a rehearsed restore (stack spec §4) | Launch readiness | unassigned |
-| 6.7 | **Secrets custody** — who holds the API keys, session signing key, mail credentials | Deployment; continuity | unassigned |
-| 6.8 | **Total running budget** — 6.1–6.4 plus WhatsApp conversations (3.7) | Whether any of this is affordable | unassigned |
+| 6.2 | **Google Cloud project + billing account** (card on file) | 6.3, 6.4 | unassigned |
+| 6.3 | **Geocoding API enabled + key**, restricted to the server | Address→ward lookup | unassigned |
+| 6.4 | **Google Maps Platform terms review** — see below | Whether the geocoding architecture is licensed at all | unassigned |
+| 6.5 | **Geocoding budget + quota alerts** — outside the app's own spend cap | A surprise invoice | unassigned |
+| 6.6 | **Anthropic API key + billing** | Kannada auto-translation (stack spec §5) | unassigned |
+| 6.7 | **CDN account** — absorbs election-day read traffic (stack spec §4) | The traffic spike | unassigned |
+| 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
+| 6.9 | **Off-box backup storage** + a rehearsed restore (stack spec §4) | Launch readiness | unassigned |
+| 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
+| 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
 
-**6.8 is the gap.** Four metered services (geocoding, Anthropic, CDN, WhatsApp) plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. The stack spec caps geocoding spend (§6) but nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
+**6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The stack's split is *Google geocodes, MapLibre renders* (stack spec §6), which is precisely the pattern that restriction targets.
+
+The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation and EC data rather than from Google. Nothing Google-derived reaches the browser.
+
+What is needed is a deliberate confirmation rather than a product spec's reading of the terms, plus the constraint written into the geocoding module when it is built (stack spec §6 now states it). The risk is not the rule — it costs a feature nobody has asked for — but its invisibility. A future contributor who reads "returns a ward, not a point" without knowing why will eventually, helpfully, return the point.
+
+**Only the Geocoding API is in play.** Rendering is MapLibre, so there is no Maps JavaScript API bill and no key in the browser (stack spec §6). If address autocomplete is ever added, the Places API becomes a new dependency with its own metering — and its own version of the 6.4 question.
+
+**6.11 is the gap.** Four metered services — geocoding, Anthropic, CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. The stack spec caps geocoding spend (§6); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
 
 **6.6 deserves its own line.** "An unrehearsed backup is not a backup" (stack spec §4) is a task with a date, not a principle. It is the kind of thing that is genuinely fine until the one day it is not, which for this project is a day that cannot be rescheduled.
 
@@ -156,4 +197,4 @@ Three things make it useful rather than decorative:
 2. **Start Paths A, B and C now**, in parallel. They do not queue behind each other and they do not queue behind the code.
 3. **Resolve §3.7 and §6.8 before Phase 0 exits.** They are the two places where a number nobody has written down could change the plan rather than just the invoice.
 
-Related: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md` (§10 dependencies), `docs/prd.md` (§15), `docs/overview.md` (§8), `docs/superpowers/specs/2026-07-16-production-stack-design.md`.
+Related: `docs/gtm-plan.md` (§10 dependencies), `docs/prd.md` (§15), `docs/overview.md` (§8), `docs/superpowers/specs/2026-07-16-production-stack-design.md`.

@@ -29,6 +29,8 @@ The existing `prototype/` directory — a client-side React demo with mock data 
 | Sessions | Signed HTTP-only cookie | The Next.js server must read the session to render authenticated pages. Cookies are also revocable, which PRD §7 requires (admins deactivate accounts). A JWT is not revocable without adding the same server-side lookup a session already is. |
 | Jobs + cache | Redis 7 + ARQ worker | Earns its place four ways: job queue, rate limiting (PRD §12), OTP expiry via native TTL, and ward-page caching for the spike. |
 | Translation | Claude (`claude-opus-4-8`) via the Anthropic SDK | See §5. |
+| Email delivery | Twilio SendGrid | See §7. One vendor with WhatsApp below. |
+| WhatsApp delivery | Twilio WhatsApp API | See §7. Costs a markup over Meta Cloud API direct; buys one vendor, one bill, one idiom for a team with no dedicated ops. Reversible behind `OtpSender`. |
 | Deployment | Docker Compose on a VM, CDN in front | Given. Compose is production, with an override for development. |
 | Testing | pytest (API), Vitest + Playwright (web) | Conventional for each language. |
 
@@ -145,6 +147,22 @@ Google has by a wide margin the best Bengaluru address coverage; no open geocode
 
 **The Google key is server-side only.** The browser never calls Google and never sees the key. Geocoding happens inside the API.
 
+### Licence constraint: Google content must never reach the MapLibre map
+
+Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. Google-geocodes-plus-MapLibre-renders is precisely the pattern that restriction is aimed at, so this split needs a rule rather than luck.
+
+**The rule: a Google-derived coordinate may be used server-side to resolve a ward, and must never be rendered, returned to the browser, or persisted for display.**
+
+The architecture already satisfies this, though more by consequence than intent:
+
+- Address lookup geocodes server-side, resolves the point against ward polygons, and returns **a ward** — a name and an id, not a position. Nothing Google-derived reaches the client.
+- The "cache the ward, not the coordinates" decision below means Google coordinates are not stored for display in the first place.
+- Ward boundaries are official delimitation GeoJSON (PRD §15). Booth pins come from EC data. **Neither is Google-derived**, so rendering both on MapLibre is unaffected by this constraint.
+
+What would break it: rendering the user's geocoded pin on the ward map — the obvious, tempting next feature, and a licence violation the moment it ships.
+
+**This constraint must be stated in the geocoding module itself when it is written**, next to the Google call, in the same terms as here. A future contributor who reads "returns a ward, not a point" without knowing why will eventually helpfully return the point. The register (`docs/project-dependencies.md` §6) carries this as a dependency needing a deliberate terms review rather than a reading of them by a product spec.
+
 ### Caching: cache the ward, not the coordinates
 
 Google's Maps Platform terms permit caching latitude/longitude for **at most 30 consecutive calendar days**, after which cached coordinates must be deleted. Only `place_id` is exempt and may be stored indefinitely.
@@ -191,10 +209,18 @@ One OTP mechanism for all four roles (PRD §14).
 | Implementation | Use |
 |---|---|
 | `ConsoleSender` | Development — prints the code |
-| `EmailSender` | Launch baseline |
-| `WhatsAppSender` | Meta Cloud API, enabled by config when approved |
+| `EmailSender` | Launch baseline — **Twilio SendGrid** |
+| `WhatsAppSender` | **Twilio WhatsApp API**, enabled by config when approved |
 
 WhatsApp Business API requires a verified business and pre-approved message templates — weeks of process, and PRD §15 already flags it as a fast-follow behind email. The interface means that arrives as a config change, not a rewrite.
+
+**Both channels go through Twilio, deliberately.** SendGrid is a Twilio product, so email and WhatsApp become one vendor, one bill, one support relationship, and one integration idiom. For a team with no dedicated ops, that consolidation is worth more than the alternative saves.
+
+The alternative was Meta Cloud API direct, which has no middleman markup — Twilio adds roughly 30–50% on top of Meta's own per-message fee, against a campaign of ~175k messages (`docs/project-dependencies.md` §3). It was rejected because the saving buys ongoing Graph API plumbing, webhook handling, and template management for a team that may not have anyone to do it.
+
+**Twilio does not shorten the critical path.** Meta Business verification and per-template Meta approval are unchanged — Twilio forwards templates to the same queue. What it removes is plumbing, not waiting. Nothing about the launch timeline improves by choosing it.
+
+The `OtpSender` interface keeps this reversible: if the markup proves material at real volume, moving to Meta Cloud API is one implementation, not a rewrite.
 
 Codes live in Redis with a native TTL; expiry needs no cleanup job.
 
@@ -236,13 +262,16 @@ Who may send to which wards (curator scoped to assigned wards vs admin city-wide
 - **A machine translation may be wrong until a curator reviews it.** Accepted: the alternative is either no Kannada or stalled content. Mitigated by `kn_status` and curator correction.
 - **Backups are ours.** See §4.
 - **A dependency on Google for geocoding.** Accepted for address quality, and bounded: it is one server-side call behind a cache, a spend cap, and a circuit breaker, and every failure mode degrades to pincode search rather than to an outage. Replacing the provider means reimplementing one function.
+- **A licence line that runs through the middle of the map feature.** Google content may not reach the MapLibre map (§6), so the obvious next feature — showing the user's geocoded pin — is closed to us. Accepted because the constraint costs a feature nobody has asked for while Google buys address coverage no open geocoder matches. The risk is not the rule but its invisibility: it must be written next to the code it governs.
+- **A markup on every WhatsApp message.** Accepted for one vendor across both channels (§7). It scales with the success of the registration drive, so it is worth re-testing against real volume rather than assuming.
 
 **Rejected:**
 
 - **Google Maps for rendering** — per-map-view billing on a spike day and a key in the client. Rejected for rendering only; Google is used for geocoding (§6), where the billing scales with distinct addresses rather than pageviews.
 - **An open geocoder (Nominatim/Photon)** — no billing and no vendor, but coverage of Bengaluru layouts, cross-roads, and colloquial addresses is too patchy to meet PRD §5.1.
 - **Vite SPA** — same stack as the prototype, but no link previews and weak SEO across 369 ward pages.
-- **Twilio Verify** — least code for WhatsApp OTP, but per-verification pricing and vendor lock-in, and its India WhatsApp onboarding still needs Meta business verification, so it does not remove the blocker it exists to remove.
+- **Twilio Verify** — least code for WhatsApp OTP, but per-verification pricing and vendor lock-in, and its India WhatsApp onboarding still needs Meta business verification, so it does not remove the blocker it exists to remove. Note this rejects **Verify**, Twilio's turnkey OTP product — not the **Twilio WhatsApp API**, which §7 accepts for raw message delivery behind our own `OtpSender`. The distinction is that we keep the OTP logic and the interface, and buy only transport.
+- **Meta Cloud API direct for WhatsApp** — no middleman markup, but it buys ongoing Graph API plumbing, webhook handling, and Business Manager template administration for a team with no dedicated ops. See §7; reversible behind `OtpSender` if the markup proves material.
 - **FastAPI `BackgroundTasks` instead of a queue** — no new containers, but jobs die with the process, with no retry and no visibility.
 
 ---

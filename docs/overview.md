@@ -130,7 +130,7 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 
 ## 8. Key dependencies
 
-*The ones stakeholders should know about are below. The complete register — legal, official data, people, commercial accounts, and the decisions blocking each — is `docs/project_dependencies.md`. Nearly everything that gates this launch sits outside the codebase.*
+*The ones stakeholders should know about are below. The complete register — legal, official data, people, commercial accounts, and the decisions blocking each — is `docs/project-dependencies.md`. Nearly everything that gates this launch sits outside the codebase.*
 
 - **Curator recruitment & vetting (offline)** — data quality depends on enough trusted curators with the right ward coverage. A hard dependency for launch. **Doubles as partner recruitment** (see below).
 - **Partner network (offline)** — reach depends on RWAs and civic orgs forwarding ward links to their networks. A hard dependency for launch, since there is no paid channel to fall back on.
@@ -185,7 +185,7 @@ One sequencing point worth stakeholder attention: the **privacy policy is the fi
 
 One related decision is cheap now and expensive later. Citizens will register for *election* updates. If the deferred promise-tracking phase ever ships, that list cannot simply be reused — it was gathered for a different purpose, and "critical product updates" does not stretch to a new product. An optional "tell me about future civic tools" consent at registration costs one checkbox today; without it, the next phase starts from a cold list.
 
-Full detail: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md`.
+Full detail: `docs/gtm-plan.md`.
 
 ---
 

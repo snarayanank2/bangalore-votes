@@ -174,7 +174,7 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 
 ## 10. Dependencies
 
-*GTM-specific dependencies are listed here. The project-wide register, including infrastructure and commercial accounts, is `docs/project_dependencies.md`.*
+*GTM-specific dependencies are listed here. The project-wide register, including infrastructure and commercial accounts, is `docs/project-dependencies.md`.*
 
 - **Partner network (offline).** Now a hard launch dependency alongside curator recruitment, and recruited in the same conversations. `/partner-with-us` supplements this motion; it does not replace it.
 - **`/privacy` published.** Blocks WhatsApp Business API onboarding, which blocks templates, which blocks the comms plan. The earliest item on the critical path.
