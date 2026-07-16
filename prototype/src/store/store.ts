@@ -442,6 +442,26 @@ export function createStore() {
     return user
   }
 
+  /**
+   * Lets a citizen set/change their own registered home ward (WardResult's "Set as my ward"
+   * action, IA §3.2). Distinct from setUserRole/setUserActive (admin-only): any user may set
+   * their own home ward, so this deliberately does NOT call requireAdmin. Audited like the other
+   * account/data mutations, and validates the ward exists (requireWard throws otherwise) so a bad
+   * id can never silently corrupt a user's homeWardId.
+   */
+  function setHomeWard(userId: string, wardId: string): void {
+    const user = requireUser(userId)
+    requireWard(wardId)
+    user.homeWardId = wardId
+    appendAudit({
+      actorUserId: user.id,
+      action: 'user.homeWard.updated',
+      wardId,
+      detail: `Set home ward to ${wardId} for ${user.id}.`,
+    })
+    persist()
+  }
+
   // Persist the freshly-seeded (or rehydrated) state immediately so that
   // 'localStorage.getItem(KEY)' is truthy right after construction.
   persist()
@@ -472,6 +492,7 @@ export function createStore() {
     setUserActive,
     setUserRole,
     createUser,
+    setHomeWard,
   }
 }
 

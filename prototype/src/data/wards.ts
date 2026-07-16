@@ -33,4 +33,15 @@ export const seedWards: Ward[] = [
     oldWardsNote: 'Redrawn from old wards 92 and 93.',
     issueIds: ['shi-drainage', 'shi-safety', 'shi-vendors'],
   },
+  {
+    id: 'jayanagar',
+    number: 178,
+    name: 'Jayanagar',
+    corporation: 'South',
+    oldWardsNote: 'Boundary confirmed from old ward 178 with a minor eastward adjustment.',
+    // No candidate data yet — candidate nomination data only lands near the official
+    // notification (real-world constraint), so this ward exercises the Candidates page's
+    // genuine empty state. No votable issues have been defined for it yet either.
+    issueIds: [],
+  },
 ]

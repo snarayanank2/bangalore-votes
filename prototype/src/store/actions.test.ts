@@ -109,3 +109,26 @@ test('setUserRole sets curatorWardIds when promoting to curator', () => {
   expect(promoted.role).toBe('curator')
   expect(promoted.curatorWardIds).toEqual(['malleshwaram'])
 })
+
+// --- Task 14: setHomeWard, backing WardResult's "Set as my ward" action -----------------------
+
+test('setHomeWard updates the user home ward and writes an audit entry', () => {
+  const s = createStore()
+  const c = citizen()
+  expect(c.homeWardId).toBe('koramangala') // sanity: seed citizen starts in koramangala
+
+  const before = s.listAudit().length
+  s.setHomeWard(c.id, 'indiranagar')
+
+  const updated = s.listUsers().find(u => u.id === c.id)!
+  expect(updated.homeWardId).toBe('indiranagar')
+  const audit = s.listAudit()
+  expect(audit.length).toBe(before + 1)
+  expect(audit[audit.length - 1]?.action).toMatch(/homeWard/i)
+})
+
+test('setHomeWard rejects an unknown ward id', () => {
+  const s = createStore()
+  const c = citizen()
+  expect(() => s.setHomeWard(c.id, 'not-a-real-ward')).toThrow(/unknown ward/i)
+})
