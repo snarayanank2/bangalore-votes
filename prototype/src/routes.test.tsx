@@ -47,12 +47,16 @@ test('routes to a curator page and redirects an anonymous visitor away from it',
   expect(router.state.location.pathname).toBe('/')
 })
 
-test('renders a deep public page placeholder by heading', () => {
+test('renders a deep public page by heading', () => {
   const router = createMemoryRouter(routeObjects, { initialEntries: ['/about'] })
   render(
     <AppProviders>
       <RouterProvider router={router} />
     </AppProviders>,
   )
-  expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument()
+  // Task 18 replaced the "About" placeholder heading with the real trust-page title — mirrors
+  // the same kind of update already made above for Home (see the curator-redirect test's note).
+  expect(
+    screen.getByRole('heading', { level: 1, name: /about.*how we source data/i }),
+  ).toBeInTheDocument()
 })
