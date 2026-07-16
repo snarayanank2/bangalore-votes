@@ -130,6 +130,8 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 
 ## 8. Key dependencies
 
+*The ones stakeholders should know about are below. The complete register — legal, official data, people, commercial accounts, and the decisions blocking each — is `docs/project_dependencies.md`. Nearly everything that gates this launch sits outside the codebase.*
+
 - **Curator recruitment & vetting (offline)** — data quality depends on enough trusted curators with the right ward coverage. A hard dependency for launch. **Doubles as partner recruitment** (see below).
 - **Partner network (offline)** — reach depends on RWAs and civic orgs forwarding ward links to their networks. A hard dependency for launch, since there is no paid channel to fall back on.
 - **Authoritative data sources** — reliable access to EC affidavits, official notifications, and ward-delimitation data.

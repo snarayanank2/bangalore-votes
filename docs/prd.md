@@ -389,6 +389,8 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 
 ## 15. Dependencies & assumptions
 
+*Summarised here; the full register — with owners, and every non-code dependency including commercial accounts and infrastructure — is `docs/project_dependencies.md`.*
+
 - **Curator recruitment & vetting (offline).** Data quality depends on enough trusted curators with the right ward coverage. Hard dependency for launch. Also the source of the partner network below — the same people, recruited in the same conversations.
 - **Partner network (offline).** Reach depends on RWAs and civic orgs forwarding ward links. Hard dependency for launch: with no paid channel, there is no fallback if this doesn't materialise.
 - **Authoritative data sources.** Reliable access to EC affidavits, official notifications, and ward-delimitation data.
