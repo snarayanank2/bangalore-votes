@@ -101,6 +101,23 @@ test('createUser persists across a fresh createStore()', () => {
   expect(found?.homeWardId).toBe('koramangala')
 })
 
+// --- getCandidateById selector (perf: id lookup without a full getState() clone) ---------
+
+test('getCandidateById resolves by id and deep-clones its result', () => {
+  const s = createStore()
+  const seeded = s.listCandidatesByWard('koramangala')[0]
+  const byId = s.getCandidateById(seeded.id)
+  expect(byId?.slug).toBe(seeded.slug)
+
+  byId!.name = 'HACKED'
+  expect(s.getCandidateById(seeded.id)!.name).not.toBe('HACKED')
+})
+
+test('getCandidateById returns undefined for an unknown id', () => {
+  const s = createStore()
+  expect(s.getCandidateById('no-such-id')).toBeUndefined()
+})
+
 test('createUser writes an audit entry', () => {
   const s = createStore()
   const before = s.listAudit().length

@@ -102,3 +102,18 @@ test('about: states plainly that this is a prototype with fictional data', () =>
   expect(main.getAllByText(/prototype/i).length).toBeGreaterThan(0)
   expect(main.getAllByText(/fictional/i).length).toBeGreaterThan(0)
 })
+
+test('about: lists primary sources as clearly-marked placeholder links, not working URLs', () => {
+  const main = renderAt('/about')
+
+  expect(main.getByRole('heading', { name: /primary sources/i })).toBeInTheDocument()
+  const links = [
+    main.getByRole('link', { name: /EC candidate nomination affidavits/i }),
+    main.getByRole('link', { name: /official election notifications/i }),
+    main.getByRole('link', { name: /GBA ward-delimitation data/i }),
+  ]
+  for (const link of links) {
+    expect(link).toHaveAttribute('href', '#')
+    expect(link.textContent).toMatch(/placeholder link in this prototype/i)
+  }
+})

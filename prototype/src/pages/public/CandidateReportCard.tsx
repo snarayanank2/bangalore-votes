@@ -88,6 +88,9 @@ export default function CandidateReportCard() {
           <p className="text-sm text-ink/70">{candidate.party}</p>
         </div>
       </header>
+      <p className="text-xs italic text-ink/60">
+        Name, photo and party as filed in the EC nomination.
+      </p>
 
       <dl className="space-y-4">
         <ReportField label="Ward track record" sourced={candidate.trackRecord} />

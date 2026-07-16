@@ -413,3 +413,62 @@ test('updateIssue throws for an unknown issue id', () => {
   const admin = s.listUsers().find((u) => u.role === 'admin')!
   expect(() => s.updateIssue('not-a-real-issue', { title: 'X' }, admin)).toThrow(/unknown issue/i)
 })
+
+// --- updateCandidate must not publish an unsourced Sourced field (store-side backstop) ------
+
+test('updateCandidate throws when patching a Sourced field without a valid source, and leaves the candidate + audit unchanged', () => {
+  const s = createStore()
+  const slug = 'koramangala-r-menon'
+  const before = s.getCandidate(slug)!
+  const auditBefore = s.listAudit().length
+
+  // Missing source entirely.
+  expect(() =>
+    s.updateCandidate(slug, { assets: { value: 'Rs 1' } as never }, curator()),
+  ).toThrow(/source/i)
+
+  // Source present but label empty.
+  expect(() =>
+    s.updateCandidate(
+      slug,
+      { assets: { value: 'Rs 1', source: { type: 'curator', label: '' } } },
+      curator(),
+    ),
+  ).toThrow(/source/i)
+
+  // Source present with a label but an invalid type.
+  expect(() =>
+    s.updateCandidate(
+      slug,
+      { assets: { value: 'Rs 1', source: { type: 'guess' as never, label: 'Someone said so' } } },
+      curator(),
+    ),
+  ).toThrow(/source/i)
+
+  expect(s.getCandidate(slug)).toEqual(before)
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('updateCandidate publishes a Sourced field when the incoming value carries a complete source', () => {
+  const s = createStore()
+  const slug = 'koramangala-r-menon'
+  const auditBefore = s.listAudit().length
+
+  s.updateCandidate(
+    slug,
+    { assets: { value: 'Rs 5 crore', source: { type: 'affidavit', label: 'EC affidavit 2026' } } },
+    curator(),
+  )
+
+  expect(s.getCandidate(slug)?.assets.value).toBe('Rs 5 crore')
+  expect(s.getCandidate(slug)?.assets.source.label).toBe('EC affidavit 2026')
+  expect(s.listAudit().length).toBe(auditBefore + 1)
+})
+
+test('updateCandidate still allows patching a non-Sourced field (e.g. party) with no source required', () => {
+  const s = createStore()
+  const slug = 'koramangala-r-menon'
+
+  expect(() => s.updateCandidate(slug, { party: 'New Party Name' }, curator())).not.toThrow()
+  expect(s.getCandidate(slug)?.party).toBe('New Party Name')
+})

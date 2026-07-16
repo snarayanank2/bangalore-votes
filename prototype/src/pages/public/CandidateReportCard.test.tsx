@@ -74,6 +74,11 @@ test('anonymous click on Flag an error shows the login modal first (resume-in-pl
   expect(screen.getByRole('dialog', { name: /sign in/i })).toBeInTheDocument()
 })
 
+test('shows a plain-text provenance note that name, photo and party come from the EC nomination', () => {
+  renderAt('/candidate/koramangala-r-menon')
+  expect(screen.getByText(/name, photo and party.*EC nomination/i)).toBeInTheDocument()
+})
+
 test('an unknown candidate slug does not crash and shows an honest not-found message', () => {
   renderAt('/candidate/not-a-real-candidate')
   expect(screen.getByText(/couldn.t find that candidate/i)).toBeInTheDocument()

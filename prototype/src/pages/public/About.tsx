@@ -66,6 +66,43 @@ export default function About() {
         </p>
       </section>
 
+      <section aria-labelledby="primary-sources-heading" className="space-y-2">
+        <h2 id="primary-sources-heading" className="text-lg font-semibold text-ink">
+          Primary sources
+        </h2>
+        <p className="text-sm text-ink/80">
+          These are the kinds of official records this platform relies on. This is a static
+          prototype with no live network access, so the links below don&apos;t resolve to real
+          pages here — in the live product they would point to the actual government source.
+        </p>
+        <ul className="space-y-2">
+          <li>
+            <a
+              href="#"
+              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+            >
+              EC candidate nomination affidavits (placeholder link in this prototype)
+            </a>
+          </li>
+          <li>
+            <a
+              href="#"
+              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+            >
+              Official election notifications (placeholder link in this prototype)
+            </a>
+          </li>
+          <li>
+            <a
+              href="#"
+              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+            >
+              GBA ward-delimitation data (placeholder link in this prototype)
+            </a>
+          </li>
+        </ul>
+      </section>
+
       <section aria-labelledby="neutrality-heading" className="space-y-2">
         <h2 id="neutrality-heading" className="text-lg font-semibold text-ink">
           Our neutrality stance

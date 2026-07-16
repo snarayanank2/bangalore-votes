@@ -27,9 +27,8 @@ interface FieldDraft {
  *
  * ROUTE PARAM: the URL carries the candidate's `id` (see routes.tsx and Dashboard.tsx's link,
  * `/curator/candidate/${candidate.id}`), NOT its `slug`. The store's mutation
- * (`updateCandidate`) is keyed by `slug`, so this page first resolves id -> candidate (there is
- * no `getCandidateById` selector, so it searches the full state) and then always calls
- * `updateCandidate` with `candidate.slug`.
+ * (`updateCandidate`) is keyed by `slug`, so this page first resolves id -> candidate via the
+ * `getCandidateById` selector, and then always calls `updateCandidate` with `candidate.slug`.
  *
  * SOURCE IS MANDATORY PER FIELD (PRD §5.2/§11 — every data point on the platform carries a
  * visible source; that's the product's core trust mechanism). Save is refused, inline, if any of
@@ -46,9 +45,7 @@ export default function EditCandidate() {
   const data = useData()
   useStoreVersion()
 
-  const candidate = candidateId
-    ? data.getState().candidates.find((c) => c.id === candidateId)
-    : undefined
+  const candidate = candidateId ? data.getCandidateById(candidateId) : undefined
   const ward = candidate ? data.getWard(candidate.wardId) : undefined
 
   const [name, setName] = useState(candidate?.name ?? '')

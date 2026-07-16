@@ -7,6 +7,7 @@ import type {
   NotificationPrefs,
   Role,
   Source,
+  Sourced,
   Submission,
   User,
   Ward,
@@ -67,6 +68,22 @@ const CANDIDATE_SOURCED_FIELDS: readonly CandidateSourcedField[] = [
 
 function isCandidateSourcedField(field: string): field is CandidateSourcedField {
   return (CANDIDATE_SOURCED_FIELDS as readonly string[]).includes(field)
+}
+
+/** Structural check that an incoming patch value for a `Sourced<string>` candidate field is
+ *  actually complete — a non-empty source `label` and a valid `type`. This is the store-side
+ *  backstop for PRD §11's "every field carries a visible source": `EditCandidate.tsx` already
+ *  guards this client-side, but the store is the data-integrity boundary and must not trust any
+ *  caller (a future form, a bug, a direct console call) to have done so. */
+function isValidSourcedPatchValue(value: unknown): value is Sourced<string> {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  if (typeof v.value !== 'string') return false
+  if (typeof v.source !== 'object' || v.source === null) return false
+  const source = v.source as Record<string, unknown>
+  if (typeof source.label !== 'string' || source.label.trim() === '') return false
+  if (source.type !== 'affidavit' && source.type !== 'curator') return false
+  return true
 }
 
 export type WardPatch = Partial<Pick<Ward, 'name' | 'number' | 'corporation' | 'oldWardsNote'>>
@@ -216,6 +233,14 @@ export function createStore() {
 
   function getCandidate(slug: string): Candidate | undefined {
     const candidate = state.candidates.find((c) => c.slug === slug)
+    return candidate ? structuredClone(candidate) : undefined
+  }
+
+  /** Resolves a candidate by `id` (as opposed to `getCandidate`'s `slug` lookup) — used by
+   *  `EditCandidate.tsx`, whose route param is the candidate's id, not its slug. Avoids that page
+   *  having to call `getState()` (which deep-clones the entire store) just to find one candidate. */
+  function getCandidateById(id: string): Candidate | undefined {
+    const candidate = state.candidates.find((c) => c.id === id)
     return candidate ? structuredClone(candidate) : undefined
   }
 
@@ -435,6 +460,15 @@ export function createStore() {
   function updateCandidate(slug: string, patch: CandidatePatch, curator: User): void {
     const candidate = requireCandidateBySlug(slug)
     requireScope(curator, candidate.wardId)
+    for (const key of Object.keys(patch)) {
+      if (!isCandidateSourcedField(key)) continue
+      const value = (patch as Record<string, unknown>)[key]
+      if (!isValidSourcedPatchValue(value)) {
+        throw new Error(
+          `Cannot publish "${key}": a sourced field requires a non-empty source label and a source type of 'affidavit' or 'curator'.`,
+        )
+      }
+    }
     Object.assign(candidate, patch)
     appendAudit({
       actorUserId: curator.id,
@@ -646,6 +680,7 @@ export function createStore() {
     getWard,
     listWards,
     getCandidate,
+    getCandidateById,
     listCandidatesByWard,
     listIssues,
     listIssueCatalog,
