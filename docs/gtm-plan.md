@@ -47,11 +47,13 @@ The Indian election sequence runs notification → nominations (~7d) → scrutin
 
 | Phase | Trigger | Public surface | Purpose |
 |---|---|---|---|
-| **0 — Network** | Now | `/privacy`, `/terms` | Recruit partners and curators in the same conversations. Publish the privacy policy — it gates WhatsApp onboarding. Submit templates for approval. Exit: partner coverage across target wards, curators assigned, templates approved. |
-| **1 — Teaser** | Ward + logistics data ready | `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press` | Build the list. Ward finder is the forwardable asset. **Exit: ~25,000 registrations, ≥50 in ≥300 wards.** |
+| **0 — Network** | Now | `/privacy`, `/terms` | Recruit partners and curators in the same conversations. Publish the privacy policy — it gates WhatsApp onboarding. Submit templates for approval. Exit: partner coverage across target wards, curators assigned, templates submitted. Approval is not a gate — the teaser ships on email if Meta is still reviewing, and WhatsApp joins when approved. |
+| **1 — Teaser** | Ward + logistics data ready | `/`, `/ward/{id}`, `/ward/{id}/issues`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press` | Build the list. Ward finder is the forwardable asset. **Exit: ~25,000 registrations, ≥50 in ≥300 wards.** |
 | **2 — Launch** | At N | Adds `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare`, `/data` | Candidates provisional. The press moment. |
-| **3 — Countdown** | E−3w → E−1w | Adds `/ward/{id}/issues` results at scale; `/data` issue roll-up becomes meaningful | E−2w is the real content beat: final list, report cards complete. |
+| **3 — Countdown** | E−3w → E−1w | `/ward/{id}/issues` results reach scale (the page is live from Phase 1); `/data` issue roll-up becomes meaningful | E−2w is the real content beat: final list, report cards complete. |
 | **4 — Final 72h** | E−3d | No change | One logistics send at E−3d, then the campaign goes dark. Site stays fully available. |
+
+**Phases are event-triggered; "exit" figures are progress targets, not gates.** N opens Phase 2 unconditionally — candidates exist at N whether or not the registration target is met — and the Phase 1 exit numbers are what the phase is judged against, not something the next phase waits for. If the target is badly missed when N arrives, the response is in the risk table (the partner cascade underperforming), not a delayed launch.
 
 `docs/overview.md` §8 already establishes that ward and logistics tools can launch before candidate content. Phase 1 is that sentence made operational.
 
@@ -67,19 +69,21 @@ All sends are ward-scoped and in the recipient's saved language preference (PRD 
 |---|---|---|---|
 | W1 | On register | Email + WA | Confirms ward, language, and what they will receive |
 | R1 | Roll close −7d | Email + WA | Last date to join the electoral roll; check registration |
-| L1 | At N | Email + WA | Candidates have filed in your ward (provisional) |
+| L1 | Scrutiny complete (≈N+9d) | Email + WA | Candidates have filed in your ward (provisional) |
 | C1 | E−3w | Email + WA | Vote on your ward's top 3 issues |
 | C2 | E−2w | Email + WA | Final candidate list; report cards complete |
 | C3 | E−1w | Email + WA | Your ward's top issues; compare candidates; booth locator |
-| F2 | E−3d | Email + WA | Booth, timings, ID to carry |
+| F1 | E−3d | Email + WA | Booth, timings, ID to carry |
 
-Three of these carry reasoning that is not obvious from the table:
+Four of these carry reasoning that is not obvious from the table:
+
+**L1 waits for scrutiny, not the notification.** Nominations only open at N and run about a week — at N there is nothing filed to announce, and a ward's completeness check (PRD §9.1) would pass vacuously against an empty list. Scrutiny is the first moment the platform can point at a list that is real, though withdrawals may still shrink it, which is why the message stays framed as provisional. The site opens its candidate pages at N and fills as nominations come in; only the send waits.
 
 **R1 is the highest-value message in the plan.** Missing the electoral roll deadline is the one failure in this funnel that is *irreversible* — no quantity of good candidate information helps someone who is not on the roll. R1 is also what justifies the teaser shipping months early. It is anchored to the roll deadline, an absolute date that moves independently of N and E.
 
 **C1 is issue voting, not candidates.** At E−3w nominations are still churning, so candidate data is the one thing the platform cannot yet stand behind. Issue voting fills the slot with something true, drives the contribution loop, and produces the ward results that make C3 worth opening.
 
-**F2 is the last send, and the campaign then goes dark.** It sits at E−3d so it clears the E−48h silence window with a day to spare, and it carries logistics only — booth, timings, ID to carry. Nothing is sent in the final 48 hours: no candidate push, no election-morning reminder.
+**F1 is the last send, and the campaign then goes dark.** It sits at E−3d so it clears the E−48h silence window with a day to spare, and it carries logistics only — booth, timings, ID to carry. Nothing is sent in the final 48 hours: no candidate push, no election-morning reminder.
 
 Going dark is a deliberate trade. It gives up the election-morning send, which is the highest-converting message in a typical GOTV programme, and it delivers booth details three days before they are used. What it buys is a campaign that cannot be accused of electioneering during the silence period, on a platform whose entire worth is its neutrality. That trade is worth making here in a way it would not be for a partisan campaign. C3 (E−1w) is therefore the last candidate content any citizen receives; the site itself stays fully available throughout, so a citizen who wants their booth on election morning can still get it.
 
@@ -113,7 +117,7 @@ It offers the two ways to help, matching the two roles the platform already has:
 | **Spread awareness** | Forward ward links to your network — apartment groups, RWA lists, member mail | A partner kit page, a tagged link, and a report of what their forwarding actually achieved |
 | **Curate data** | Own the accuracy of a ward's data: compile report cards, attach sources, review flags | Assigned ward scope, onboarding, and publish-immediately trust |
 
-Both submit one expression-of-interest form. **The form is anonymous — no account required.** Requiring registration before someone can volunteer taxes exactly the people the plan depends on, and an RWA as an institution does not map onto a citizen account with a home ward. It is rate-limited (PRD §6.3) and triaged by admins; curator applicants hand off to the existing vetting path at `/admin/roles`.
+Both submit one expression-of-interest form. **The form is anonymous — no account required.** Requiring registration before someone can volunteer taxes exactly the people the plan depends on, and an RWA as an institution does not map onto a citizen account with a home ward. It is CAPTCHA-protected (PRD §6.3) and triaged by admins; curator applicants hand off to the existing vetting path at `/admin/roles`.
 
 This does not make partners self-serving. Nobody becomes a live partner or curator without admin review — the page collects applications, it does not grant access.
 
@@ -149,6 +153,8 @@ Both are built bottom-up from what the cascade can plausibly deliver without pai
 - **Recruitment funnel:** expressions of interest per path (awareness vs curation), and how many convert to live partners or curators. If the awareness path dwarfs the curation path, ward data readiness becomes the binding constraint and Phase 2 gating starts holding sends.
 - **List health:** WhatsApp opt-out rate and email bounce rate. Treat opt-out rate as a brake — if it climbs, cut sends. The list does not grow back.
 
+**All measurement is server-side.** Every funnel step after the raw visit is already a server action — ward lookup, registration, OTP confirmation — so they are counted as application events; visit counts come from CDN/server logs. No client-side tracker, no analytics cookies, no third-party analytics vendor: a platform that promises not to share citizen data should not be shipping browsing data to one. `/privacy` discloses the server logs (PRD §5.16).
+
 The public-facing subset of these figures is what `/data` publishes (§7).
 
 ---
@@ -158,7 +164,7 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 | Risk | Impact | Mitigation |
 |---|---|---|
 | **Comms promise data curators haven't filled in** | L1/C2 sent ward-scoped to a ward with no curator lands on an empty page — converting the best message into the worst impression, exactly as press attention peaks | **Per-ward send gating**: a ward receives L1/C2/C3 only after its data passes a readiness check. Unready wards are held, not sent a broken promise. Now a PRD requirement (§9.1). |
-| WhatsApp Business API approval slips | Half the channel plan disappears | Submit all templates in Phase 0 (~14: seven sends × EN/KN), and publish `/privacy` first — Meta will not onboard without it. Email is the baseline; WhatsApp is the fast-follow. |
+| WhatsApp Business API approval slips | Half the channel plan disappears | Submit all templates in Phase 0 (16: seven sends plus the OTP authentication template, × EN/KN), and publish `/privacy` first — Meta will not onboard without it. Email is the baseline; WhatsApp is the fast-follow. |
 | **`/privacy` treated as launch hygiene** | It gates WhatsApp onboarding, which gates templates, which gates the comms plan. Deferring it silently defers everything | Publish in Phase 0, before the teaser. Sequenced explicitly in §3. |
 | DPDP Act 2023 non-compliance | Legal exposure; the platform collects phone, email, and address→ward at scale | Consent notice, data-principal rights, and a named grievance officer in `/privacy`. Needs a lawyer — out of this spec's competence. |
 | **"Critical product updates" drafted broadly** | It becomes the loophole that swallows the purpose limitation — every future announcement is arguably critical, and the election list quietly turns into a general marketing list | Draft it narrowly in `/privacy` (§5.16 of the PRD): service-affecting notices only. The deferred promise-tracking phase needs fresh consent, not this clause. |
@@ -167,7 +173,7 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 | Election date moves | Calendar invalid | Relative anchors absorb it. Note R1 is anchored to the roll deadline, which moves independently. |
 | Partner network doesn't materialise | Ward coverage skews to affluent central wards | Coverage dashboard surfaces it early; press is the fallback amplifier. |
 | Neutrality attack | Loss of the trust the platform rests on | Source on every field (PRD §11); partner neutrality statement; no paid spend, as evidence. |
-| Booth data doesn't land | C3 and F2 lose most of their value | Degrade to ward-level messaging. IA §3.12 commits to address-accurate booth data; treat as a launch dependency. |
+| Booth data doesn't land | C3 and F1 lose most of their value | Degrade to ward-level messaging. IA §3.12 commits to address-accurate booth data; treat as a launch dependency. |
 | Silence-period violation | Legal exposure under RPA §126 | The campaign goes dark from E−3d, well clear of the window. The PRD §9.2 content freeze remains as a guardrail against any send added later. |
 
 ---
@@ -179,9 +185,9 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 - **Partner network (offline).** Now a hard launch dependency alongside curator recruitment, and recruited in the same conversations. `/partner-with-us` supplements this motion; it does not replace it.
 - **`/privacy` published.** Blocks WhatsApp Business API onboarding, which blocks templates, which blocks the comms plan. The earliest item on the critical path.
 - **Legal review.** `/terms` and `/privacy` need a lawyer for DPDP Act 2023 compliance, not a product spec.
-- **WhatsApp Business API.** Template approval has weeks of lead time; ~14 templates across EN/KN. Belongs in Phase 0.
+- **WhatsApp Business API.** Template approval has weeks of lead time; 16 templates across EN/KN (seven sends plus OTP). Belongs in Phase 0.
 - **Electoral roll deadline date.** R1's anchor. Must be tracked independently of N and E.
-- **Booth-level data.** Required for C3 and F2 to be worth sending.
+- **Booth-level data.** Required for C3 and F1 to be worth sending.
 - **Ward + delimitation data.** Gates Phase 1 entirely — the teaser *is* the ward finder.
 - **Press assets.** Logos, screenshots, and named spokespeople with quotes, for `/press` in Phase 1.
 
@@ -195,10 +201,4 @@ Paid acquisition. Candidate outreach or engagement of any kind. Post-election co
 
 ## 12. Open questions
 
-- **Partner kit localisation.** Is the kit page itself bilingual, or English-only with bilingual assets inside it? Same question for `/press` and `/partner-with-us`.
-- **Press embargo.** Does the Phase 2 press push go out at N, or at E−2w when report cards are actually complete?
-- **Retention period.** Oorvani's commitments settle *who* may use citizen data (nobody else) and *for what* (election updates, critical product notices). They do not settle **for how long**. `/privacy` must state a period or a deletion trigger, and it remains a Phase 0 blocker.
-- **Re-consent for the next phase.** If promise tracking ships, the election list cannot simply be reused — it was gathered for an election, and "critical product updates" does not stretch to a new product. Collect an optional "tell me about future civic tools" consent at registration now, or go back to a cold list later? Deciding now costs one checkbox. Deciding later may cost the list.
-- **Is Citizen Matters an owned channel?** If the Oorvani Foundation also publishes Citizen Matters, the plan is written against a cold-start problem the organisation may not actually have — an existing Bengaluru civic readership is a distribution asset worth more than most of the partner cascade, and Phase 1 would look different. Worth confirming before Phase 0 planning hardens.
-- **`/data` figures during held wards.** Does coverage count a ward whose data exists but is held from comms by the PRD §9.1 readiness check? The honest answer and the flattering answer differ.
-- **Funding disclosure detail.** Does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question it was meant to close.
+Open questions are tracked in one place: **`docs/prd.md` §17**. The GTM-raised subset — partner kit / press localisation, press timing (N vs E−2w), the retention period, re-consent for the next phase, whether Citizen Matters is an owned channel, `/data` counting of held wards, and funding disclosure detail — lives there alongside everything else. The blocking subset also appears in `docs/project-dependencies.md` §7 with owners.

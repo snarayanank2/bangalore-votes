@@ -19,13 +19,13 @@ These run in parallel and are independent. The project is gated by whichever fin
 ```
 retention decision → lawyer drafts /privacy → /privacy published
   → Meta business verification → WhatsApp API onboarding
-  → ~28 templates submitted (14 sends × EN/KN) → Meta approval (weeks)
+  → 16 templates submitted (7 sends + OTP, × EN/KN) → Meta approval (weeks)
   → the comms plan can run
 ```
 
 Every arrow is someone else's queue. The chain is measured in months, and it starts with a decision nobody has made (§2.1). This is the one most likely to be mistaken for launch-week paperwork.
 
-**Path B — Ward delimitation data.** The teaser *is* the ward finder (GTM spec §2). Without post-delimitation boundaries there is no Phase 1 — not a degraded Phase 1, none. Ward-name and pincode lookup ship first and need no boundary polygons (stack spec §6), which buys a partial path, but address lookup and everything ward-scoped waits on this.
+**Path B — Ward delimitation data.** The teaser *is* the ward finder (GTM spec §2). Without post-delimitation boundaries there is no Phase 1 — not a degraded Phase 1, none. Pincode lookup (PRD §5.1) ships first and needs no boundary polygons — the decided hedge — which buys a partial path, but address lookup and everything ward-scoped waits on this.
 
 **Path C — People.** Curators gate ward data readiness, which gates candidate comms (PRD §9.1). Partners gate reach. Both are recruited in the same conversations (GTM spec §2), and both are slower than they look because vetting is a judgement, not a form.
 
@@ -53,7 +53,7 @@ Every arrow is someone else's queue. The chain is measured in months, and it sta
 
 ## 3. Messaging & delivery
 
-Both channels go through **Twilio** — SendGrid is a Twilio product, so email and WhatsApp are one vendor, one bill, one support relationship (stack spec §7).
+Both channels go through **Twilio** — SendGrid is a Twilio product, so email and WhatsApp are one vendor, one bill, one support relationship. This is a decided stack choice.
 
 ### 3a. WhatsApp, via Twilio
 
@@ -65,10 +65,10 @@ Both channels go through **Twilio** — SendGrid is a Twilio product, so email a
 | 3.4 | **Sender number (+91)** — see the walkthrough below | Any WhatsApp send | unassigned |
 | 3.5 | **WhatsApp sender registration** in Twilio, linked to the Meta business | 3.6 | unassigned |
 | 3.6 | **Display name approval** — the name citizens see, reviewed by Meta | Sending | unassigned |
-| 3.7 | **~28 templates** submitted via Twilio, approved by Meta — 14 sends × EN/KN | The comms calendar | unassigned |
-| 3.8 | **Template category classification** — Meta's Marketing vs Utility split | 3.7, and the budget in 3.9 | unassigned |
+| 3.7 | **16 templates** submitted via Twilio, approved by Meta — 7 sends + the OTP login message, × EN/KN | The comms calendar; WhatsApp OTP login | unassigned |
+| 3.8 | **Template category classification** — Meta's Marketing / Utility / Authentication split | 3.7, and the budget in 3.9 | unassigned |
 | 3.9 | **Message budget** — Meta's per-message fee **plus Twilio's markup** | Whether the plan is affordable | unassigned |
-| 3.10 | **Recorded opt-in evidence** — WhatsApp policy requires it, stored, not implied | Policy compliance | unassigned |
+| 3.10 | **Recorded opt-in evidence** — captured at registration (IA §7.1): the wording version shown + timestamp, stored, not implied | Policy compliance | unassigned |
 
 **Twilio does not shorten Path A.** Meta business verification and per-template Meta approval are unchanged; Twilio forwards templates to the same queue. It removes plumbing, not waiting. Nothing about the launch date improves by having chosen it.
 
@@ -82,11 +82,11 @@ Both channels go through **Twilio** — SendGrid is a Twilio product, so email a
 
 **Recipients (`+91` "to") are unremarkable** — messaging Indian numbers works normally at India rates. Two consequences that do bite: all seven sends are proactive, i.e. outside WhatsApp's 24-hour service window, so **every one requires an approved template** (3.7); and **opt-in must be recorded as evidence** at registration (3.10).
 
-**DLT registration does not apply.** India's TRAI DLT regime governs **SMS, not WhatsApp**, so it is off the critical path — *unless* someone later adds SMS as an OTP fallback, at which point it becomes a weeks-long dependency that arrives as a surprise. The stack uses email and WhatsApp only (stack spec §7).
+**DLT registration does not apply.** India's TRAI DLT regime governs **SMS, not WhatsApp**, so it is off the critical path — *unless* someone later adds SMS as an OTP fallback, at which point it becomes a weeks-long dependency that arrives as a surprise. The stack uses email and WhatsApp only — no SMS.
 
-**3.8 and 3.9 are the costs nobody has written down.** Meta classifies templates as Utility (transactional, cheaper) or Marketing (announcements, dearer, and separately blockable by the recipient). Of the seven sends, only W1 is unambiguously Utility; *candidates have filed*, *vote on your issues*, *report cards are complete* all read as Marketing under Meta's definitions however civic the intent.
+**3.8 and 3.9 are the costs nobody has written down.** Meta classifies templates as Utility (transactional, cheaper) or Marketing (announcements, dearer, and separately blockable by the recipient). Of the seven sends, only W1 is unambiguously Utility; *candidates have filed*, *vote on your issues*, *report cards are complete* all read as Marketing under Meta's definitions however civic the intent. The OTP login message is a third class again — **Authentication category**, with its own per-message rate.
 
-At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, billed at Meta's India rate **plus Twilio's markup** (roughly 30–50% on top). It scales linearly with the success of the registration drive — hitting the target makes the bill bigger, not smaller. Get real quotes rather than estimates: Meta moved from conversation-based to per-message pricing during 2025, so any rate figure repeated from memory is suspect. If the number is bad, the channel mix is the lever — email has no per-message fee.
+At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, billed at Meta's India rate **plus Twilio's markup** (roughly 30–50% on top). On top of that, WhatsApp OTP logins (PRD §10) are metered per attempt at the Authentication rate — that line scales with *sessions*, not with the calendar, and is unbounded by the seven-send budget. It scales linearly with the success of the registration drive — hitting the target makes the bill bigger, not smaller. Get real quotes rather than estimates: Meta moved from conversation-based to per-message pricing during 2025, so any rate figure repeated from memory is suspect. If the number is bad, the channel mix is the lever — email has no per-message fee.
 
 ### 3b. Email, via SendGrid
 
@@ -113,10 +113,10 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 4.4 | **Electoral roll deadline date** | R1, the highest-value send | unassigned |
 | 4.5 | **Candidate nomination list** — from EC / returning officers, provisional then final | Phase 2, and C2 at E−2w | unassigned |
 | 4.6 | **Candidate affidavits** (Form 26) — cases, assets, education | Report cards; the ward-readiness check (PRD §9.1) | unassigned |
-| 4.7 | **Polling booth data** — address-accurate, with locations | `/voting-guide/find-booth`; the F2 send | unassigned |
-| 4.8 | **Registration-check path** — EC service integration or documented manual route | `/check-registration` | unassigned |
+| 4.7 | **Polling booth data** — address-accurate, with locations | `/voting-guide/find-booth`; the F1 send | unassigned |
+| 4.8 | **Registration-check link target** — the correct official EC / CEO Karnataka roll-lookup URL for GBA, verified, and monitored for changes (it is a guided link-out, not an integration — PRD §5.6) | `/check-registration` | unassigned |
 
-**4.1 is the single largest technical risk in the project** and it is not a technical task. The stack spec (§6) is explicit: geocoding quality is solved, delimitation data is not. Ward-name and pincode lookup are the hedge.
+**4.1 is the single largest technical risk in the project** and it is not a technical task. Geocoding quality is a solved problem (Google geocoding, decided — §6.3); delimitation data is not. Pincode lookup is the hedge.
 
 **4.3 and 4.4 move independently.** The roll deadline is not derived from the election date and must be tracked separately — R1 is anchored to it, and R1 is the one message whose failure cannot be undone (GTM spec §4).
 
@@ -132,13 +132,12 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 5.2 | **Partner recruitment** — RWAs, civic organisations | Reach; the Phase 1 target | unassigned |
 | 5.3 | **A named outreach owner** — one person owning 5.1 and 5.2 as one motion | Both of the above | unassigned |
 | 5.4 | **Curator onboarding material** — what the standard is, what a source is, how to sign off | Data quality; the sign-off being real | unassigned |
-| 5.5 | **Kannada translation review** — a person who checks machine output before it ships | Bilingual claim (PRD §8) | unassigned |
-| 5.6 | **Named spokespeople** with approved quotes | `/press` | unassigned |
-| 5.7 | **Moderation capacity** — someone works the flag queue near the election | The correction loop (PRD §6) | unassigned |
+| 5.5 | **Named spokespeople** with approved quotes | `/press` | unassigned |
+| 5.6 | **Moderation capacity** — someone works the flag queue near the election | The correction loop (PRD §6) | unassigned |
 
 **5.3 is the cheapest item here and the one most likely to sink the plan.** Curator and partner recruitment are the same conversations with the same people (GTM spec §2). Split across two owners, the relationship gets asked twice and gives once. Unowned, it happens in whatever time is left over, which near an election is none.
 
-**5.5 is not optional.** The stack machine-translates curator content into Kannada (stack spec §5). Unreviewed machine Kannada on a candidate's criminal record is exactly the kind of error the flag queue exists to catch — except it would be ours, published at scale, on a platform whose whole claim is accuracy.
+**Kannada is machine-generated with no human review — a decided trade (PRD §8).** The stack translates curator content via the Anthropic API (§6.6) and publishes it directly; the citizen flag flow is the correction path. The residual risk is owned rather than mitigated: a bad machine translation on a candidate's criminal record would be ours, published at scale — which makes moderation capacity (5.6) matter more, since flags are the only net under this.
 
 ---
 
@@ -146,35 +145,35 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
-| 6.1 | **Cloud hosting account + billing** — the VM running Compose (stack spec §4) | Any deployment | unassigned |
+| 6.1 | **Cloud hosting account + billing** — a single VM running Docker Compose, the decided hosting shape | Any deployment | unassigned |
 | 6.2 | **Google Cloud project + billing account** (card on file) | 6.3, 6.4 | unassigned |
 | 6.3 | **Geocoding API enabled + key**, restricted to the server | Address→ward lookup | unassigned |
 | 6.4 | **Google Maps Platform terms review** — see below | Whether the geocoding architecture is licensed at all | unassigned |
 | 6.5 | **Geocoding budget + quota alerts** — outside the app's own spend cap | A surprise invoice | unassigned |
-| 6.6 | **Anthropic API key + billing** | Kannada auto-translation (stack spec §5) | unassigned |
-| 6.7 | **CDN account** — absorbs election-day read traffic (stack spec §4) | The traffic spike | unassigned |
+| 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8) | unassigned |
+| 6.7 | **CDN account** — sits in front of the VM and absorbs election-day read traffic | The traffic spike | unassigned |
 | 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
-| 6.9 | **Off-box backup storage** + a rehearsed restore (stack spec §4) | Launch readiness | unassigned |
+| 6.9 | **Off-box backup storage** + a rehearsed restore | Launch readiness | unassigned |
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
 | 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
 
-**6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The stack's split is *Google geocodes, MapLibre renders* (stack spec §6), which is precisely the pattern that restriction targets.
+**6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 
 The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation and EC data rather than from Google. Nothing Google-derived reaches the browser.
 
-What is needed is a deliberate confirmation rather than a product spec's reading of the terms, plus the constraint written into the geocoding module when it is built (stack spec §6 now states it). The risk is not the rule — it costs a feature nobody has asked for — but its invisibility. A future contributor who reads "returns a ward, not a point" without knowing why will eventually, helpfully, return the point.
+What is needed is a deliberate confirmation rather than a product spec's reading of the terms, plus the constraint written into the geocoding module when it is built. The risk is not the rule — it costs a feature nobody has asked for — but its invisibility. A future contributor who reads "returns a ward, not a point" without knowing why will eventually, helpfully, return the point.
 
-**Only the Geocoding API is in play.** Rendering is MapLibre, so there is no Maps JavaScript API bill and no key in the browser (stack spec §6). If address autocomplete is ever added, the Places API becomes a new dependency with its own metering — and its own version of the 6.4 question.
+**Only the Geocoding API is in play.** Rendering is MapLibre, so there is no Maps JavaScript API bill and no key in the browser. If address autocomplete is ever added, the Places API becomes a new dependency with its own metering — and its own version of the 6.4 question.
 
-**6.11 is the gap.** Four metered services — geocoding, Anthropic, CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. The stack spec caps geocoding spend (§6); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
+**6.11 is the gap.** Four metered services — geocoding, Anthropic, CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. Geocoding spend is capped by design (§6.5); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
 
-**6.6 deserves its own line.** "An unrehearsed backup is not a backup" (stack spec §4) is a task with a date, not a principle. It is the kind of thing that is genuinely fine until the one day it is not, which for this project is a day that cannot be rescheduled.
+**6.9 deserves its own line.** "An unrehearsed backup is not a backup" is a task with a date, not a principle. It is the kind of thing that is genuinely fine until the one day it is not, which for this project is a day that cannot be rescheduled.
 
 ---
 
 ## 7. Decisions blocking work
 
-Not external dependencies, but non-code, unowned, and blocking. Listed so they are not mistaken for engineering tasks waiting on engineering.
+Not external dependencies, but non-code, unowned, and blocking. Listed so they are not mistaken for engineering tasks waiting on engineering. The question text lives in **PRD §17**, the single home for open questions; these rows exist because this register carries owners.
 
 | # | Decision | Blocks | Owner |
 |---|---|---|---|
@@ -195,6 +194,8 @@ Three things make it useful rather than decorative:
 
 1. **Name an owner for every row.** The single highest-value edit anyone can make to this file. Every row currently says *unassigned*, which means every row is currently nobody's problem.
 2. **Start Paths A, B and C now**, in parallel. They do not queue behind each other and they do not queue behind the code.
-3. **Resolve §3.7 and §6.8 before Phase 0 exits.** They are the two places where a number nobody has written down could change the plan rather than just the invoice.
+3. **Resolve §3.9 and §6.11 before Phase 0 exits.** They are the two places where a number nobody has written down could change the plan rather than just the invoice.
 
-Related: `docs/gtm-plan.md` (§10 dependencies), `docs/prd.md` (§15), `docs/overview.md` (§8), `docs/superpowers/specs/2026-07-16-production-stack-design.md`.
+Related: `docs/gtm-plan.md` (§10 dependencies), `docs/prd.md` (§15), `docs/overview.md` (§8).
+
+*An earlier production-stack design document has been retired. The stack decisions this register relies on — Twilio/SendGrid as the single messaging vendor, Google geocoding with MapLibre rendering, machine-translated Kannada with human review, and single-VM Compose hosting behind a CDN — are stated inline above, where they matter.*

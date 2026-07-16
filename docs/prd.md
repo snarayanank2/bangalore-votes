@@ -1,4 +1,14 @@
-they now belong to, they can't find trustworthy information about local candidates, and existing sources (mainstream media, WhatsApp, party workers) are seen as biased or unreliable.
+# GBA Elections Citizen Platform — Product Requirements (PRD)
+
+**Status:** Draft (for review) · **Scope:** Pre-election MVP · **Owner:** Product · **Domain:** `bangalore-votes.opencity.in` · **Date:** July 2026
+
+> The authoritative product requirements for the pre-election MVP. When a requirement is ambiguous, this document wins. Page-level detail lives in the Information Architecture document; the stakeholder summary is `docs/overview.md`.
+
+---
+
+## 1. Background
+
+Bengaluru is heading into its first ward-level (GBA / corporator) elections in roughly a decade. Citizen interviews showed people are willing to vote but blocked by a few specific gaps: they don't know which ward they now belong to, they can't find trustworthy information about local candidates, and existing sources (mainstream media, WhatsApp, party workers) are seen as biased or unreliable.
 
 This platform makes trustworthy, ward-level election information easy to find, compare, and act on. **This release is pre-election only.** Post-election capabilities (promise/accountability tracking, ward budgets, a live civic-issue officer directory) are deferred to a later phase.
 
@@ -52,8 +62,9 @@ Each feature notes its primary page(s); full page-level detail is in the IA docu
 ### 5.1 Ward identity lookup
 *Pages: `/`, `/ward/{ward-id}`*
 
-- Look up ward by address and/or voter ID; return new GBA ward name + number and corporation (N/S/E/W/Central).
-- Show the ward boundary on a map and, where possible, the old-ward → new-ward mapping.
+- Look up ward by **address or pincode** (no voter-ID lookup); return new GBA ward name + number and corporation (N/S/E/W/Central).
+- A pincode spans multiple wards, so pincode lookup returns a shortlist to pick from; address lookup returns a single ward. Pincode lookup needs no boundary data, so it ships even if delimitation boundaries slip (the Path B hedge in `docs/project-dependencies.md`).
+- Show the ward boundary on a map. (Old-ward → new-ward mapping was considered and dropped — the finder answers the question that matters, "what is my ward *now*", without needing pre-delimitation boundary data.)
 - The ward result is the anchor for candidate, issue, and logistics views, and is reused to set a registered user's home ward.
 
 ### 5.2 Candidate report card
@@ -65,14 +76,14 @@ A structured, neutral, sourced profile for each candidate in a ward — the sing
 - Standard fields:
 
   | Field | Primary source | Notes |
-    |---|---|---|
-      | Name, photo, party / independent | EC nomination | Party is secondary at ward level but shown |
-        | Past track record for this ward | Curator-compiled, sourced | Highest-value field; ward-specific work |
-	  | Criminal record / pending cases | EC affidavit | Often the first thing citizens look for |
-	    | Declared assets | EC affidavit | Trusted primary disclosure |
-	      | Education / qualifications | EC affidavit | Shown with the caveat it isn't the whole picture |
-	        | Approachability | Curator-compiled | Lives in ward? public office? contactable? |
-		  | **News & coverage** | Curator-compiled links | Links to news articles about the candidate |
+  |---|---|---|
+  | Name, photo, party / independent | EC nomination | Party is secondary at ward level but shown |
+  | Past track record for this ward | Curator-compiled, sourced | Highest-value field; ward-specific work |
+  | Criminal record / pending cases | EC affidavit | Often the first thing citizens look for |
+  | Declared assets | EC affidavit | Trusted primary disclosure |
+  | Education / qualifications | EC affidavit | Shown with the caveat it isn't the whole picture |
+  | Approachability | Curator-compiled | Lives in ward? public office? contactable? |
+  | **News & coverage** | Curator-compiled links | Links to news articles about the candidate |
 
 - Clearly distinguish official/affidavit data from curator-compiled context.
 - Carries the **Flag an error** action (opens the flag popup; see §6).
@@ -100,13 +111,14 @@ Let citizens signal which local issues matter most, and show that signal publicl
 - **Registered citizens vote for their top 3 issues**, and only in their **registered home ward**.
 - Aggregated results are **public** — anonymous citizens can see the ranked top issues for a ward.
 - The vote action opens as a **popup**; anonymous users are shown the Register/Login popup first.
-- One vote-set per registered user per ward; changeable; de-duplicated by account.
+- **One active vote-set per registered user** — in their current home ward; changeable at any time; de-duplicated by account.
+- **Changing home ward is allowed** (people move; lookups mis-assign) **and retires the previous ward's vote-set.** A citizen's voice counts where they live, once — so ward-hopping gains nothing and no change limit is needed.
 
 ### 5.6 Check registration / eligibility
 *Page: `/check-registration`*
 
-- Single authoritative entry point to check whether the citizen is on the GBA electoral roll, by voter ID / details.
-- Link out to the official EC flow; surface the correct GBA roll link prominently.
+- A **guided link-out, not an on-platform lookup**: the page explains the check in plain language (both languages) and hands off to the official EC / CEO Karnataka roll lookup, with the correct GBA roll link surfaced prominently.
+- No voter details are entered or stored on the platform. A wrong answer about someone's franchise is the worst error this platform could make, so the official source gives the answer; this page's job is getting the citizen there with no confusion.
 - Make roll tools available early (citizens check months out) even before candidate data is populated.
 
 ### 5.7 Election awareness
@@ -163,7 +175,7 @@ Recruiting partners and curators is otherwise an offline motion (§15), which do
   - **Curate data** — own the accuracy of a ward's data. In return: assigned ward scope, onboarding, and publish-immediately trust (§14).
 - Each path states its **time commitment** and the **vetting and neutrality expectation** up front.
 - **One expression-of-interest form** covers both paths. The form is **anonymous — no account required.** Requiring registration before someone can volunteer taxes exactly the people the plan depends on, and an RWA as an institution does not map onto a citizen account with a home ward.
-- Rate-limited as a public write path (§6.3).
+- CAPTCHA-protected as an anonymous write path (§6.3).
 - **Applications are not access.** Submissions land in an admin queue (§7); accepting an awareness applicant provisions a partner slug and kit, while a curation applicant hands off to the existing curator vetting path. Nobody self-activates.
 
 ### 5.14 Public data & key metrics
@@ -190,7 +202,7 @@ Press is an amplifier for the partner-led distribution model (§14), and journal
 *Pages: `/terms`, `/privacy`*
 
 - **`/terms`** — acceptable use; contribution licensing (flags, issue votes); accuracy and liability disclaimers; account termination grounds, consistent with the admin ban capability (§7).
-- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution) and why; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution, standard server logs) and why; that measurement is **server-side only** — no third-party analytics, no tracking cookies; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
 - **Data commitments (locked, §14).** Oorvani **does not sell or share citizen data with third parties**. Contact details are used for two purposes only: ward-scoped election updates (§9), and **critical product updates**.
 - **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause.
 - **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
@@ -210,16 +222,17 @@ Flagging is done via a **popup** that overlays the current page (no redirect) an
 | 2. Submit | Registered citizen | The flag popup captures the field/claim + detail + optional source, and routes to the curator whose scope covers that ward. |
 | 3. Review | Data curator | On `/curator/queue/{submission-id}`: sees flag, current value, and source. Accepts (edit + attach source) or rejects (with reason). |
 | 4. Publish | Data curator | Accepted edits go live immediately — no second approval, because curators are trusted. |
-| 5. Record | System | Immutable audit-log entry; submitter is notified of the outcome. |
+| 5. Record | System | Immutable audit-log entry; the outcome appears as status on the submitter's `/account/submissions` (§6.2). No email or WhatsApp is sent — the campaign calendar (§9.3) and OTP are the only outbound messages. |
 
 ### 6.2 Submission visibility
 
-Registered citizens can see the **status of everything they have submitted** — flags and corrections — on `/account/submissions`, each marked pending / accepted / rejected + reason.
+Registered citizens can see the **status of every flag they have submitted** on `/account/submissions`, each marked pending / accepted / rejected + reason. (Citizen submissions are always *flags* — a flag may carry a suggested value and source; the *correction* is what the curator makes in response.)
 
 ### 6.3 Anti-abuse
 
 - Registration-gating gives every flag and every issue vote an identity, enabling de-duplication and rate-limiting.
 - Multiple flags on the same field collapse into one queue item with a count (a strong signal to the curator).
+- The `/partner-with-us` expression-of-interest form (§5.13) is the **one anonymous write path**. It has no identity to rate-limit, so it is protected by a **CAPTCHA**, with admin triage (§7) as the backstop — a spammed queue wastes admin time but touches no published data.
 
 ---
 
@@ -247,7 +260,7 @@ Registered citizens can see the **status of everything they have submitted** —
 | Manage partners & view ward coverage | – | – | – | ✅ |
 | Review expressions of interest | – | – | – | ✅ |
 | Override ward comms hold | – | – | – | ✅ |
-| View audit log | – | – | Scope | All |
+| View audit log | – | – | – | ✅ |
 
 ---
 
@@ -256,15 +269,16 @@ Registered citizens can see the **status of everything they have submitted** —
 - **Bilingual by default.** The entire interface and content are available in English and Kannada.
 - **Session toggle for everyone.** Any user — anonymous or registered — can switch language on the fly from the app bar; the choice persists for the session.
 - **Saved preference for registered users.** Registered users can set a preferred language (on `/account`) that persists across sessions and also governs the language of their email / WhatsApp updates.
-- **Curator content.** Ward and candidate content supports both-language entry; define fallback behaviour when a field exists in only one language (assumption: show the available language with a subtle indicator — see Open questions).
+- **Curator content.** Curators author in one language; the Kannada version is **machine-generated** (Anthropic API — see `docs/project-dependencies.md` §6.6), with **no human review step** — a decided trade. The citizen flag flow (§6) is the correction path for translation errors. A field whose translation is not yet available displays in the authored language with a subtle indicator.
 
 ---
 
 ## 9. Notifications & delivery
 *Page: `/account/notifications`*
 
-- Registered users receive ward-scoped updates: election date / official notice, roll deadlines, and changes to candidates in their ward.
+- Registered users receive ward-scoped updates from the fixed campaign calendar (§9.3): election dates and official notices, the electoral-roll deadline, candidate milestones (filed at the notification; final after withdrawals), issue voting, and booth logistics. There is no ongoing candidate-change alert stream — candidate news arrives only at those milestones.
 - Channels: email and/or WhatsApp, per the user's contact details and language preference.
+- **Email is the baseline channel.** WhatsApp delivery depends on external template approval (§15), so registration nudges WhatsApp-first users to also provide an email address; no send waits on WhatsApp.
 - Ward is the routing key; it is set via the address→ward lookup (not free text) so updates route correctly.
 
 ### 9.1 Ward data-readiness gating
@@ -302,7 +316,9 @@ Registered citizens can see the **status of everything they have submitted** —
 ## 10. Authentication & access
 
 - **One OTP mechanism for all roles.** Citizens, curators, and admins all authenticate via lightweight **email / WhatsApp OTP** — no passwords and **no 2FA**.
+- **Email OTP is the baseline; WhatsApp OTP arrives with the Business API.** Sending an OTP over WhatsApp requires completed Meta onboarding and an approved Authentication-category template (`docs/project-dependencies.md` §3), so until that path completes — including all of Phase 0/1 curator and admin work — login is email-OTP only.
 - **Registration/login is a popup.** It overlays the current page with no redirection, is openable directly from the **Sign in** control (available to unregistered visitors) or auto-triggered by a gated action, and **resumes the exact action** after auth. A `/login` fallback page exists for deep links / no-JS.
+- **Registration is the consent act.** The confirm step links to `/terms` and `/privacy` and states plainly that registering signs the user up for ward election updates on their chosen channels; completing it is the affirmative opt-in, and the event (timestamp + wording version shown) is stored as the recorded opt-in evidence WhatsApp policy requires (`docs/project-dependencies.md` §3.10). No separate checkbox. The wording itself is legal-review input (§5.16).
 - **Role-based access control.** Curator edit/review rights are scoped to assigned wards/zone; admins have city-wide access.
 - **Sessions.** Standard session handling; re-auth via OTP.
 
@@ -322,7 +338,8 @@ Registered citizens can see the **status of everything they have submitted** —
 - **Scale.** Must handle 369 wards and city-wide read traffic that spikes near the election date; anonymous read paths must stay fast with no login wall.
 - **Authentication.** Single OTP mechanism (email / WhatsApp) across all roles; no passwords, no 2FA.
 - **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions.
-- **Accessibility.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
+- **Reach.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
+- **Accessibility.** No formal conformance target (WCAG or otherwise) is committed this release — a deliberate scope decision, recorded here so the gap is visible rather than mislabelled.
 
 ---
 
@@ -346,8 +363,8 @@ The trust and legal pages (`/about`, `/data`, `/partner-with-us`, `/press`, `/te
 
 Pages do not all ship at once, because candidate data cannot exist before the EC notification (**N**).
 
-- **Phase 0 (before the teaser).** `/privacy`, `/terms`. `/privacy` is the earliest page on the critical path — it gates WhatsApp onboarding, which gates the comms plan (§5.16).
-- **Phase 1 (teaser).** `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press`. The ward finder is the public entry point and the thing partners forward.
+- **Phase 0 (before the teaser).** `/privacy`, `/terms`. `/privacy` is the earliest page on the critical path — it gates WhatsApp onboarding, which gates the comms plan (§5.16). Internal tooling ships here too: the `/admin/*` suite (curator vetting and the EOI queue precede everything public) and the `/curator/*` suite (curators enter the ward data the teaser runs on).
+- **Phase 1 (teaser).** `/`, `/ward/{id}`, `/ward/{id}/issues`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press` — plus, with registration open, `/account/*` and the `/login` fallback. The ward finder is the public entry point and the thing partners forward. **Issue voting opens with the teaser**: issue lists don't depend on candidates, the teaser gains a participation loop beyond "register and wait", and the city-wide roll-up starts accumulating months before C1. A ward whose curator has not yet defined issues shows an empty state; candidate-stance rows appear once candidates exist.
 - **Phase 2 (at N).** `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare`, `/data` open up.
 
 Before N, the candidate routes show the pre-nomination empty state already specified in IA §3.3 rather than 404ing — the URLs are shareable and will be shared early.
@@ -394,7 +411,7 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 - **Curator recruitment & vetting (offline).** Data quality depends on enough trusted curators with the right ward coverage. Hard dependency for launch. Also the source of the partner network below — the same people, recruited in the same conversations.
 - **Partner network (offline).** Reach depends on RWAs and civic orgs forwarding ward links. Hard dependency for launch: with no paid channel, there is no fallback if this doesn't materialise.
 - **Authoritative data sources.** Reliable access to EC affidavits, official notifications, and ward-delimitation data.
-- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow. Template approval runs to **weeks of lead time** (~14 templates across EN/KN) and must start before the teaser ships — the lead time, not the code, gates the launch. Onboarding additionally requires a **published `/privacy` URL** (§5.16), which makes the privacy policy the first item on the critical path.
+- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow. Template approval runs to **weeks of lead time** (16 templates: seven sends plus the OTP login message, × EN/KN) and submission must start before the teaser ships. Approval does not gate the teaser — email carries every send until WhatsApp is approved. Onboarding additionally requires a **published `/privacy` URL** (§5.16), which makes the privacy policy the first item on the critical path.
 - **Legal review.** `/terms` and `/privacy` need a lawyer, for DPDP Act 2023 compliance and contribution licensing. Not a product-spec deliverable, and it blocks Phase 0.
 - **Press assets.** Logos, screenshots, and named spokespeople with approved quotes, for `/press` in Phase 1.
 - **Electoral roll deadline.** Anchors the roll-deadline alert, the most time-critical send in the campaign. Moves independently of the notification and election dates, so it must be tracked separately.
@@ -413,9 +430,10 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 
 ## 17. Open questions
 
+*This section is the single home for open questions across all project documents — the IA and GTM plan point here rather than keeping their own lists. The subset that blocks work is also tracked in `docs/project-dependencies.md` §7, which exists to carry owners.*
+
 - Issue-vote results display: raw counts, percentages, or ranked order only?
 - Curator scoping unit: per-ward vs per-zone (affects `/curator` navigation).
-- Bilingual fallback: how a field authored in only one language displays in the other.
 - Candidate comparison: maximum number of candidates shown at once on mobile.
 - News links: curator-added only, or auto-suggested for curator approval?
 - Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
@@ -427,4 +445,7 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 - Funding disclosure detail (§5.11): does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question the disclosure was meant to close.
 - Do `/data` coverage figures count a ward whose data exists but is held from comms by the §9.1 readiness check? The honest answer and the flattering answer differ.
 - Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text on an otherwise bilingual product?
+- Does the Home page need a pre-notification state distinct from its post-notification one, given the ward finder is the teaser? *(raised by the IA)*
+- Does the readiness panel belong on `/curator/ward/{id}`, or does it deserve its own screen once the gap list grows long? *(raised by the IA)*
+- Is Citizen Matters an owned channel? If the Oorvani Foundation also publishes Citizen Matters, the GTM plan's cold-start assumption is wrong in the project's favour and Phase 1 should be planned differently. *(raised by the GTM plan; = `docs/project-dependencies.md` 7.4)*
 

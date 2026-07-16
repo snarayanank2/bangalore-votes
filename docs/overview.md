@@ -54,10 +54,10 @@ A small trusted team keeps the data accurate and governs access behind the scene
 ### 4.2 Registered citizen
 *Signs up with email and/or WhatsApp, their ward, and a language preference. Everything the anonymous user can do, plus:*
 
-- Receive **ward-scoped updates** (election date/notice, roll deadlines, candidate changes) by email / WhatsApp, in their preferred language.
+- Receive **ward-scoped updates** (election dates and notices, the roll deadline, candidate milestones, booth logistics) by email / WhatsApp, in their preferred language.
 - **Flag misinformation** on any ward or candidate — across **any ward**, via a popup.
 - **Vote on their top 3 issues**, but only in their **registered home ward**.
-- **Track the status of their submissions** — flags and corrections, each shown as pending / accepted / rejected with a reason.
+- **Track the status of their submissions** — each flag shown as pending / accepted / rejected with a reason.
 - Set a **saved language preference** that also governs the language of their updates.
 
 ### 4.3 Data curator
@@ -65,7 +65,7 @@ A small trusted team keeps the data accurate and governs access behind the scene
 
 - Create, upload, and correct ward and candidate information, including **links to news articles** about candidates.
 - **Define the list of votable issues** for each ward (this powers citizen issue voting).
-- Review the queue of citizen flags and corrections, and accept or reject them (rejections carry a reason back to the submitter).
+- Review the queue of citizen flags, and accept them (making the correction) or reject them (with a reason the submitter can see).
 - Attach a **source** to every record and change, so the public view can show its provenance.
 - **Scope note:** with 369 wards, curators are assigned to a set of wards/zone rather than the whole city.
 
@@ -87,7 +87,7 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 2. **Submit** — a flag routes to the curator whose scope covers that ward; an issue vote is recorded for the user's home ward.
 3. **Review** — the curator sees the flag, the current value, and the source, and accepts (edit + source) or rejects (with reason).
 4. **Publish** — accepted edits go live immediately, because curators are trusted.
-5. **Record** — every change is written to an immutable audit log; the submitter is notified.
+5. **Record** — every change is written to an immutable audit log; the submitter sees the outcome as status on their submissions page.
 
 ---
 
@@ -135,7 +135,7 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 - **Curator recruitment & vetting (offline)** — data quality depends on enough trusted curators with the right ward coverage. A hard dependency for launch. **Doubles as partner recruitment** (see below).
 - **Partner network (offline)** — reach depends on RWAs and civic orgs forwarding ward links to their networks. A hard dependency for launch, since there is no paid channel to fall back on.
 - **Authoritative data sources** — reliable access to EC affidavits, official notifications, and ward-delimitation data.
-- **WhatsApp delivery** — needs Business API access, approved templates, and opt-in; email is the baseline. Template approval carries **weeks of lead time** (~14 templates across English and Kannada) and must start before the teaser ships. Onboarding also requires a **published privacy policy**, which puts that page first on the critical path.
+- **WhatsApp delivery** — needs Business API access, approved templates, and opt-in; email is the baseline. Template approval carries **weeks of lead time** (16 templates across English and Kannada — seven sends plus the OTP login message) and must start before the teaser ships. Onboarding also requires a **published privacy policy**, which puts that page first on the critical path.
 - **Legal review (external)** — the terms and privacy policy need a lawyer, for DPDP Act 2023 compliance and contribution licensing. Blocks the network phase, not launch week.
 - **Press assets** — logos, screenshots, and named spokespeople with approved quotes, for the press kit.
 - **Electoral roll deadline** — the date that anchors the roll-deadline alert, the single most time-critical message we send. Moves independently of the election date.
@@ -158,7 +158,7 @@ The platform does not launch in one moment. Candidate data cannot exist until th
 | Phase | When | What goes live |
 |---|---|---|
 | **Network** | Now | Privacy policy and terms — the privacy policy gates WhatsApp onboarding. Recruit partners and curators; submit WhatsApp templates. |
-| **Teaser** | Ward data ready | Ward finder, registration check, voting guide, booth locator, About, Partner with us, Press kit. |
+| **Teaser** | Ward data ready | Ward finder, ward issue voting, registration check, voting guide, booth locator, election explainer, About, Partner kits, Partner with us, Press kit. |
 | **Launch** | At N | Candidates, report cards, comparison, Data. The press moment. |
 | **Countdown** | E−3w → E−1w | Issue-vote results at scale. E−2w is the real content beat: final list, complete report cards. |
 | **Final 72h** | E−3d | One logistics send, then we go quiet. The site stays fully available. |
@@ -197,7 +197,7 @@ Full detail: `docs/gtm-plan.md`.
 - **Engage a lawyer for the privacy policy and terms.** This is the first item on the critical path, not the last: the privacy policy gates WhatsApp onboarding, which gates the templates, which gate the comms plan.
 - **Decide how long citizen contact data is retained** — it blocks the privacy policy, and the privacy policy blocks everything else.
 - Decide whether registration carries an optional consent for future civic tools, so a later phase has a lawful list to talk to.
-- Start WhatsApp template approval as soon as the privacy policy is live; its lead time, not the code, gates the teaser.
+- Start WhatsApp template approval as soon as the privacy policy is live. Approval does not gate the teaser — email is the baseline channel and WhatsApp joins when Meta approves — but every week of delay is a week of WhatsApp-first registrants the campaign cannot reach.
 - Agree the funding disclosure: named funders, or categories only?
 - Confirm whether Oorvani's existing channels (Open City, and Citizen Matters if that is also Oorvani) are available as launch distribution — the plan is currently written as though starting from no audience at all.
 - Proceed to wireframe → hi-fi design and technical design.
