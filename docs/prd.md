@@ -132,11 +132,13 @@ Let citizens signal which local issues matter most, and show that signal publicl
 
 - Return an address-accurate booth location with a map, not just a booth name.
 
-### 5.11 About & data sourcing (trust page)
+### 5.11 About us, funding & data sourcing (trust page)
 *Page: `/about`*
 
 - Explain who runs the platform, how data is sourced and verified, and the neutrality stance.
+- **Disclose funding.** For a platform whose value rests entirely on neutrality, who pays for it is the first question a skeptical reader asks; the answer should not have to be requested. Disclosure detail is an open question (§17).
 - Supports the trust requirement in §11; links to primary sources.
+- This is also the "about us" page — team and mission live here rather than on a separate URL, because a citizen who doubts the platform wants who-runs-it and how-it-sources-data in one place.
 
 ### 5.12 Partner attribution & partner kit
 *Page: `/partner/{partner-slug}`*
@@ -148,6 +150,47 @@ Distribution is partner-led and unpaid (§14), so the platform must equip partne
 - **No new role.** Partners are not a role. The kit is a public page; partner records are managed by admins (§7).
 - **Why the neutrality statement.** An RWA secretary forwarding an election link *will* be accused of campaigning. A partner who cannot answer that stops forwarding — so the answer ships with the kit.
 - **Coverage view.** Admins can see partner → ward coverage against all 369 wards. The uncovered set is a work queue and the early warning for reach skewing to central Bengaluru.
+
+### 5.13 Partner with us (recruitment funnel)
+*Page: `/partner-with-us`*
+
+Recruiting partners and curators is otherwise an offline motion (§15), which does not scale past the team's own network — and that network is where the central-Bengaluru skew originates. This page is its public front door.
+
+- **Two paths**, matching the two roles the platform already has:
+  - **Spread awareness** — forward ward links to your network. In return: a partner kit page (§5.12), a tagged link, and a report of what the forwarding achieved.
+  - **Curate data** — own the accuracy of a ward's data. In return: assigned ward scope, onboarding, and publish-immediately trust (§14).
+- Each path states its **time commitment** and the **vetting and neutrality expectation** up front.
+- **One expression-of-interest form** covers both paths. The form is **anonymous — no account required.** Requiring registration before someone can volunteer taxes exactly the people the plan depends on, and an RWA as an institution does not map onto a citizen account with a home ward.
+- Rate-limited as a public write path (§6.3).
+- **Applications are not access.** Submissions land in an admin queue (§7); accepting an awareness applicant provisions a partner slug and kit, while a curation applicant hands off to the existing curator vetting path. Nobody self-activates.
+
+### 5.14 Public data & key metrics
+*Page: `/data`*
+
+A platform that publishes other people's records should publish its own.
+
+- **Coverage:** wards with published candidate data (against 369); report cards complete; active curators; sources cited.
+- **Integrity:** flags raised; flags resolved; median time to resolve.
+- **Citizen signal:** the city-wide issue roll-up aggregated across all wards; total issue votes cast; registered citizens.
+- Every figure carries an **"as of" timestamp**.
+- **Ships in Phase 2, not Phase 1** (§13.1). During the teaser this page honestly reads "14 of 369 wards" — damaging, and it hands critics a number. The issue roll-up says nothing until issue voting has volume.
+- **Figures, not datasets.** Downloadable data and a public API are out of scope this release (§16).
+
+### 5.15 Press kit
+*Page: `/press`*
+
+Press is an amplifier for the partner-led distribution model (§14), and journalists arrive at the EC notification whether or not anything is ready for them.
+
+- Boilerplate at three lengths (50 / 100 / 200 words); current key stats drawn from §5.14; logos and screenshots for download; spokesperson bios and quotes; contact with a **stated response time**; the neutrality statement; a link to sourcing methodology (§5.11).
+- **Ships in Phase 1**, though it is a Phase 2 asset — a press kit assembled at the notification is assembled too late.
+
+### 5.16 Legal pages
+*Pages: `/terms`, `/privacy`*
+
+- **`/terms`** — acceptable use; contribution licensing (flags, issue votes); accuracy and liability disclaimers; account termination grounds, consistent with the admin ban capability (§7).
+- **`/privacy`** — what personal data is collected (email, phone, address→ward, language, `src` attribution) and why; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
+- Both need **legal review**; their content is outside a product spec's competence. `/privacy` is additionally blocked on an undecided retention policy (§17).
 
 ---
 
@@ -183,6 +226,8 @@ Registered citizens can see the **status of everything they have submitted** —
 | Search / read published info | ✅ | ✅ | ✅ | ✅ |
 | View public issue-vote results | ✅ | ✅ | ✅ | ✅ |
 | View a partner kit page | ✅ | ✅ | ✅ | ✅ |
+| View public metrics, press kit, legal pages | ✅ | ✅ | ✅ | ✅ |
+| Submit a partner/curator expression of interest | ✅ | ✅ | ✅ | ✅ |
 | Switch language (session) | ✅ | ✅ | ✅ | ✅ |
 | Save language preference | – | ✅ | ✅ | ✅ |
 | Subscribe to ward updates | – | ✅ | ✅ | ✅ |
@@ -195,6 +240,7 @@ Registered citizens can see the **status of everything they have submitted** —
 | Review submissions | – | – | Scope | All |
 | Manage roles, scope & users | – | – | – | ✅ |
 | Manage partners & view ward coverage | – | – | – | ✅ |
+| Review expressions of interest | – | – | – | ✅ |
 | Override ward comms hold | – | – | – | ✅ |
 | View audit log | – | – | Scope | All |
 
@@ -227,7 +273,9 @@ Registered citizens can see the **status of everything they have submitted** —
 
 - From **48 hours before poll close** until polls close, outbound comms are restricted to logistics only: booth location, poll timings, ID to carry, and how to vote.
 - **No candidate content, comparisons, or issue-vote results** may be sent in this window. Representation of the People Act §126 bans electioneering during it; neutral sourced report cards are not worth testing against that line.
-- The freeze applies to outbound messaging only. The site itself remains fully available.
+- **The campaign in fact goes further and sends nothing at all in the final 48 hours** — the last send is logistics at E−3d. This costs the election-morning reminder, the highest-converting send in a typical get-out-the-vote programme, and delivers booth details three days before they are used. It buys a campaign that cannot be accused of electioneering, on a platform whose entire worth is its neutrality.
+- The freeze above therefore remains as a **guardrail**, not a description of the calendar: any send added later must satisfy it.
+- The freeze applies to outbound messaging only. **The site itself remains fully available**, so a citizen who wants their booth on election morning can still get it.
 
 ### 9.3 Send cadence
 
@@ -269,7 +317,9 @@ Registered citizens can see the **status of everything they have submitted** —
 
 Full detail is in the IA document. Each URL is a distinct page (one URL → one screen); modals overlay the current page with no URL change.
 
-**Public:** `/` · `/ward/{id}` · `/ward/{id}/candidates` · `/candidate/{slug}` · `/ward/{id}/compare` · `/ward/{id}/issues` · `/check-registration` · `/about-election` · `/voting-guide` · `/voting-guide/voter-id` · `/voting-guide/how-to-vote` · `/voting-guide/find-booth` · `/about` · `/partner/{partner-slug}` (unlisted)
+**Public:** `/` · `/ward/{id}` · `/ward/{id}/candidates` · `/candidate/{slug}` · `/ward/{id}/compare` · `/ward/{id}/issues` · `/check-registration` · `/about-election` · `/voting-guide` · `/voting-guide/voter-id` · `/voting-guide/how-to-vote` · `/voting-guide/find-booth` · `/about` · `/data` · `/partner-with-us` · `/press` · `/terms` · `/privacy` · `/partner/{partner-slug}` (unlisted)
+
+The trust and legal pages (`/about`, `/data`, `/partner-with-us`, `/press`, `/terms`, `/privacy`) are reached from the **global footer**, not the app bar. None of them earn top-level space, but all must be one click from anywhere — the moment a citizen doubts the platform is the moment they go looking.
 
 **Registered:** `/account` · `/account/notifications` · `/account/submissions`
 
@@ -283,10 +333,13 @@ Full detail is in the IA document. Each URL is a distinct page (one URL → one 
 
 Pages do not all ship at once, because candidate data cannot exist before the EC notification (**N**).
 
-- **Phase 1 (teaser).** `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`. The ward finder is the public entry point and the thing partners forward.
-- **Phase 2 (at N).** `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare` open up.
+- **Phase 0 (before the teaser).** `/privacy`, `/terms`. `/privacy` is the earliest page on the critical path — it gates WhatsApp onboarding, which gates the comms plan (§5.16).
+- **Phase 1 (teaser).** `/`, `/ward/{id}`, `/check-registration`, `/about-election`, `/voting-guide/*`, `/about`, `/partner/{slug}`, `/partner-with-us`, `/press`. The ward finder is the public entry point and the thing partners forward.
+- **Phase 2 (at N).** `/ward/{id}/candidates`, `/candidate/{slug}`, `/ward/{id}/compare`, `/data` open up.
 
 Before N, the candidate routes show the pre-nomination empty state already specified in IA §3.3 rather than 404ing — the URLs are shareable and will be shared early.
+
+`/data` is held to Phase 2 for a different reason: it would be accurate in Phase 1 and still damaging, reading "14 of 369 wards" to anyone who looked.
 
 ---
 
@@ -308,7 +361,11 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Launch phasing | Ward + logistics pages ship first; candidate pages open at the EC notification (§13.1). |
 | Distribution | Partner-led and unpaid — RWAs, civic orgs, press. No paid acquisition, on both cost and neutrality grounds. |
 | Teaser asset | The ward finder itself, not a standalone "notify me" page. Citizens don't know their new ward; the finder answers that and captures ward at registration. |
-| Election-silence rule | Outbound comms are logistics-only from 48h before poll close (§9.2). |
+| Election-silence rule | Outbound comms are logistics-only from 48h before poll close (§9.2) — and the campaign goes dark entirely after a final logistics send at E−3d. The site stays up. |
+| Public metrics | `/data` publishes coverage, integrity, and the city-wide issue roll-up (§5.14). Figures only — no dataset downloads or API this release. |
+| Recruitment funnel | `/partner-with-us` collects anonymous expressions of interest for both paths; admins grant access. No self-service activation (§5.13). |
+| Funding disclosure | `/about` states who funds the platform (§5.11). Neutrality is the product; its funding cannot be opaque. |
+| Legal page sequencing | `/privacy` ships in **Phase 0**, before the teaser — it gates WhatsApp onboarding and therefore the comms plan (§5.16). |
 | Ward send gating | Candidate-referencing sends are gated per ward on data readiness; unready wards are held (§9.1). |
 | Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). |
 
@@ -319,9 +376,11 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 - **Curator recruitment & vetting (offline).** Data quality depends on enough trusted curators with the right ward coverage. Hard dependency for launch. Also the source of the partner network below — the same people, recruited in the same conversations.
 - **Partner network (offline).** Reach depends on RWAs and civic orgs forwarding ward links. Hard dependency for launch: with no paid channel, there is no fallback if this doesn't materialise.
 - **Authoritative data sources.** Reliable access to EC affidavits, official notifications, and ward-delimitation data.
-- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow. Template approval runs to **weeks of lead time** (~20 templates across EN/KN) and must start before the teaser ships — the lead time, not the code, gates the launch.
+- **WhatsApp delivery.** Requires Business API access, approved templates, and explicit opt-in; email is the baseline, WhatsApp a fast-follow. Template approval runs to **weeks of lead time** (~14 templates across EN/KN) and must start before the teaser ships — the lead time, not the code, gates the launch. Onboarding additionally requires a **published `/privacy` URL** (§5.16), which makes the privacy policy the first item on the critical path.
+- **Legal review.** `/terms` and `/privacy` need a lawyer, for DPDP Act 2023 compliance and contribution licensing. Not a product-spec deliverable, and it blocks Phase 0.
+- **Press assets.** Logos, screenshots, and named spokespeople with approved quotes, for `/press` in Phase 1.
 - **Electoral roll deadline.** Anchors the roll-deadline alert, the most time-critical send in the campaign. Moves independently of the notification and election dates, so it must be tracked separately.
-- **Booth-level data.** The final-48h logistics sends are only worth making if booth location resolves per citizen (§5.10). Without it they degrade to ward-level.
+- **Booth-level data.** The E−3d logistics send is only worth making if booth location resolves per citizen (§5.10). Without it, it and the E−1w send degrade to ward-level.
 - **Election timeline.** Candidate content can only be populated near the official notification; ward and logistics tools can launch earlier.
 
 ---
@@ -329,6 +388,8 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 ## 16. Out of scope (future phases)
 
 Promise / accountability tracking against elected corporators, ward budget transparency, a live civic-issue officer / "who to contact" directory, remote voting, and candidate outreach tooling.
+
+Also out of scope this release: **open data downloads and a public API** — `/data` publishes figures, not datasets — and **self-service partner or curator activation**, since `/partner-with-us` collects applications that admins act on.
 
 ---
 
@@ -342,6 +403,10 @@ Promise / accountability tracking against elected corporators, ward budget trans
 - Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
 - Ward data-readiness (§9.1): what concretely makes a ward ready to receive candidate comms — a curator assigned, a field-completeness threshold, or explicit curator sign-off?
 - Registration and ward-coverage targets: no numbers are set, so Phase 1 has no exit criteria yet.
-- Is the partner kit page itself bilingual, or English-only with bilingual assets inside it?
+- Is the partner kit page itself bilingual, or English-only with bilingual assets inside it? Same for `/press` and `/partner-with-us`.
 - Press timing: does the launch push go out at the notification, or at E−2w when report cards are actually complete?
+- **Data retention after the election** (§5.16): what happens to roughly 100k phone numbers once the poll is over — deletion, retention for a future phase, or retention on re-consent? Undecided, and a hard blocker on `/privacy`, which is itself a Phase 0 blocker. A trust decision before it is a legal one; note that the deferred promise-tracking phase has an obvious interest in keeping them.
+- Funding disclosure detail (§5.11): does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question the disclosure was meant to close.
+- Do `/data` coverage figures count a ward whose data exists but is held from comms by the §9.1 readiness check? The honest answer and the flattering answer differ.
+- Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text on an otherwise bilingual product?
 

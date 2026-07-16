@@ -116,8 +116,11 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 | Curator sourcing | Recruiting/vetting curators is an offline effort — tracked as a dependency. |
 | Launch phasing | Ward finder and voting logistics launch first; candidate content follows at the EC notification. |
 | Distribution | Partner-led (RWAs, civic orgs, press). **No paid acquisition** — it costs money the project lacks and undercuts the neutrality claim. |
-| Election-silence rule | From 48h before poll close, all outbound comms are logistics only — no candidate content. |
-| Partner recruitment | Runs in the same conversations as curator recruitment; the two pools are the same people. |
+| Election-silence rule | From 48h before poll close, all outbound comms are logistics only — no candidate content. In practice we go further: the last send is booth logistics at E−3d, then nothing. The site stays up. |
+| Partner recruitment | Runs in the same conversations as curator recruitment; the two pools are the same people. `/partner-with-us` opens the same funnel to anyone. |
+| Funding disclosure | The About page states who funds the platform. Neutrality is the product; its funding cannot be opaque. |
+| Public metrics | A Data page publishes our own coverage and integrity figures, plus a city-wide issue picture. Figures, not downloadable datasets. |
+| Legal sequencing | The privacy policy publishes **before the teaser** — Meta gates WhatsApp onboarding on it, so it gates the comms plan. |
 
 ---
 
@@ -126,7 +129,9 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 - **Curator recruitment & vetting (offline)** — data quality depends on enough trusted curators with the right ward coverage. A hard dependency for launch. **Doubles as partner recruitment** (see below).
 - **Partner network (offline)** — reach depends on RWAs and civic orgs forwarding ward links to their networks. A hard dependency for launch, since there is no paid channel to fall back on.
 - **Authoritative data sources** — reliable access to EC affidavits, official notifications, and ward-delimitation data.
-- **WhatsApp delivery** — needs Business API access, approved templates, and opt-in; email is the baseline. Template approval carries **weeks of lead time** (~20 templates across English and Kannada) and must start before the teaser ships.
+- **WhatsApp delivery** — needs Business API access, approved templates, and opt-in; email is the baseline. Template approval carries **weeks of lead time** (~14 templates across English and Kannada) and must start before the teaser ships. Onboarding also requires a **published privacy policy**, which puts that page first on the critical path.
+- **Legal review (external)** — the terms and privacy policy need a lawyer, for DPDP Act 2023 compliance and contribution licensing. Blocks the network phase, not launch week.
+- **Press assets** — logos, screenshots, and named spokespeople with approved quotes, for the press kit.
 - **Electoral roll deadline** — the date that anchors the roll-deadline alert, the single most time-critical message we send. Moves independently of the election date.
 - **Election timeline** — candidate content can only be populated near the official notification; ward and logistics tools can launch earlier.
 
@@ -146,30 +151,44 @@ The platform does not launch in one moment. Candidate data cannot exist until th
 
 | Phase | When | What goes live |
 |---|---|---|
-| **Network** | Now | Nothing public. Recruit partners and curators; submit WhatsApp templates. |
-| **Teaser** | Ward data ready | Ward finder, registration check, voting guide, booth locator, About. |
-| **Launch** | At N | Candidates, report cards, comparison. The press moment. |
+| **Network** | Now | Privacy policy and terms — the privacy policy gates WhatsApp onboarding. Recruit partners and curators; submit WhatsApp templates. |
+| **Teaser** | Ward data ready | Ward finder, registration check, voting guide, booth locator, About, Partner with us, Press kit. |
+| **Launch** | At N | Candidates, report cards, comparison, Data. The press moment. |
 | **Countdown** | E−3w → E−1w | Issue-vote results at scale. E−2w is the real content beat: final list, complete report cards. |
-| **Final 48h** | E−2d → E | Nothing new. Logistics only. |
+| **Final 72h** | E−3d | One logistics send, then we go quiet. The site stays fully available. |
 
 **The teaser is the ward finder itself**, not a "notify me" box. Citizens don't know their new post-delimitation ward — that is the platform's founding premise — so the finder gives a real answer on day one, earns the forward, and captures the ward at registration. It is a launch subset of the existing pages, so nothing is built to be thrown away.
 
-**Citizen comms** are ten ward-scoped sends over the campaign, by email and WhatsApp in the citizen's saved language. Deliberately few: WhatsApp opt-outs are permanent, and over-sending in the quiet months would cost us the list exactly when the election beats arrive. The sequence runs welcome → **electoral roll deadline** → candidates filed → issue voting → final report cards → compare → last candidate push at E−3d → booth logistics at E−2d, E−1d, and election morning.
+**Citizen comms** are seven ward-scoped sends over the campaign, by email and WhatsApp in the citizen's saved language. Deliberately few: WhatsApp opt-outs are permanent, and over-sending in the quiet months would cost us the list exactly when the election beats arrive. The sequence runs welcome → **electoral roll deadline** → candidates filed → issue voting → final report cards → compare → booth logistics at E−3d.
 
-Two points deserve stakeholder attention:
+Three points deserve stakeholder attention:
 
 - **The roll-deadline alert is the highest-value message we send.** Missing the roll is the only failure in this funnel that cannot be undone — no amount of good candidate information helps someone who isn't registered to vote.
 - **We never send a promise our data can't keep.** A ward only receives candidate-related comms once its data passes a readiness check. A ward with no curator is held back rather than sent to an empty page.
+- **We go quiet for the last 48 hours.** The Representation of the People Act bans electioneering in that window. Rather than argue that neutral report cards aren't electioneering, we simply stop — the last send is booth logistics three days out. This gives up the election-morning reminder, the single highest-converting message in a normal campaign. It buys a platform nobody can accuse of campaigning, which is the only asset we actually have. The site stays fully available throughout.
+
+---
+
+## 11. Trust surfaces & recruitment
+
+Three public pages carry the neutrality claim. **About** says who we are, how we source data, and — added here — **who funds us**, because that is the first question a skeptical journalist asks. **Data** publishes our own coverage and integrity figures alongside a city-wide picture of what Bengaluru's wards say matters; a platform that publishes other people's records should publish its own. **Press kit** ships early, since journalists arrive at the notification and a kit assembled then is assembled too late.
+
+**Partner with us** turns recruitment from a private motion into a public one, offering the two ways to help — *spread awareness* or *curate data* — and taking applications from anyone. The team's own address book does not stretch to 369 wards, and it is precisely where a central-Bengaluru skew would come from.
+
+One sequencing point worth stakeholder attention: the **privacy policy is the first thing we must publish**, before the teaser. Meta will not approve WhatsApp onboarding without a live privacy-policy URL, so it gates the templates, which gate the entire comms plan. It also needs a lawyer — India's DPDP Act applies squarely to what we collect — and it is blocked on a question nobody has answered yet: what happens to ~100,000 phone numbers after the election.
 
 Full detail: `docs/superpowers/specs/2026-07-16-gtm-plan-design.md`.
 
 ---
 
-## 11. Next steps
+## 12. Next steps
 
 - Review and sign off on this overview, the PRD, and the IA with stakeholders.
 - Resolve remaining open questions (see the PRD).
 - Kick off offline curator **and partner** recruitment in parallel — one motion, one named owner.
-- Start WhatsApp template approval now; its lead time, not the code, gates the teaser.
+- **Engage a lawyer for the privacy policy and terms.** This is the first item on the critical path, not the last: the privacy policy gates WhatsApp onboarding, which gates the templates, which gate the comms plan.
+- **Decide the post-election data retention policy** — it blocks the privacy policy, and the privacy policy blocks everything else.
+- Start WhatsApp template approval as soon as the privacy policy is live; its lead time, not the code, gates the teaser.
 - Set registration and ward-coverage targets (open question in the GTM spec).
+- Agree the funding disclosure: named funders, or categories only?
 - Proceed to wireframe → hi-fi design and technical design.

@@ -9,7 +9,7 @@ This document defines every page and modal in the pre-election MVP. Each URL is 
 ## 1. Conventions
 
 - **Base domain:** all paths below are under `https://bangalore-votes.opencity.in`.
-- **Global elements (present on every page):** app bar with logo, **language toggle (EN | ಕನ್ನಡ)**, and a **Sign in / Account** control; footer with links to About and the voting guide.
+- **Global elements (present on every page):** app bar with logo, **language toggle (EN | ಕನ್ನಡ)**, and a **Sign in / Account** control; footer with links to About, the voting guide, Data, Partner with us, Press, Terms, and Privacy. The footer is the only route to the trust and legal pages — none of them earn app-bar space, but all of them must be one click from anywhere, because the moment a citizen doubts the platform is the moment they need them.
 - **Pages vs modals:** a *page* has its own URL and can be deep-linked and shared. A *modal* is a popup that overlays whatever page the user is on, so the user never loses context and the URL does not change.
 - **Access levels:** Anonymous (no account) · Registered (OTP account) · Curator (OTP, ward/zone-scoped) · Admin (OTP). Curators and admins use the **same OTP login** as citizens — no separate password or 2FA.
 - **Contribution rule:** flag and issue-vote actions are visible to everyone but gated at submit — an anonymous user is shown the Register/Login popup first, then the action resumes.
@@ -34,7 +34,12 @@ bangalore-votes.opencity.in
 │   ├─ /voting-guide/voter-id            Voter-ID issuance & update
 │   ├─ /voting-guide/how-to-vote         How to vote
 │   ├─ /voting-guide/find-booth          Find polling booth
-│   ├─ /about                            About & how we source data
+│   ├─ /about                            About us, funding & how we source data
+│   ├─ /data                             Key metrics & city-wide issue picture
+│   ├─ /partner-with-us                  Ways to help: spread awareness / curate data
+│   ├─ /press                            Press kit
+│   ├─ /terms                            Terms & conditions
+│   ├─ /privacy                          Privacy policy
 │   └─ /partner/{partner-slug}           Partner kit (unlisted)
 │
 ├─ REGISTERED CITIZEN (OTP)
@@ -148,19 +153,58 @@ bangalore-votes.opencity.in
 - **Purpose:** Return the citizen’s correct, address-accurate polling booth.
 - **Key elements:** lookup by address/voter ID; booth location + map (not just a name).
 
-### 3.13 About & how we source data
+### 3.13 About us, funding & how we source data
 - **URL:** `/about`
 - **Access:** Anonymous
-- **Purpose:** Establish trust — explain who runs the platform, how data is sourced and verified, and the neutrality stance.
-- **Key elements:** sourcing/verification explanation; contact; links to primary sources.
-- **Notes:** *Added from the PRD cross-check (trust & provenance, §10) — see Section 7.*
+- **Purpose:** Establish trust — explain who runs the platform, **who funds it**, how data is sourced and verified, and the neutrality stance.
+- **Key elements:** who we are (team, mission); **funding disclosure**; sourcing/verification explanation; contact; links to primary sources; link to `/partner-with-us`.
+- **Notes:** *Added from the PRD cross-check (trust & provenance, PRD §11) — see Section 8. Funding disclosure added by the GTM plan: for a platform whose value is its neutrality, who pays for it is the first question a skeptical journalist asks, and the answer should not have to be requested. This page is the "about us" page — deliberately not split, since a citizen doubting the platform wants who-runs-it and how-it-sources-data in one place.*
 
-### 3.14 Partner kit
+### 3.14 Data & key metrics
+- **URL:** `/data`
+- **Access:** Anonymous
+- **Purpose:** Hold the platform to its own standard, and show what Bengaluru cares about.
+- **Key elements:**
+  - **Coverage:** wards with published candidate data (against 369); report cards complete; active curators; sources cited.
+  - **Integrity:** flags raised; flags resolved; median time to resolve.
+  - **Citizen signal:** city-wide issue roll-up aggregated across all wards; total issue votes cast; registered citizens.
+  - An **"as of" timestamp** on every figure.
+- **Notes:** *Added by the GTM plan. Ships in **Phase 2**, not Phase 1 — during the teaser it would honestly read "14 of 369 wards", which is damaging and hands critics a number. The issue roll-up says nothing until issue voting has volume (Phase 3). No dataset downloads or API this release — this page publishes figures, not data.*
+
+### 3.15 Partner with us
+- **URL:** `/partner-with-us`
+- **Access:** Anonymous
+- **Purpose:** Convert inbound interest into partners and curators — the online front door to what was otherwise a purely offline recruitment motion.
+- **Key elements:** the two paths — **spread awareness** (forward ward links to your network; you get a kit, a tagged link, and a report of what it achieved) and **curate data** (own a ward's accuracy; you get scope, onboarding, and publish-immediately trust); time commitment for each; the vetting and neutrality expectation; a single **expression-of-interest form** covering both paths; links to `/about` and `/data`.
+- **Notes:** *Added by the GTM plan. The EOI form is **anonymous — no account required**: requiring registration before someone can volunteer taxes exactly the people the plan depends on, and an RWA as an institution does not map onto a citizen account with a home ward. Rate-limited (PRD §6.3). Submissions are triaged at `/admin/partners`; curator applicants hand off to the existing vetting path at `/admin/roles`. Collecting an application is not granting access — no self-service activation.*
+
+### 3.16 Press kit
+- **URL:** `/press`
+- **Access:** Anonymous
+- **Purpose:** Let a journalist file an accurate story without needing to reach anyone.
+- **Key elements:** boilerplate at three lengths (50/100/200 words); current key stats (drawn from `/data`); logos and screenshots for download; spokesperson bios and quotes; contact with a stated response time; the neutrality statement; link to sourcing methodology on `/about`.
+- **Notes:** *Added by the GTM plan. Ships in **Phase 1** even though it is a Phase 2 asset — journalists arrive at the notification, and a press kit assembled then is assembled too late.*
+
+### 3.17 Terms & conditions
+- **URL:** `/terms`
+- **Access:** Anonymous
+- **Purpose:** Terms of use for the platform.
+- **Key elements:** acceptable use; contribution licensing (flags, issue votes); liability and accuracy disclaimers; account termination grounds, consistent with the admin ban capability (PRD §7).
+- **Notes:** *Added by the GTM plan. Needs legal review — the content is out of a product spec's competence.*
+
+### 3.18 Privacy policy
+- **URL:** `/privacy`
+- **Access:** Anonymous
+- **Purpose:** Disclose what personal data is collected, why, and what rights the citizen has over it.
+- **Key elements:** what is collected (email, phone, address→ward, language, `src` attribution) and why; WhatsApp/email consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **Notes:** *Added by the GTM plan. **Ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the entire comms plan. Needs legal review. Blocked on an undecided retention policy — see Section 9.*
+
+### 3.19 Partner kit
 - **URL:** `/partner/{partner-slug}`
 - **Access:** Anonymous, **unlisted** (not indexed, not linked from navigation; no login wall — it holds nothing sensitive, and gating it would defeat its purpose)
 - **Purpose:** Give a distribution partner — an RWA, a civic org — everything needed to forward the platform to their network, and an answer ready when someone accuses them of campaigning.
 - **Key elements:** the partner's tagged link (`/?src={partner-slug}`); ready-to-paste WhatsApp forward text in English and Kannada; a poster image sized for WhatsApp; a short neutrality statement.
-- **Notes:** *Added from the GTM plan (PRD §5.12). Partners are **not a role** — this is a public page, and partner records are managed at `/admin/partners`. The unit of distribution is a message pasted into an apartment WhatsApp group, so the copy blocks matter more than the page design.*
+- **Notes:** *Added from the GTM plan (PRD §5.12). Partners are **not a role** — this is a public page, and partner records are managed at `/admin/partners`. The unit of distribution is a message pasted into an apartment WhatsApp group, so the copy blocks matter more than the page design. Distinct from `/partner-with-us` (§3.15): that page recruits partners, this one equips an existing one.*
 
 ---
 
@@ -259,8 +303,8 @@ bangalore-votes.opencity.in
 - **URL:** `/admin/partners`
 - **Access:** Admin
 - **Purpose:** Manage the distribution partner roster and watch reach across the city.
-- **Key elements:** add/edit partners and their slugs; registrations attributed per partner; **partner → ward coverage against all 369 wards**, with the uncovered set surfaced as a work queue; wards currently **held** from candidate comms for failing the data-readiness check (PRD §9.1).
-- **Notes:** *Added from the GTM plan. Coverage is the early warning for reach skewing to affluent central wards; the held-wards list is the early warning for curator gaps.*
+- **Key elements:** add/edit partners and their slugs; registrations attributed per partner; **partner → ward coverage against all 369 wards**, with the uncovered set surfaced as a work queue; wards currently **held** from candidate comms for failing the data-readiness check (PRD §9.1), with an override; the **expression-of-interest queue** from `/partner-with-us`, split by path (spread awareness / curate data), with accept/decline.
+- **Notes:** *Added from the GTM plan. Coverage is the early warning for reach skewing to affluent central wards; the held-wards list is the early warning for curator gaps. Accepting an awareness applicant provisions a partner slug and kit page; accepting a curation applicant hands off to `/admin/roles`, which already owns curator vetting and ward scope — the two queues stay separate because granting a role is a different act from listing a partner.*
 
 ### 6.5 Audit log
 - **URL:** `/admin/audit`
@@ -313,9 +357,13 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 | §8 Language toggle & saved preference | Global toggle + `/account` |
 | §9 Notifications & delivery | `/account/notifications` |
 | 5.12 Partner attribution & kit | `/partner/{slug}`, `?src=` on any page, `/admin/partners` |
+| 5.13 Recruitment funnel | `/partner-with-us` + EOI queue on `/admin/partners`, handing off to `/admin/roles` |
+| 5.14 Public data & metrics | `/data` |
+| 5.15 Press kit | `/press` |
+| 5.16 Legal pages | `/terms`, `/privacy` |
 | §9.1 Ward data-readiness gating | `/admin/partners` (held-wards view + override) |
 | §13.1 Phased launch | Candidate routes show the §3.3 empty state before notification |
-| §10 Trust, neutrality & provenance | Sources on report card; `/about`; `/admin/audit` |
+| §11 Trust, neutrality & provenance | Sources on report card; `/about` (incl. funding disclosure); `/admin/audit` |
 | Registration | Register/Login modal (`/login` fallback) |
 | Curator: define issues | `/curator/ward/{id}/issues` |
 | Admin: roles & scope | `/admin/roles` |
@@ -324,7 +372,7 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 
 **Gaps found and added this revision:** `/about` (trust/sourcing page), `/account/notifications` (split from account), `/curator/queue/{submission-id}` (submission review), `/admin/users` (account moderation).
 
-**Added by the GTM plan:** `/partner/{partner-slug}` (partner kit, unlisted public), `/admin/partners` (partner roster, ward coverage, held-wards view).
+**Added by the GTM plan:** `/partner/{partner-slug}` (partner kit, unlisted public), `/admin/partners` (partner roster, ward coverage, held-wards view, EOI queue), `/partner-with-us` (recruitment), `/data` (metrics), `/press` (press kit), `/terms` and `/privacy` (legal). The last two are not hygiene: `/privacy` gates WhatsApp onboarding and therefore the whole comms plan.
 
 ---
 
@@ -336,5 +384,8 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 - Compare: maximum number of candidates shown at once on mobile.
 - News links on the report card: curator-added only, or auto-suggested for curator approval?
 - Do we need a public `/login` fallback page, or is the modal sufficient for all entry paths?
-- Is `/partner/{slug}` bilingual itself, or English-only with bilingual copy blocks inside it?
+- Is `/partner/{slug}` bilingual itself, or English-only with bilingual copy blocks inside it? Same for `/press` and `/partner-with-us`.
 - Does the Home page need a pre-notification state distinct from its post-notification one, given the ward finder is the teaser?
+- **Data retention after the election** — `/privacy` must state what happens to ~100k phone numbers once the poll is over. Undecided, and a hard blocker on a Phase 0 page.
+- Does `/data` coverage count a ward whose data exists but is held from comms by the §9.1 readiness check?
+- Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text while the product is bilingual?
