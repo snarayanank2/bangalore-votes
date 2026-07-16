@@ -42,8 +42,9 @@ test('routes to a curator page and redirects an anonymous visitor away from it',
       <RouterProvider router={router} />
     </AppProviders>,
   )
-  // RoleGuard redirects anonymous users to '/', which renders the Home placeholder heading.
-  expect(screen.getByRole('heading', { name: 'Home' })).toBeInTheDocument()
+  // RoleGuard redirects anonymous users to '/'. Assert on the resolved route rather than Home's
+  // page content, which Task 13 replaced with a real page (was a placeholder heading "Home").
+  expect(router.state.location.pathname).toBe('/')
 })
 
 test('renders a deep public page placeholder by heading', () => {
