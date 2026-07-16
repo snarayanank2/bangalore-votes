@@ -163,3 +163,18 @@ test('audit reflects a fresh mutation immediately (e.g. after a role change else
   renderAt('/admin/audit', 'u-admin')
   expect(screen.getByText(/role=curator/i)).toBeInTheDocument()
 })
+
+test('audit log never renders a raw t{n} counter stamp — a store-generated entry shows as a "Demo event"', async () => {
+  const user = userEvent.setup()
+  const first = renderAt('/admin/roles', 'u-admin')
+  const row = screen.getByText('Asha Rao').closest('li') as HTMLElement
+  await user.selectOptions(within(row).getByLabelText(/role/i), 'curator')
+  await user.click(within(row).getByLabelText(/Koramangala/i))
+  await user.click(within(row).getByRole('button', { name: /save/i }))
+  first.unmount()
+
+  renderAt('/admin/audit', 'u-admin')
+  const bodyText = screen.getByRole('table').textContent ?? ''
+  expect(bodyText).toMatch(/Demo event #\d+/)
+  expect(bodyText).not.toMatch(/\bt\d+\b/)
+})

@@ -1,4 +1,5 @@
 import { useData, useStoreVersion } from '../../context/DataContext'
+import { formatStamp } from '../../lib/stamps'
 
 /**
  * Audit log (PRD §11, IA §6.4, `/admin/audit`) — the full, immutable trail of published changes
@@ -10,7 +11,10 @@ import { useData, useStoreVersion } from '../../context/DataContext'
  * first — same append-order convention Dashboard.tsx's "recent activity" relies on), so this page
  * simply reverses that array rather than trying to sort by `at` — `at` is a mix of real ISO
  * timestamps (seed data) and monotonic `t${n}` stamps (anything created live), which don't sort
- * consistently against each other as strings.
+ * consistently against each other as strings (see lib/stamps.ts's compareStampsNewestFirst for a
+ * comparator that does handle this, used where entries can't rely on append order — e.g.
+ * curator/Queue.tsx). The "When" column renders `at` through lib/stamps.ts's `formatStamp` so a
+ * live counter stamp reads as "Demo event #n" rather than a raw `t9`.
  *
  * PRIVACY (standing controller decision): this page renders ONLY what `listAudit()` returns.
  * Individual issue-vote choices are deliberately never written to the audit log by the store
@@ -63,7 +67,7 @@ export default function Audit() {
             <tbody>
               {entries.map((entry) => (
                 <tr key={entry.id} className="border-t border-slate-200 align-top">
-                  <td className="whitespace-nowrap px-3 py-2 text-ink/70">{entry.at}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-ink/70">{formatStamp(entry.at)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-ink">{actorName(entry.actorUserId)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-ink">{entry.action}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-ink/70">{wardName(entry.wardId)}</td>

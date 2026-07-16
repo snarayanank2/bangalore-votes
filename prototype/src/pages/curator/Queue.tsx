@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { fieldLabel } from '../../lib/fields'
+import { compareStampsNewestFirst } from '../../lib/stamps'
 import type { Submission } from '../../types'
 
 type SortKey = 'count' | 'newest'
@@ -39,7 +40,7 @@ export default function Queue() {
   const filtered = wardFilter === ALL_WARDS ? queue : queue.filter((s) => s.wardId === wardFilter)
 
   const sorted = [...filtered].sort((a, b) =>
-    sort === 'count' ? b.count - a.count : b.createdAt.localeCompare(a.createdAt),
+    sort === 'count' ? b.count - a.count : compareStampsNewestFirst(a.createdAt, b.createdAt),
   )
 
   function describe(sub: Submission): { ward: string; candidate?: string } {
