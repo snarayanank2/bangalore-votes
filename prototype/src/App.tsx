@@ -1,8 +1,9 @@
-import { BrowserRouter } from 'react-router-dom'
+import { RouterProvider, createBrowserRouter } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { DataProvider, useData } from './context/DataContext'
 import { AuthProvider } from './context/AuthContext'
 import { I18nProvider } from './context/I18nContext'
+import { routeObjects } from './routes'
 
 /** Bridges DataProvider's store instance into AuthProvider, so both share
  * exactly one store (AuthProvider needs it as a prop to stay testable). */
@@ -23,13 +24,14 @@ export function AppProviders({ children }: { children: ReactNode }) {
   )
 }
 
+// The site deploys to https://snarayanank2.github.io/bangalore-votes/ — the
+// basename MUST match that subpath exactly, or every route fails to match.
+const router = createBrowserRouter(routeObjects, { basename: '/bangalore-votes' })
+
 export default function App() {
   return (
     <AppProviders>
-      <BrowserRouter>
-        {/* Routes mount here — added in Task 9 */}
-        <div className="p-8 text-2xl font-bold">Bangalore Votes</div>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </AppProviders>
   )
 }
