@@ -293,7 +293,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 ## 8. Language & localization
 
 - **Bilingual by default.** The entire interface and content are available in English and Kannada.
-- **Each language is its own URL.** English pages live at the root (`/ward/57`); Kannada pages live under a `/kn/` prefix (`/kn/ward/57`), cross-linked with `hreflang`. This makes Kannada content indexable, shareable, and forwardable on its own — an RWA can forward the Kannada link directly. (Supersedes the earlier same-URL session toggle; see `docs/superpowers/specs/2026-07-17-production-architecture-design.md`.)
+- **Each language is its own URL.** English pages live at the root (`/ward/57`); Kannada pages live under a `/kn/` prefix (`/kn/ward/57`), cross-linked with `hreflang`. This makes Kannada content indexable, shareable, and forwardable on its own — an RWA can forward the Kannada link directly. (Supersedes the earlier same-URL session toggle; see `docs/architecture.md` §4.)
 - **Toggle for everyone.** Any user — anonymous or registered — can switch language from the app bar; the toggle navigates to the same page in the other language, and a cookie remembers the choice for the session.
 - **Saved preference for registered users.** Registered users can set a preferred language (on `/account`) that persists across sessions and also governs the language of their email / WhatsApp updates.
 - **Curator content.** Curators author in one language; the Kannada version is **machine-generated** (Anthropic API — see `docs/project-dependencies.md` §6.6), with **no human review step** — a decided trade. The citizen flag flow (§6) is the correction path for translation errors. A field whose translation is not yet available displays in the authored language with a subtle indicator.
@@ -348,7 +348,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 - **The ward-page entry point pre-fills the home ward.** When registration is opened from a ward page's "Register for updates" prompt, the ward the citizen is already viewing is carried into the confirm step as their home ward — read-only, not re-asked — while language selection is unchanged. Registering via the **Sign in** control or a gated action still asks the citizen to pick their ward as today.
 - **Registration is the consent act.** The confirm step links to `/terms` and `/privacy` and states plainly that registering signs the user up for ward election updates on their chosen channels; completing it is the affirmative opt-in, and the event (timestamp + wording version shown) is stored as the recorded opt-in evidence WhatsApp policy requires (`docs/project-dependencies.md` §3.10). No separate checkbox. The wording itself is legal-review input (§5.16).
 - **Role-based access control.** Curator edit/review rights are scoped to assigned wards/zone; admins have city-wide access.
-- **Sessions.** Sliding 1-hour idle timeout for all roles; re-auth via OTP (security hardening design, 2026-07-17).
+- **Sessions.** Sliding 1-hour idle timeout for all roles; re-auth via OTP (`docs/architecture.md` §7).
 
 ---
 
@@ -365,7 +365,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 
 - **Scale.** Must handle 369 wards and city-wide read traffic that spikes near the election date; anonymous read paths must stay fast with no login wall.
 - **Authentication.** Single OTP mechanism (email / WhatsApp) across all roles; no passwords, no 2FA.
-- **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions. Per the security hardening design (2026-07-17): CSRF protection on all state-changing requests; security headers and a nonce-based CSP on every page; OTP verify caps and per-destination request cooldowns; encrypted off-box backups (the dump contains DPDP-regulated personal data); 1-hour idle session timeout across roles.
+- **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions. Per the security architecture (`docs/architecture.md` §13): CSRF protection on all state-changing requests; security headers and a nonce-based CSP on every page; OTP verify caps and per-destination request cooldowns; encrypted off-box backups (the dump contains DPDP-regulated personal data); 1-hour idle session timeout across roles.
 - **Reach.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
 - **Measurement.** Visitor and event data is tracked in **Google Analytics** across all public pages (page views, ward-finder usage, registration funnel events, language toggles), measured against the release targets of 300,000 unique visitors and 25,000 registered users (§2). Server-side application events remain the source of truth for registration and contribution counts. Google Analytics and its cookies are disclosed in `/privacy` (§5.16).
 - **SEO / AEO.** Public pages render complete HTML server-side and carry structured data (JSON-LD), per-language sitemaps, `hreflang`, and Open Graph tags (the WhatsApp link preview is the first impression). Unlisted and private routes are `noindex`. Pre-notification candidate routes return 200 with their empty state so shared URLs accumulate search authority early.
@@ -421,7 +421,7 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
 | Language URLs | English at the root, Kannada under `/kn/`, `hreflang`-linked; the app-bar toggle navigates between them (§8). |
-| Production stack | Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache, on the single-VM Docker Compose host; a CDN can be added in front later unchanged. Full design: `docs/superpowers/specs/2026-07-17-production-architecture-design.md`. |
+| Production stack | Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache, on the single-VM Docker Compose host; a CDN can be added in front later unchanged. Full design: `docs/architecture.md`. |
 | Launch phasing | Ward + logistics pages ship first; candidate pages open at the EC notification (§13.1). |
 | Distribution | Partner-led and unpaid — RWAs, civic orgs, press. No paid acquisition, on both cost and neutrality grounds. |
 | Teaser asset | The ward finder itself, not a standalone "notify me" page. Citizens don't know their new ward; the finder answers that and captures ward at registration. |

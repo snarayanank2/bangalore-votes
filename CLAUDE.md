@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository status
 
-This is currently a **documentation / specification repository** — there is no application code, build system, package manifest, or tests yet. The only source of truth is the product specification in `docs/`, plus `LICENSE` (MIT). Implementation starts from a blank slate, but the stack **is now decided** — see `docs/superpowers/specs/2026-07-17-production-architecture-design.md`: an Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache + a cron jobs container, on single-VM Docker Compose; English at root URLs, Kannada under `/kn/`. Scaffold to that design; don't introduce other frameworks or services without asking.
+This is currently a **documentation / specification repository** — there is no application code, build system, package manifest, or tests yet. The only source of truth is the product specification in `docs/`, plus `LICENSE` (MIT). Implementation starts from a blank slate, but the stack **is now decided** — see `docs/architecture.md`: an Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache + a cron jobs container, on single-VM Docker Compose; English at root URLs, Kannada under `/kn/`. Scaffold to that design; don't introduce other frameworks or services without asking.
 
 ## What is being built
 
