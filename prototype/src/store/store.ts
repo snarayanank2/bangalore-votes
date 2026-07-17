@@ -1212,6 +1212,11 @@ export function createStore() {
   function updateCandidate(slug: string, patch: CandidatePatch, curator: User): void {
     const candidate = requireCandidateBySlug(slug)
     requireScope(curator, candidate.wardId)
+    // Sanitize into a copy — never mutate the caller's patch object. The aiExtracted flag is
+    // reserved for ingestAffidavit; curator saves always publish unmarked (confirm-by-edit), so
+    // any caller-supplied aiExtracted on a sourced field is stripped here, whether it's trying to
+    // falsely mark a human-written field or to preserve the marker across a confirming save.
+    const sanitizedPatch: Record<string, unknown> = { ...patch }
     for (const key of Object.keys(patch)) {
       if (!isCandidateSourcedField(key)) continue
       const value = (patch as Record<string, unknown>)[key]
@@ -1220,8 +1225,10 @@ export function createStore() {
           `Cannot publish "${key}": a sourced field requires a non-empty source label and a source type of 'affidavit' or 'curator'.`,
         )
       }
+      const { aiExtracted: _aiExtracted, ...rest } = value
+      sanitizedPatch[key] = rest
     }
-    Object.assign(candidate, patch)
+    Object.assign(candidate, sanitizedPatch)
     appendAudit({
       actorUserId: curator.id,
       action: 'candidate.updated',

@@ -1291,3 +1291,14 @@ test('a later curator save clears the aiExtracted marker (confirm-by-edit, PRD Â
   )
   expect(s.getCandidate('koramangala-r-menon')!.assets.aiExtracted).toBeUndefined()
 })
+
+test('updateCandidate strips a caller-supplied aiExtracted flag â€” only ingestAffidavit may set it', () => {
+  const s = createStore()
+  const c = s.getCandidate('koramangala-r-menon')!
+  s.updateCandidate(
+    'koramangala-r-menon',
+    { assets: { value: c.assets.value, source: c.assets.source, aiExtracted: true } },
+    curator(),
+  )
+  expect(s.getCandidate('koramangala-r-menon')!.assets.aiExtracted).toBeUndefined()
+})
