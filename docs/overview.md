@@ -115,6 +115,7 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 | Flagging scope | Registered citizens can flag across any ward. |
 | Issue list ownership | Defined by the curator, per ward. |
 | Report card content | Includes curator-maintained links to news articles. |
+| Curator scope size | No cap on how many wards a curator is assigned — an admin judgement. An owned risk: vetting, the audit log, and rollback are the nets. |
 | Curator sourcing | Recruiting/vetting curators is an offline effort — tracked as a dependency. |
 | Launch phasing | Ward finder and voting logistics launch first; candidate content follows at the EC notification. |
 | Distribution | Partner-led (RWAs, civic orgs, press). **No paid acquisition** — it costs money the project lacks and undercuts the neutrality claim. |

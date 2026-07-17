@@ -417,6 +417,7 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Issue list ownership | The per-ward list of votable issues is defined by the curator. |
 | Report card content | Includes curator-maintained links to news articles about the candidate. |
 | Affidavit ingestion | Curator uploads the EC affidavit (file or EC link); AI extracts the affidavit fields, which publish immediately marked *AI-extracted* until the curator confirms or edits them; the stored PDF is the public source link (§5.2). |
+| Curator scope size | **Uncapped — an owned risk.** How many wards a curator is assigned is an admin judgement; nothing technical prevents a broad or city-wide scope. With publish-immediately trust and OTP-only login, scope is a curator's unreviewed blast radius; vetting, the audit log, and rollback are the nets. Uncapped scope lets coverage follow curator supply — the binding constraint across 369 wards. |
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
 | Language URLs | English at the root, Kannada under `/kn/`, `hreflang`-linked; the app-bar toggle navigates between them (§8). |
@@ -468,7 +469,7 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 *This section is the single home for open questions across all project documents — the IA and GTM plan point here rather than keeping their own lists. The subset that blocks work is also tracked in `docs/project-dependencies.md` §7, which exists to carry owners.*
 
 - Issue-vote results display: raw counts, percentages, or ranked order only?
-- Curator scoping unit: per-ward vs per-zone (affects `/curator` navigation).
+- Curator scoping unit: per-ward vs per-zone (affects `/curator` navigation). Scope *size* is decided — uncapped, an owned risk (§14); only the unit remains open.
 - Candidate comparison: maximum number of candidates shown at once on mobile.
 - Do GBA ward polls use EVMs or paper ballots? Determines the voting-day walkthrough on `/voting-guide/how-to-vote` (§5.9); resolvable from the State Election Commission before that content is written.
 - News links: curator-added only, or auto-suggested for curator approval?

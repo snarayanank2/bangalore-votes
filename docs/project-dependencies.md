@@ -139,6 +139,8 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 **Kannada is machine-generated with no human review — a decided trade (PRD §8).** The stack translates curator content via the Anthropic API (§6.6) and publishes it directly; the citizen flag flow is the correction path. The same trade now covers **affidavit extraction** (PRD §5.2): AI-extracted fields publish without prior review, marked *AI-extracted* until the curator confirms them. The residual risk is owned rather than mitigated: a bad machine translation — or a misread affidavit entry — on a candidate's criminal record would be ours, published at scale. That makes moderation capacity (5.6) and curator spot-checking matter more, since flags and the curator's confirm pass are the only nets under this.
 
+**Curator scope is uncapped — a second owned risk of the same shape (PRD §14).** How many wards a curator holds is an admin judgement; a zone assignment can already mean ~74 wards, and nothing technical prevents more. Combined with publish-immediately trust and OTP-only login, a curator's scope is their unreviewed blast radius — one compromised login away from broad edits to candidate records mid-election. Vetting (5.1), the audit log, and rollback are the nets. What uncapped scope buys: coverage can follow curator supply rather than an arbitrary ceiling, in a project where covering 369 wards is the binding constraint.
+
 ---
 
 ## 6. Commercial accounts & infrastructure
