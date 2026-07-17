@@ -28,6 +28,33 @@ export default function CheckRegistration() {
       <RollDeadlineNotice />
 
       <div className="rounded-lg border border-slate-200 p-4">
+        <h2 className="text-sm font-semibold text-ink">Am I eligible in the first place?</h2>
+        <p className="mt-1 text-sm text-ink/70">
+          The check below is useless if you don&apos;t yet know whether you qualify, so start
+          here:
+        </p>
+        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-ink/70">
+          <li>
+            You must be <strong>18 or older on the qualifying date</strong>. Qualifying dates now
+            fall <strong>quarterly</strong> (four dates a year) — if you turn 18 soon, you do not
+            have to wait a full year to enrol, which many first-time voters assume.
+          </li>
+          <li>
+            You can be enrolled in <strong>one place only</strong> — a registration elsewhere
+            (another city, or your home town) must be transferred, not duplicated.
+          </li>
+          <li>
+            Enrolment needs a recent passport-size photo, <strong>proof of age</strong> and{' '}
+            <strong>proof of address</strong> (e.g. Aadhaar, passport, utility bill) — see the{' '}
+            <Link to="/voting-guide/voter-id" className="text-brand underline underline-offset-2">
+              Voter ID guide
+            </Link>{' '}
+            for the step-by-step forms.
+          </li>
+        </ul>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-ink">How to check</h2>
         <p className="mt-1 text-sm text-ink/70">
           The Election Commission of India runs the official electoral roll, and the CEO

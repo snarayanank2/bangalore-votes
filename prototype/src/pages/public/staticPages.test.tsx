@@ -84,6 +84,18 @@ test('find-booth: the lookup result is clearly labelled as a prototype demo, not
   expect(main.getAllByText(/demo|not a real|sample/i).length).toBeGreaterThan(0)
 })
 
+// --- PRD §5.6: eligibility basics stated BEFORE the official link-out --------------------------
+
+test('check-registration states the eligibility basics: 18+, quarterly qualifying dates, one-place enrolment, documents', () => {
+  const main = renderAt('/check-registration')
+  expect(main.getByRole('heading', { name: /am i eligible/i })).toBeInTheDocument()
+  expect(main.getAllByText(/18/).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/quarter/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/wait a full year/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/one place|only one/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/proof of age|address proof|proof of address/i).length).toBeGreaterThan(0)
+})
+
 test('about-election: shows a fixed countdown/status target, not a live clock', () => {
   const main = renderAt('/about-election')
   // No numeric "days remaining" computed live — just asserts the page renders explanatory
