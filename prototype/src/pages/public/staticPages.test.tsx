@@ -137,3 +137,28 @@ test('voter-id has a named "registered in another city" path that answers the co
   expect(main.getAllByText(/PG/).length).toBeGreaterThan(0)
   expect(main.getAllByText(/rent/i).length).toBeGreaterThan(0)
 })
+
+// --- PRD §5.9: first-timer FAQ + ward-election differences; §17: EVM vs paper is OPEN ----------
+
+test('how-to-vote hedges the EVM-vs-paper question instead of asserting EVMs (PRD §17 open question)', () => {
+  const main = renderAt('/voting-guide/how-to-vote')
+  expect(main.getAllByText(/not (yet )?been announced|not yet announced/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/paper ballot/i).length).toBeGreaterThan(0)
+})
+
+test('how-to-vote has a first-timer FAQ: EPIC alternatives, voter slip, NOTA, phones', () => {
+  const main = renderAt('/voting-guide/how-to-vote')
+  expect(main.getByRole('heading', { name: /first.time.*faq/i })).toBeInTheDocument()
+  expect(main.getAllByText(/voter slip/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/NOTA/).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/phone/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/hasn.t arrived|hasn.t come|not arrived/i).length).toBeGreaterThan(0)
+})
+
+test('how-to-vote explains what is different about a ward election', () => {
+  const main = renderAt('/voting-guide/how-to-vote')
+  expect(main.getByRole('heading', { name: /different about a ward election/i })).toBeInTheDocument()
+  expect(main.getAllByText(/one corporator per ward/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/five.corporation|five corporations/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/assembly constituency/i).length).toBeGreaterThan(0)
+})
