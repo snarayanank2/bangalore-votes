@@ -3,6 +3,7 @@ import { useData, useStoreVersion } from '../../context/DataContext'
 import { useModal, type FlagField } from '../../context/ModalContext'
 import { GatedButton } from '../../components/GatedButton'
 import { SourceBadge } from '../../components/SourceBadge'
+import { AiExtractedBadge } from '../../components/AiExtractedBadge'
 import type { Sourced } from '../../types'
 
 /** The five sourced fields a citizen can flag, in report-card order. Keys must match the
@@ -39,7 +40,10 @@ function ReportField({
         ) : (
           <p className="text-sm leading-relaxed text-ink/90">{sourced.value}</p>
         )}
-        <SourceBadge source={sourced.source} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <SourceBadge source={sourced.source} />
+          {sourced.aiExtracted && <AiExtractedBadge />}
+        </div>
         {caveat && <p className="text-xs italic text-ink/60">{caveat}</p>}
       </dd>
     </div>

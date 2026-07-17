@@ -1,7 +1,8 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
 import { AppProviders } from '../../App'
+import { useData } from '../../context/DataContext'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routeObjects, { initialEntries: [path] })
@@ -10,6 +11,12 @@ function renderAt(path: string) {
       <RouterProvider router={router} />
     </AppProviders>,
   )
+}
+
+let store: ReturnType<typeof useData>
+function StoreProbe() {
+  store = useData()
+  return null
 }
 
 test('shows one column header per candidate and one row label per report-card field', () => {
@@ -64,4 +71,23 @@ test('shows an honest empty state for a ward with no candidates yet', () => {
 test('an unknown ward id does not crash and shows an honest not-found message', () => {
   renderAt('/ward/not-a-real-ward/compare')
   expect(screen.getByText(/couldn.t find that ward|ward not found/i)).toBeInTheDocument()
+})
+
+// --- PRD §5.2: the AI-extracted marker also shows in the compare table --------------------------
+
+test('AI-extracted fields carry their marker in the compare table too', () => {
+  const router = createMemoryRouter(routeObjects, { initialEntries: ['/ward/koramangala/compare'] })
+  render(
+    <AppProviders>
+      <StoreProbe />
+      <RouterProvider router={router} />
+    </AppProviders>,
+  )
+  const curatorUser = store.listUsers().find((u) => u.id === 'u-curator')!
+  act(() => {
+    store.ingestAffidavit('koramangala-r-menon', { fileName: 'menon-form26.pdf' }, curatorUser)
+  })
+
+  // One candidate ingested × three extracted fields.
+  expect(screen.getAllByText('AI-extracted — not yet curator-confirmed')).toHaveLength(3)
 })

@@ -4,10 +4,13 @@ import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import { routeObjects } from '../../routes'
 import { AppProviders } from '../../App'
 import { useAuth } from '../../context/AuthContext'
+import { useData } from '../../context/DataContext'
 
 let auth: ReturnType<typeof useAuth>
+let store: ReturnType<typeof useData>
 function Probe() {
   auth = useAuth()
+  store = useData()
   return null
 }
 
@@ -99,4 +102,25 @@ test('a field marked "not declared" (seed: shivajinagar-t-ahmed, education) rend
 test('an unknown candidate slug does not crash and shows an honest not-found message', () => {
   renderAt('/candidate/not-a-real-candidate')
   expect(screen.getByText(/couldn.t find that candidate/i)).toBeInTheDocument()
+})
+
+// --- PRD §5.2/§11: AI-extracted markers + the stored affidavit copy as the public source link ---
+
+test('after ingestion, extracted fields carry the AI-extracted marker and link to the stored copy', () => {
+  renderAt('/candidate/koramangala-r-menon')
+  const curatorUser = store.listUsers().find((u) => u.id === 'u-curator')!
+  act(() => {
+    store.ingestAffidavit('koramangala-r-menon', { fileName: 'menon-form26.pdf' }, curatorUser)
+  })
+
+  expect(screen.getAllByText('AI-extracted — not yet curator-confirmed')).toHaveLength(3)
+  const storedLinks = screen
+    .getAllByRole('link', { name: 'source' })
+    .filter((l) => l.getAttribute('href') === '#stored-affidavit-c-kor-1')
+  expect(storedLinks).toHaveLength(3)
+})
+
+test('before any ingestion, no AI-extracted marker renders anywhere on the report card', () => {
+  renderAt('/candidate/koramangala-r-menon')
+  expect(screen.queryByText('AI-extracted — not yet curator-confirmed')).not.toBeInTheDocument()
 })

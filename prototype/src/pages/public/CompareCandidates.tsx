@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { SourceBadge } from '../../components/SourceBadge'
+import { AiExtractedBadge } from '../../components/AiExtractedBadge'
 import { RegisterForUpdatesSlot } from '../../components/RegisterForUpdatesSlot'
 import type { Candidate, Sourced } from '../../types'
 
@@ -118,8 +119,9 @@ export default function CompareCandidates() {
                         ) : (
                           <p className="text-sm text-ink/90">{sourced.value}</p>
                         )}
-                        <div className="mt-1.5">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                           <SourceBadge source={sourced.source} />
+                          {sourced.aiExtracted && <AiExtractedBadge />}
                         </div>
                         {field.caveat && (
                           <p className="mt-1 text-xs italic text-ink/60">{field.caveat}</p>
