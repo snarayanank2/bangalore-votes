@@ -31,20 +31,45 @@ test.each(PAGES)('$path renders its <h1>', ({ path, heading }) => {
   expect(main.getByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
 })
 
-test('voting guide hub links to all three sub-guides', () => {
+// --- PRD §5.17: the hub is an ORDERED first-time-voter checklist, not an index ------------------
+
+test('voting guide hub is an ordered six-step checklist deep-linking each step', () => {
   const main = renderAt('/voting-guide')
 
+  const list = main.getByRole('list', { name: /checklist/i })
+  expect(within(list).getAllByRole('listitem')).toHaveLength(6)
+
+  expect(main.getByRole('link', { name: /check you.re on the roll/i })).toHaveAttribute(
+    'href',
+    '/check-registration',
+  )
   expect(main.getByRole('link', { name: /voter.id/i })).toHaveAttribute(
     'href',
     '/voting-guide/voter-id',
+  )
+  expect(main.getByRole('link', { name: /find your ward/i })).toHaveAttribute('href', '/')
+  expect(main.getByRole('link', { name: /read the candidates/i })).toHaveAttribute('href', '/')
+  expect(main.getByRole('link', { name: /find.*(booth|polling)/i })).toHaveAttribute(
+    'href',
+    '/voting-guide/find-booth',
   )
   expect(main.getByRole('link', { name: /how to vote/i })).toHaveAttribute(
     'href',
     '/voting-guide/how-to-vote',
   )
-  expect(main.getByRole('link', { name: /find.*(booth|polling)/i })).toHaveAttribute(
+})
+
+test('the expiring enrol/transfer step carries the roll deadline (PRD §5.17)', () => {
+  const main = renderAt('/voting-guide')
+  expect(main.getAllByText(/electoral roll deadline/i).length).toBeGreaterThan(0)
+})
+
+test('a registered user with a home ward gets a direct deep-link to their ward candidates', () => {
+  localStorage.setItem('bv-auth', 'u-citizen') // u-citizen's home ward is koramangala
+  const main = renderAt('/voting-guide')
+  expect(main.getByRole('link', { name: /read the candidates/i })).toHaveAttribute(
     'href',
-    '/voting-guide/find-booth',
+    '/ward/koramangala/candidates',
   )
 })
 
