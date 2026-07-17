@@ -2,6 +2,7 @@ import { seed } from '../data'
 import type {
   AuditEntry,
   Candidate,
+  CandidateAffidavit,
   Interest,
   InterestPath,
   InterestStatus,
@@ -192,6 +193,14 @@ export interface SubmitFlagInput {
   sourceUrl?: string
 }
 
+/** Input to `ingestAffidavit` (PRD §5.2) — the curator either "uploads" the affidavit PDF (in
+ *  this prototype: provides its file name; no real file is read) or pastes its EC link (which
+ *  production would fetch and store; here it is recorded verbatim). At least one is required. */
+export interface IngestAffidavitInput {
+  fileName?: string
+  ecUrl?: string
+}
+
 /** Input to `submitInterest` (PRD §5.13) — deliberately has no actor/User field anywhere in its
  *  shape, matching the form it backs: `/partner-with-us` is an anonymous write path. */
 export interface SubmitInterestInput {
@@ -253,6 +262,9 @@ function isValidSourcedPatchValue(value: unknown): value is Sourced<string> {
   // "not declared" still MUST carry a valid source (checked below, unconditionally), since "not
   // declared" is a fact about the affidavit, not the absence of sourcing.
   if (v.notDeclared !== undefined && typeof v.notDeclared !== 'boolean') return false
+  // PRD §5.2: aiExtracted is optional; if present it must be a real boolean. Callers outside
+  // ingestAffidavit (curator form saves) simply omit it — which is what clears the marker.
+  if (v.aiExtracted !== undefined && typeof v.aiExtracted !== 'boolean') return false
   if (typeof v.source !== 'object' || v.source === null) return false
   const source = v.source as Record<string, unknown>
   if (typeof source.label !== 'string' || source.label.trim() === '') return false
@@ -1220,6 +1232,79 @@ export function createStore() {
   }
 
   /**
+   * AI-assisted affidavit ingestion (PRD §5.2/§14). The curator uploads the EC affidavit (Form
+   * 26) PDF or pastes its EC link; extraction populates the three affidavit-derived fields —
+   * pendingCases, assets, education — which PUBLISH IMMEDIATELY, each marked `aiExtracted: true`
+   * until a curator confirms or edits it (any later `updateCandidate` save replaces the field
+   * without the flag, clearing it). The platform's stored copy of the PDF is the public source
+   * link on every extracted field (`storedUrl` — an inert `#…` placeholder here, per the
+   * project's placeholder-link convention; no real file is stored).
+   *
+   * SIMULATED, HONESTLY: this prototype has no backend, reads no PDF, and calls no AI API — the
+   * "extraction" below returns deterministic canned values that say so in their own text. The
+   * education field comes back `notDeclared` to demonstrate §5.2's "including marking a field
+   * not declared where the affidavit says so" (§9.1: a valid, complete answer).
+   *
+   * AUDITED AS A SYSTEM ENTRY (PRD §5.2 says so explicitly): actor is the literal 'system' (not
+   * a User id — Audit.tsx's actorName() falls back to rendering the raw id), with the triggering
+   * curator named in the detail string, so the trail records both that a machine wrote the
+   * fields and who set it in motion. Ward-scoped like every curator write, checked before any
+   * mutation.
+   */
+  function ingestAffidavit(slug: string, input: IngestAffidavitInput, curator: User): Candidate {
+    const candidate = requireCandidateBySlug(slug)
+    requireScope(curator, candidate.wardId)
+    const fileName = input.fileName?.trim() || undefined
+    const ecUrl = input.ecUrl?.trim() || undefined
+    if (!fileName && !ecUrl) {
+      throw new Error("Provide the affidavit PDF file, or paste the affidavit's EC link.")
+    }
+
+    const n = nextSeq()
+    const storedUrl = `#stored-affidavit-${candidate.id}`
+    const affidavit: CandidateAffidavit = {
+      providedFileName: fileName,
+      providedEcUrl: ecUrl,
+      storedUrl,
+      ingestedAt: `t${n}`,
+    }
+    candidate.affidavit = affidavit
+
+    const extractedSource = (): Source => ({
+      type: 'affidavit',
+      label: 'EC affidavit (Form 26)',
+      url: storedUrl,
+    })
+    candidate.pendingCases = {
+      value:
+        'Two pending cases relating to municipal permit disputes, both at pre-trial stage (simulated AI extraction — this prototype reads no real PDF).',
+      source: extractedSource(),
+      aiExtracted: true,
+    }
+    candidate.assets = {
+      value:
+        'Declared movable and immovable assets totalling approximately Rs 1.2 crore (simulated AI extraction — this prototype reads no real PDF).',
+      source: extractedSource(),
+      aiExtracted: true,
+    }
+    candidate.education = {
+      value: '',
+      source: extractedSource(),
+      notDeclared: true,
+      aiExtracted: true,
+    }
+
+    appendAudit({
+      actorUserId: 'system',
+      action: 'candidate.affidavit.extracted',
+      wardId: candidate.wardId,
+      detail: `AI-extracted affidavit fields (pendingCases, assets, education) for ${candidate.name} (${candidate.id}) from ${fileName ?? ecUrl}; ingestion triggered by ${curator.id}.`,
+    })
+    persist()
+    return structuredClone(candidate)
+  }
+
+  /**
    * PRD §9.1's subtlest requirement: a ward's sign-off is only ever valid against the exact
    * candidate set it was given for. Called by every store path that changes WHICH candidates
    * exist in a ward — today that is exactly `addCandidate` and `withdrawCandidate` below, and NO
@@ -1646,6 +1731,7 @@ export function createStore() {
     acceptSubmission,
     rejectSubmission,
     updateCandidate,
+    ingestAffidavit,
     addCandidate,
     withdrawCandidate,
     updateWard,

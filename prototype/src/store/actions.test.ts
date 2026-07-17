@@ -1219,3 +1219,75 @@ test('updatePartner is audited exactly once per call', () => {
   expect(audit[audit.length - 1].action).toBe('partner.updated')
   expect(audit[audit.length - 1].actorUserId).toBe(admin.id)
 })
+
+// --- PRD §5.2: AI-assisted affidavit ingestion (simulated extraction) ---------------------------
+
+test('ingestAffidavit publishes AI-extracted affidavit fields immediately, sourced to the stored copy', () => {
+  const s = createStore()
+  const c = s.ingestAffidavit('koramangala-r-menon', { fileName: 'menon-form26.pdf' }, curator())
+
+  expect(c.affidavit?.providedFileName).toBe('menon-form26.pdf')
+  expect(c.affidavit?.storedUrl).toBe('#stored-affidavit-c-kor-1')
+  for (const field of [c.pendingCases, c.assets, c.education]) {
+    expect(field.aiExtracted).toBe(true)
+    expect(field.source.type).toBe('affidavit')
+    expect(field.source.url).toBe('#stored-affidavit-c-kor-1')
+    expect(field.source.label.trim()).not.toBe('')
+  }
+  // The canned extraction demonstrates §9.1's "not declared is a complete answer" on education.
+  expect(c.education.notDeclared).toBe(true)
+  // Curator-compiled fields are never touched by extraction.
+  expect(c.trackRecord.aiExtracted).toBeUndefined()
+  expect(c.approachability.aiExtracted).toBeUndefined()
+})
+
+test('ingestAffidavit accepts an EC link instead of a file', () => {
+  const s = createStore()
+  const c = s.ingestAffidavit(
+    'koramangala-r-menon',
+    { ecUrl: 'https://affidavits.eci.gov.in/menon-form26' },
+    curator(),
+  )
+  expect(c.affidavit?.providedEcUrl).toBe('https://affidavits.eci.gov.in/menon-form26')
+  expect(c.affidavit?.providedFileName).toBeUndefined()
+})
+
+test('ingestAffidavit requires a file name or an EC link, and writes nothing when refused', () => {
+  const s = createStore()
+  const auditBefore = s.listAudit().length
+  expect(() => s.ingestAffidavit('koramangala-r-menon', {}, curator())).toThrow(/file|link/i)
+  expect(s.getCandidate('koramangala-r-menon')?.affidavit).toBeUndefined()
+  expect(s.listAudit().length).toBe(auditBefore)
+})
+
+test('ingestAffidavit is ward-scoped like every other curator write', () => {
+  const s = createStore()
+  expect(() =>
+    s.ingestAffidavit('malleshwaram-k-iyer', { fileName: 'iyer.pdf' }, curator()),
+  ).toThrow(/scope/i)
+})
+
+test('ingestAffidavit audit-logs the extraction as a SYSTEM entry naming the triggering curator', () => {
+  const s = createStore()
+  s.ingestAffidavit('koramangala-r-menon', { fileName: 'menon-form26.pdf' }, curator())
+  const audit = s.listAudit()
+  const last = audit[audit.length - 1]
+  expect(last.action).toBe('candidate.affidavit.extracted')
+  expect(last.actorUserId).toBe('system')
+  expect(last.detail).toMatch(/triggered by u-curator/i)
+  expect(last.wardId).toBe('koramangala')
+})
+
+test('a later curator save clears the aiExtracted marker (confirm-by-edit, PRD §5.2)', () => {
+  const s = createStore()
+  s.ingestAffidavit('koramangala-r-menon', { fileName: 'menon-form26.pdf' }, curator())
+  const c = s.getCandidate('koramangala-r-menon')!
+  expect(c.assets.aiExtracted).toBe(true)
+
+  s.updateCandidate(
+    'koramangala-r-menon',
+    { assets: { value: c.assets.value, source: c.assets.source } },
+    curator(),
+  )
+  expect(s.getCandidate('koramangala-r-menon')!.assets.aiExtracted).toBeUndefined()
+})

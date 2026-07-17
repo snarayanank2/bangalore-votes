@@ -10,8 +10,13 @@ export interface Source { type: SourceType; label: string; url?: string }
  *  ward-readiness completeness check (`wardCompleteness` in store.ts) treats a field with
  *  `notDeclared: true` as complete regardless of whether `value` is empty. A `notDeclared` field
  *  still MUST carry a real `source` — "not declared" is a fact about the affidavit, so it still
- *  needs sourcing to that affidavit; `updateCandidate`'s sourcing guard applies unchanged. */
-export interface Sourced<T> { value: T; source: Source; notDeclared?: boolean }
+ *  needs sourcing to that affidavit; `updateCandidate`'s sourcing guard applies unchanged.
+ *  `aiExtracted` (PRD §5.2): set by the store's `ingestAffidavit` on the affidavit fields it
+ *  populates — the field is PUBLISHED (visible to citizens) but carries a visible "AI-extracted"
+ *  marker until a curator confirms or edits it. Cleared implicitly: any later curator save
+ *  (`updateCandidate`) replaces the whole Sourced object without the flag. Mirrors the
+ *  machine-translation trade (§8): publish immediately, flag flow is the correction net. */
+export interface Sourced<T> { value: T; source: Source; notDeclared?: boolean; aiExtracted?: boolean }
 
 export interface Ward {
   id: string            // slug, e.g. "koramangala"
@@ -40,6 +45,17 @@ export interface Ward {
 
 export interface NewsLink { title: string; url: string; publisher: string }
 
+/** The affidavit a candidate's official fields were AI-extracted from (PRD §5.2). The platform's
+ *  stored copy (`storedUrl`) — not the EC's own URL, which can move or rot — is the public
+ *  source link on affidavit-sourced fields. In this prototype `storedUrl` is an inert `#…`
+ *  placeholder: no real file is stored, matching the project's placeholder-link convention. */
+export interface CandidateAffidavit {
+  providedFileName?: string
+  providedEcUrl?: string
+  storedUrl: string
+  ingestedAt: string
+}
+
 export interface Candidate {
   id: string
   slug: string
@@ -53,6 +69,7 @@ export interface Candidate {
   education: Sourced<string>
   approachability: Sourced<string>
   news: NewsLink[]      // curator-compiled
+  affidavit?: CandidateAffidavit
 }
 
 export interface Issue { id: string; wardId: string; title: string; description: string }
