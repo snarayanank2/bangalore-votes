@@ -59,6 +59,13 @@ describe('/privacy and /terms do not read as live, actionable policy', () => {
     expect(main.getAllByText(/aggregate/i).length).toBeGreaterThan(0)
   })
 
+  test('/privacy discloses Google Analytics usage data and cookies, and server logs (PRD §5.16)', () => {
+    const main = renderAt('/privacy')
+    expect(main.getAllByText(/Google Analytics/i).length).toBeGreaterThan(0)
+    expect(main.getAllByText(/cookies/i).length).toBeGreaterThan(0)
+    expect(main.getAllByText(/server logs/i).length).toBeGreaterThan(0)
+  })
+
   test('/terms covers acceptable use, contribution licensing, disclaimers, and termination grounds', () => {
     const main = renderAt('/terms')
     expect(main.getByRole('heading', { name: /acceptable use/i })).toBeInTheDocument()

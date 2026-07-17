@@ -67,6 +67,17 @@ export default function Privacy() {
             via a partner&apos;s shared link, that attribution is stored on your record for
             measurement only. It grants no permissions and changes nothing you see.
           </li>
+          <li>
+            <strong>Standard server logs</strong> — basic request logs kept for security and
+            reliability of the service.
+          </li>
+          <li>
+            <strong>Google Analytics usage data and cookies</strong> — visitor and event
+            measurement (page views, ward-finder usage, registration funnel steps, language
+            toggles) uses Google Analytics across public pages, alongside the platform&apos;s own
+            server-side application events — which remain the source of truth for registration
+            and contribution counts.
+          </li>
         </ul>
       </section>
 
