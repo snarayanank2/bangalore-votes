@@ -201,6 +201,9 @@ export default function EditCandidate() {
       data.updateCandidate(activeCandidate.slug, patch, user)
       setError(null)
       setSaved(true)
+      // Save just published this patch without an aiExtracted marker on any field (the store
+      // strips it), so the "Extraction published" banner's claim is no longer true — clear it.
+      setIngested(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save this candidate.')
     }

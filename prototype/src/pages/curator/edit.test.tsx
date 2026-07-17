@@ -432,6 +432,7 @@ test('saving the form after ingestion confirms the fields and clears every AI-ex
   // "Not declared" itself survives the confirm — only the AI marker clears.
   expect(candidate.education.notDeclared).toBe(true)
   expect(screen.queryByText('AI-extracted — not yet curator-confirmed')).not.toBeInTheDocument()
+  expect(screen.queryByText(/extraction published/i)).not.toBeInTheDocument()
 })
 
 test('out-of-scope ingest surfaces the store scope error inline, no crash', async () => {
