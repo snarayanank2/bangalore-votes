@@ -4,6 +4,9 @@ import { routeObjects } from '../routes'
 import { AppProviders } from '../App'
 import { RollDeadlineNotice, ROLL_DEADLINE_LABEL } from './RollDeadlineNotice'
 
+// ROLL_DEADLINE_LABEL contains regex metacharacters — escape before building a matcher.
+const DEADLINE_RE = new RegExp(ROLL_DEADLINE_LABEL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+
 function renderAt(path: string) {
   const router = createMemoryRouter(routeObjects, { initialEntries: [path] })
   render(
@@ -16,7 +19,7 @@ function renderAt(path: string) {
 
 test('shows the roll deadline with an honest placeholder-date caveat', () => {
   render(<RollDeadlineNotice />)
-  expect(screen.getByText(new RegExp(ROLL_DEADLINE_LABEL))).toBeInTheDocument()
+  expect(screen.getByText(DEADLINE_RE)).toBeInTheDocument()
   expect(screen.getAllByText(/cannot vote in this election/i).length).toBeGreaterThan(0)
   expect(screen.getAllByText(/placeholder/i).length).toBeGreaterThan(0)
 })
@@ -30,6 +33,6 @@ test.each(['/', '/check-registration', '/voting-guide/voter-id'])(
   '%s carries the roll-deadline element (PRD §5.6/§5.7/§5.8)',
   (path) => {
     const main = renderAt(path)
-    expect(main.getAllByText(new RegExp(ROLL_DEADLINE_LABEL)).length).toBeGreaterThan(0)
+    expect(main.getAllByText(DEADLINE_RE).length).toBeGreaterThan(0)
   },
 )

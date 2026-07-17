@@ -9,7 +9,7 @@
  * closes" is modelled by the ROLL_CLOSED flag (also flipped by hand); the `closed` prop exists so
  * tests can exercise the closed branch without editing the constant.
  */
-export const ROLL_DEADLINE_LABEL = 'August 2026 expected'
+export const ROLL_DEADLINE_LABEL = 'August 2026 (expected)'
 export const ROLL_CLOSED = false
 
 export function RollDeadlineNotice({ closed = ROLL_CLOSED }: { closed?: boolean }) {
