@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { AiExtractedBadge } from '../../components/AiExtractedBadge'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { fieldLabel } from '../../lib/fields'
@@ -24,6 +25,20 @@ interface FieldDraft {
    *  checked; only the value becomes optional (and is cleared on save, so a value typed before
    *  checking the box is never silently published alongside a "not declared" marker). */
   notDeclared: boolean
+}
+
+/** Builds a form draft from a stored Sourced field — used both by the initial useState and to
+ *  refresh the three extracted fields after ingestAffidavit returns. Deliberately drops
+ *  `aiExtracted`: drafts never carry the flag, so a subsequent Save publishes the field WITHOUT
+ *  it — Save IS the §5.2 confirm action. */
+function draftFrom(sourced: Sourced<string> | undefined): FieldDraft {
+  return {
+    value: sourced?.value ?? '',
+    sourceType: sourced?.source.type ?? 'curator',
+    sourceLabel: sourced?.source.label ?? '',
+    sourceUrl: sourced?.source.url ?? '',
+    notDeclared: sourced?.notDeclared ?? false,
+  }
 }
 
 /**
@@ -59,16 +74,7 @@ export default function EditCandidate() {
   const [party, setParty] = useState(candidate?.party ?? '')
   const [drafts, setDrafts] = useState<Record<CandidateSourcedField, FieldDraft>>(() => {
     const initial = {} as Record<CandidateSourcedField, FieldDraft>
-    for (const field of SOURCED_FIELDS) {
-      const sourced = candidate?.[field]
-      initial[field] = {
-        value: sourced?.value ?? '',
-        sourceType: sourced?.source.type ?? 'curator',
-        sourceLabel: sourced?.source.label ?? '',
-        sourceUrl: sourced?.source.url ?? '',
-        notDeclared: sourced?.notDeclared ?? false,
-      }
-    }
+    for (const field of SOURCED_FIELDS) initial[field] = draftFrom(candidate?.[field])
     return initial
   })
   const [news, setNews] = useState<NewsLink[]>(candidate?.news ?? [])
@@ -77,6 +83,10 @@ export default function EditCandidate() {
   const [newsPublisher, setNewsPublisher] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [affidavitFile, setAffidavitFile] = useState('')
+  const [affidavitEcUrl, setAffidavitEcUrl] = useState('')
+  const [ingestError, setIngestError] = useState<string | null>(null)
+  const [ingested, setIngested] = useState(false)
 
   if (!candidate) {
     return (
@@ -95,6 +105,28 @@ export default function EditCandidate() {
   // Re-bind into a definitely-assigned const: TS's early-return narrowing above doesn't survive
   // into the nested closures below (handleSubmit etc.), so capture the narrowed type here once.
   const activeCandidate = candidate
+
+  function handleIngest(): void {
+    setIngested(false)
+    try {
+      const updated = data.ingestAffidavit(
+        activeCandidate.slug,
+        { fileName: affidavitFile, ecUrl: affidavitEcUrl },
+        user,
+      )
+      setDrafts((prev) => ({
+        ...prev,
+        pendingCases: draftFrom(updated.pendingCases),
+        assets: draftFrom(updated.assets),
+        education: draftFrom(updated.education),
+      }))
+      setIngestError(null)
+      setIngested(true)
+      setSaved(false)
+    } catch (err) {
+      setIngestError(err instanceof Error ? err.message : 'Could not ingest this affidavit.')
+    }
+  }
 
   function updateDraft(field: CandidateSourcedField, patch: Partial<FieldDraft>): void {
     setDrafts((prev) => ({ ...prev, [field]: { ...prev[field], ...patch } }))
@@ -225,6 +257,81 @@ export default function EditCandidate() {
           </div>
         </section>
 
+        <section aria-labelledby="affidavit-heading" className="space-y-3 rounded-lg border border-slate-200 p-4">
+          <h2 id="affidavit-heading" className="text-sm font-semibold text-ink">
+            Affidavit (Form 26) — AI-assisted ingestion
+          </h2>
+          {activeCandidate.affidavit && (
+            <p className="text-sm text-ink/80">
+              Affidavit on file:{' '}
+              <strong>
+                {activeCandidate.affidavit.providedFileName ?? activeCandidate.affidavit.providedEcUrl}
+              </strong>{' '}
+              —{' '}
+              <a
+                href={activeCandidate.affidavit.storedUrl}
+                className="text-brand underline underline-offset-2"
+              >
+                stored copy (placeholder link in this prototype)
+              </a>{' '}
+              is the public source link on the extracted fields.
+            </p>
+          )}
+          <p className="text-xs text-ink/60">
+            Upload the candidate&apos;s EC affidavit PDF (type its file name to simulate the
+            upload — no real file is read in this prototype) or paste its EC link. Extraction
+            (simulated AI) fills cases, assets and education and publishes them immediately with
+            a visible marker; <strong>saving this form confirms the fields and clears the
+            marker</strong>.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label htmlFor="affidavit-file" className="mb-1 block text-xs font-medium text-ink/70">
+                Affidavit PDF file name
+              </label>
+              <input
+                id="affidavit-file"
+                type="text"
+                value={affidavitFile}
+                onChange={(e) => setAffidavitFile(e.target.value)}
+                placeholder="e.g. candidate-form26.pdf"
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
+            </div>
+            <div>
+              <label htmlFor="affidavit-ec-url" className="mb-1 block text-xs font-medium text-ink/70">
+                …or EC link to the affidavit
+              </label>
+              <input
+                id="affidavit-ec-url"
+                type="text"
+                value={affidavitEcUrl}
+                onChange={(e) => setAffidavitEcUrl(e.target.value)}
+                placeholder="https://…"
+                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              />
+            </div>
+          </div>
+          {ingestError && (
+            <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+              {ingestError}
+            </p>
+          )}
+          {ingested && !ingestError && (
+            <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              Extraction published — cases, assets and education below now carry AI-extracted
+              markers until you confirm or edit them.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleIngest}
+            className="rounded border border-brand px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand"
+          >
+            Ingest affidavit &amp; extract (simulated AI)
+          </button>
+        </section>
+
         <section aria-labelledby="fields-heading" className="space-y-6">
           <h2 id="fields-heading" className="text-sm font-semibold text-ink">
             Report-card fields
@@ -235,6 +342,7 @@ export default function EditCandidate() {
             return (
               <fieldset key={field} className="space-y-2 rounded-lg border border-slate-200 p-4">
                 <legend className="px-1 text-sm font-semibold text-ink">{fieldLabel(field)}</legend>
+                {activeCandidate[field].aiExtracted && <AiExtractedBadge />}
                 <div>
                   <label htmlFor={`${idBase}-value`} className="mb-1 block text-sm font-medium text-ink">
                     {fieldLabel(field)} value

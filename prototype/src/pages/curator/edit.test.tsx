@@ -379,3 +379,68 @@ test('curator edits an existing issue title and description — publishes immedi
   const updated = store.listIssues('koramangala').find((i) => i.title.includes('footpath damage'))
   expect(updated).toBeDefined()
 })
+
+// --- PRD §5.2: AI-assisted affidavit ingestion from the curator editor --------------------------
+
+test('curator ingests an affidavit — extracted fields publish immediately, marked, audited as a system entry', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-kor-1', 'u-curator')
+  const auditBefore = store.listAudit().length
+
+  await user.type(screen.getByLabelText(/affidavit pdf file name/i), 'menon-form26.pdf')
+  await user.click(screen.getByRole('button', { name: /ingest affidavit/i }))
+
+  const candidate = store.getCandidate('koramangala-r-menon')!
+  expect(candidate.affidavit?.providedFileName).toBe('menon-form26.pdf')
+  expect(candidate.assets.aiExtracted).toBe(true)
+  expect(candidate.education.notDeclared).toBe(true)
+
+  // Per-field markers appear on the three extracted fields.
+  expect(screen.getAllByText('AI-extracted — not yet curator-confirmed')).toHaveLength(3)
+  // The form drafts were refreshed from the extraction.
+  expect(screen.getByLabelText(/declared assets value/i)).toHaveValue(candidate.assets.value)
+
+  const audit = store.listAudit()
+  const last = audit[audit.length - 1]
+  expect(last.action).toBe('candidate.affidavit.extracted')
+  expect(last.actorUserId).toBe('system')
+  expect(store.listAudit().length).toBe(auditBefore + 1)
+})
+
+test('ingest with neither a file nor a link surfaces an inline error, no crash, nothing written', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-kor-1', 'u-curator')
+
+  await user.click(screen.getByRole('button', { name: /ingest affidavit/i }))
+
+  expect(screen.getByRole('alert')).toHaveTextContent(/file|link/i)
+  expect(store.getCandidate('koramangala-r-menon')?.affidavit).toBeUndefined()
+})
+
+test('saving the form after ingestion confirms the fields and clears every AI-extracted marker', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-kor-1', 'u-curator')
+
+  await user.type(screen.getByLabelText(/affidavit pdf file name/i), 'menon-form26.pdf')
+  await user.click(screen.getByRole('button', { name: /ingest affidavit/i }))
+  await user.click(screen.getByRole('button', { name: /save changes/i }))
+
+  const candidate = store.getCandidate('koramangala-r-menon')!
+  expect(candidate.pendingCases.aiExtracted).toBeUndefined()
+  expect(candidate.assets.aiExtracted).toBeUndefined()
+  expect(candidate.education.aiExtracted).toBeUndefined()
+  // "Not declared" itself survives the confirm — only the AI marker clears.
+  expect(candidate.education.notDeclared).toBe(true)
+  expect(screen.queryByText('AI-extracted — not yet curator-confirmed')).not.toBeInTheDocument()
+})
+
+test('out-of-scope ingest surfaces the store scope error inline, no crash', async () => {
+  const user = userEvent.setup()
+  renderAt('/curator/candidate/c-mal-1', 'u-curator')
+
+  await user.type(screen.getByLabelText(/affidavit pdf file name/i), 'iyer.pdf')
+  await user.click(screen.getByRole('button', { name: /ingest affidavit/i }))
+
+  expect(screen.getByRole('alert')).toHaveTextContent(/scope/i)
+  expect(store.getCandidate('malleshwaram-k-iyer')?.affidavit).toBeUndefined()
+})
