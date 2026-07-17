@@ -107,6 +107,15 @@ export interface User {
    *  stamp (see lib/stamps.ts) and `wordingVersion` names which consent copy was shown, so a
    *  later wording change never gets misattributed to consent given under the old text. */
   registrationConsent?: { at: string; wordingVersion: string }
+  /** Separate, OPTIONAL opt-in for a future civic-tools product (PRD §17, deps §2.6/§7.2) — kept
+   *  distinct from `registrationConsent` because the election-updates consent is mandatory to
+   *  register while this one is not, and because DPDP purpose-limitation means the election list
+   *  cannot lawfully be reused for a different product without its own consent. Whether this
+   *  checkbox belongs in the release is still an open product decision; this field lets the
+   *  prototype sketch the mechanism ahead of that decision without pretending it's settled.
+   *  Undefined means "never asked" (pre-existing users); false means the box was seen and left
+   *  unchecked. */
+  futureToolsConsent?: boolean
 }
 
 /** The kind of organisation a partner is (PRD §5.12) — free enough to cover the partner-led

@@ -20,7 +20,13 @@ interface AuthValue {
   role: Role
   isAuthed: boolean
   loginAs: (userId: string) => void
-  loginNew: (contact: string, homeWardId: string, language?: User['language'], src?: string) => void
+  loginNew: (
+    contact: string,
+    homeWardId: string,
+    language?: User['language'],
+    src?: string,
+    futureToolsConsent?: boolean,
+  ) => void
   logout: () => void
   pendingAction: (() => void) | null
   requireAuth: (action: () => void) => void
@@ -64,14 +70,19 @@ export function AuthProvider({ store, children }: { store: Store; children: Reac
    * caller (`RegisterLoginForm`) is responsible for supplying it — typically via
    * `lib/attribution.ts`'s `getAttributedSrc()` — since AuthContext itself sits outside the
    * router tree (see App.tsx) and has no way to read `?src=` from the URL directly.
+   *
+   * `futureToolsConsent` (PRD §17, deps §2.6/§7.2): whether the optional future-civic-tools
+   * checkbox was checked. Passed straight through to `store.createUser` — see `User`'s doc
+   * comment for why this is kept separate from the mandatory election-updates consent.
    */
   function loginNew(
     contact: string,
     homeWardId: string,
     language?: User['language'],
     src?: string,
+    futureToolsConsent?: boolean,
   ): void {
-    const created = store.createUser({ contact, homeWardId, language, src })
+    const created = store.createUser({ contact, homeWardId, language, src, futureToolsConsent })
     setUserId(created.id)
   }
 

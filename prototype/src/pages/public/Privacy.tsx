@@ -7,8 +7,11 @@
  * product spec's competence" and needs a lawyer, and that `/privacy` is additionally blocked on
  * an undecided retention period (PRD §17). This page therefore renders the REQUIRED SECTION
  * STRUCTURE with a prominent pending-legal-review notice — it must never read as an authoritative
- * policy a citizen could rely on. Retention and the "future civic tools" consent checkbox are
- * open questions (§17) and are left explicitly marked as such, not guessed at.
+ * policy a citizen could rely on. Retention remains an open question (§17) and is left explicitly
+ * marked as such, not guessed at. The "future civic tools" consent checkbox is no longer only
+ * described here — it is sketched as a real, optional checkbox on the registration wizard (see
+ * `RegisterLoginForm`) ahead of the formal product/legal decision on whether it ships; this page
+ * still flags that the decision itself is open.
  */
 export default function Privacy() {
   return (
@@ -103,7 +106,10 @@ export default function Privacy() {
           and <strong>critical product updates</strong> — narrowly, service-affecting notices such
           as a data breach, a material change to these terms, or the platform shutting down, never
           to announce new features. Using contact details for anything beyond these two purposes —
-          including a future civic-tools product — would need fresh consent, not this policy.
+          including a future civic-tools product — would need fresh consent, not this policy. The
+          registration form offers a separate, optional checkbox for exactly that fresh consent —
+          leaving it unchecked never affects your election-updates registration, and whether this
+          checkbox is part of the final release is still an open decision (see above).
         </p>
         <p className="text-sm text-ink/80">
           <strong>Issue votes are published only in aggregate.</strong> The public ward-issues page

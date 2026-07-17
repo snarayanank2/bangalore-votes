@@ -40,6 +40,24 @@ test('loginNew persists the new user across a fresh store/provider construction 
   expect(captured.role).toBe('citizen')
 })
 
+// --- PRD §17 / deps §2.6-§7.2: loginNew forwards the optional future-tools opt-in ---------
+
+test('loginNew forwards futureToolsConsent through to the created user record', () => {
+  const store = createStore()
+  render(<AuthProvider store={store}><Probe /></AuthProvider>)
+  act(() => captured.loginNew('opted.in@example.com', 'koramangala', 'en', undefined, true))
+  expect(store.listUsers().find((u) => u.id === captured.user.id)?.futureToolsConsent).toBe(true)
+})
+
+test('loginNew defaults futureToolsConsent to undefined when the caller omits it', () => {
+  const store = createStore()
+  render(<AuthProvider store={store}><Probe /></AuthProvider>)
+  act(() => captured.loginNew('no.checkbox@example.com', 'koramangala'))
+  expect(
+    store.listUsers().find((u) => u.id === captured.user.id)?.futureToolsConsent,
+  ).toBeUndefined()
+})
+
 // --- Known issue: requireAuth's single pendingAction slot is last-wins, not queued ---------
 // See the DECISION comment above requireAuth in AuthContext.tsx for the justification. Pinning
 // the behavior here so a future change to queue actions is a deliberate, visible decision.

@@ -637,6 +637,46 @@ test('createUser records a registration-consent stamp and wording version', () =
   )
 })
 
+// --- PRD §17 / deps §2.6-§7.2: separate, optional future-civic-tools opt-in --------------------
+
+test('createUser persists futureToolsConsent when the checkbox was checked', () => {
+  const s = createStore()
+  const user = s.createUser({
+    contact: 'opted-in@example.com',
+    homeWardId: 'koramangala',
+    futureToolsConsent: true,
+  })
+  expect(user.futureToolsConsent).toBe(true)
+  expect(s.listUsers().find((u) => u.id === user.id)?.futureToolsConsent).toBe(true)
+})
+
+test('createUser records futureToolsConsent as false, not undefined, when left unchecked', () => {
+  const s = createStore()
+  const user = s.createUser({
+    contact: 'opted-out@example.com',
+    homeWardId: 'koramangala',
+    futureToolsConsent: false,
+  })
+  expect(user.futureToolsConsent).toBe(false)
+})
+
+test('futureToolsConsent defaults to undefined ("never asked") when omitted entirely', () => {
+  const s = createStore()
+  const user = s.createUser({ contact: 'legacy@example.com', homeWardId: 'koramangala' })
+  expect(user.futureToolsConsent).toBeUndefined()
+})
+
+test('leaving futureToolsConsent unchecked does not affect the mandatory registrationConsent stamp', () => {
+  const s = createStore()
+  const user = s.createUser({
+    contact: 'mandatory-only@example.com',
+    homeWardId: 'koramangala',
+    futureToolsConsent: false,
+  })
+  expect(user.registrationConsent?.at).toBeTruthy()
+  expect(user.registrationConsent?.wordingVersion).toBeTruthy()
+})
+
 test('src attribution grants no permissions and changes no other field on the created user', () => {
   const s = createStore()
   const withSrc = s.createUser({

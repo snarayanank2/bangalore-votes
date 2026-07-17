@@ -40,11 +40,20 @@ interface RegisterLoginFormProps {
  *
  * CONSENT (PRD §10): the final step links to Terms/Privacy and states what registering signs the
  * user up for — completing it is the affirmative opt-in, recorded by `createUser` as a stamp +
- * wording version (see `REGISTRATION_CONSENT_WORDING_VERSION` in store.ts). The links are plain
- * `<a target="_blank">` anchors, not react-router `Link`: `ModalProvider` renders this modal as a
- * SIBLING of `RouterProvider` (see ModalContext.tsx), so there is no router context available
- * when this form renders as the modal — only when it renders as the `/login` page. Opening in a
- * new tab also means checking Terms/Privacy never loses the in-progress wizard state. */
+ * wording version (see `REGISTRATION_CONSENT_WORDING_VERSION` in store.ts). This is called out
+ * in its own bordered block (not small print) so it isn't skimmed past as boilerplate. The links
+ * are plain `<a target="_blank">` anchors, not react-router `Link`: `ModalProvider` renders this
+ * modal as a SIBLING of `RouterProvider` (see ModalContext.tsx), so there is no router context
+ * available when this form renders as the modal — only when it renders as the `/login` page.
+ * Opening in a new tab also means checking Terms/Privacy never loses the in-progress wizard
+ * state.
+ *
+ * FUTURE-TOOLS OPT-IN (PRD §17, deps §2.6/§7.2): a second, OPTIONAL checkbox, visually and
+ * functionally separate from the mandatory consent above — leaving it unchecked never blocks
+ * "Finish". Whether this belongs in the shipped release is still an open product decision; it is
+ * sketched here so the mechanism (a distinct, unticked-by-default checkbox feeding its own field
+ * on `User`) exists ahead of that decision, not to imply the decision has been made. See
+ * `User.futureToolsConsent`. */
 export function RegisterLoginForm({ onDone, open = true, prefillWardId }: RegisterLoginFormProps) {
   const { loginNew, resolvePending } = useAuth()
   const { listWards, getWard } = useData()
@@ -55,6 +64,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
   const [otp, setOtp] = useState('')
   const [homeWardId, setHomeWardId] = useState('')
   const [lang, setLangChoice] = useState<Lang>('en')
+  const [futureToolsConsent, setFutureToolsConsent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Reset the wizard every time it (re)opens, so a closed-then-reopened modal doesn't resume
@@ -68,6 +78,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
       setOtp('')
       setHomeWardId(prefillWardId ?? '')
       setLangChoice('en')
+      setFutureToolsConsent(false)
       setError(null)
     }
   }, [open, prefillWardId])
@@ -105,7 +116,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
     // ?src= partner attribution (PRD §5.12): whatever was captured earlier this visit (possibly
     // on a completely different page — see lib/attribution.ts) is applied here, at the moment
     // registration actually happens, regardless of what page this modal was opened from.
-    loginNew(contact, homeWardId, lang, getAttributedSrc())
+    loginNew(contact, homeWardId, lang, getAttributedSrc(), futureToolsConsent)
     setLang(lang)
     // Order matters: ModalContext holds a single tagged-union state, so whichever setState call
     // lands last inside this synchronous handler wins the resulting UI. `onDone` (close) must run
@@ -237,28 +248,43 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
               </label>
             </div>
           </fieldset>
-          <p className="text-xs text-ink/70">
-            By finishing registration, you&apos;re signing up for ward election updates on your
-            chosen channels, in your chosen language. Read our{' '}
-            <a
-              href={`${import.meta.env.BASE_URL}terms`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand underline underline-offset-2"
-            >
-              Terms
-            </a>{' '}
-            and{' '}
-            <a
-              href={`${import.meta.env.BASE_URL}privacy`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand underline underline-offset-2"
-            >
-              Privacy Policy
-            </a>
-            {' '}(open in a new tab — your registration progress here is kept).
-          </p>
+          <div className="rounded-lg border border-brand/30 bg-brand/5 p-3 text-sm text-ink">
+            <p>
+              By finishing registration, you&apos;re signing up for{' '}
+              <strong>ward election updates</strong> on your chosen channels, in your chosen
+              language. Read our{' '}
+              <a
+                href={`${import.meta.env.BASE_URL}terms`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-brand underline underline-offset-2"
+              >
+                Terms
+              </a>{' '}
+              and{' '}
+              <a
+                href={`${import.meta.env.BASE_URL}privacy`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-brand underline underline-offset-2"
+              >
+                Privacy Policy
+              </a>
+              {' '}(open in a new tab — your registration progress here is kept).
+            </p>
+          </div>
+          <label className="flex items-start gap-2 text-sm text-ink/80">
+            <input
+              type="checkbox"
+              checked={futureToolsConsent}
+              onChange={(e) => setFutureToolsConsent(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Optional: also tell me about future Oorvani civic tools beyond this election. Leaving
+              this unchecked doesn&apos;t affect your registration.
+            </span>
+          </label>
           <button
             type="submit"
             className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"

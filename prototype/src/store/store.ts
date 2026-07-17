@@ -1589,6 +1589,10 @@ export function createStore() {
    * citizen" into a permanent, cross-referenceable audit-log fact would make the log a
    * citizen-tracking surface, which is exactly what §5.12's "grants no permissions, changes
    * nothing the citizen sees" is guarding against.
+   *
+   * `futureToolsConsent` (PRD §17, deps §2.6/§7.2): the separate, optional future-civic-tools
+   * opt-in — see `User.futureToolsConsent`'s doc comment for why it is not folded into
+   * `registrationConsent`.
    */
   function createUser(input: {
     contact: string
@@ -1596,6 +1600,7 @@ export function createStore() {
     name?: string
     language?: User['language']
     src?: string
+    futureToolsConsent?: boolean
   }): User {
     const n = nextSeq()
     const user: User = {
@@ -1612,6 +1617,7 @@ export function createStore() {
         at: `t${nextSeq()}`,
         wordingVersion: REGISTRATION_CONSENT_WORDING_VERSION,
       },
+      futureToolsConsent: input.futureToolsConsent,
     }
     state.users.push(user)
     appendAudit({
