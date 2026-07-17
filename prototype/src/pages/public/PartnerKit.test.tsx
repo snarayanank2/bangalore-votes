@@ -36,8 +36,8 @@ test('the kit carries a tagged link back to the site', () => {
 test('the kit carries ready-to-paste WhatsApp forward text in English', () => {
   const partner = seedPartners[0]
   const main = renderAt(`/partner/${partner.slug}`)
-  expect(main.getByRole('heading', { name: /english/i })).toBeInTheDocument()
-  expect(main.getByText(new RegExp(`src=${partner.slug}`))).toBeInTheDocument()
+  expect(main.getAllByRole('heading', { name: /english/i }).length).toBe(2)
+  expect(main.getAllByText(new RegExp(`src=${partner.slug}`)).length).toBe(2)
 })
 
 test('the Kannada forward text is honestly marked pending, not machine-invented', () => {
@@ -75,4 +75,20 @@ test('the kit page is not linked from the footer (unlisted)', () => {
   )
   const footer = within(screen.getByRole('contentinfo'))
   expect(footer.queryByRole('link', { name: /partner kit/i })).not.toBeInTheDocument()
+})
+
+// --- PRD §5.12: first-time voter forward-text variant linking the /voting-guide checklist ------
+
+test('kit carries a first-time voter WhatsApp variant whose tagged link points at the checklist', () => {
+  const main = renderAt('/partner/demo-rwa-one')
+
+  expect(main.getByRole('heading', { name: /first.time voter/i })).toBeInTheDocument()
+  const ftv = main.getByText(/first Bengaluru ward election/i)
+  expect(ftv.textContent).toContain(
+    'https://bangalore-votes.opencity.in/voting-guide?src=demo-rwa-one',
+  )
+  // The general message is still there too, tagged to the home page.
+  expect(main.getByText(/new GBA ward boundaries/i).textContent).toContain(
+    'https://bangalore-votes.opencity.in/?src=demo-rwa-one',
+  )
 })

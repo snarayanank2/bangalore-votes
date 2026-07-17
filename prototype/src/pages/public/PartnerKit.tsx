@@ -42,6 +42,11 @@ export default function PartnerKit() {
   const taggedLink = `${SITE_ORIGIN}/?src=${partner.slug}`
   const enForwardText = `Bengaluru has new GBA ward boundaries. Find your ward, read neutral, sourced candidate report cards, and see what your neighbours say matters most — all in one place: ${taggedLink}`
 
+  // PRD §5.12/§5.17: the second ready-to-paste variant — aimed at first-time voters, tagged to
+  // the /voting-guide checklist hub rather than the home page.
+  const firstTimeVoterLink = `${SITE_ORIGIN}/voting-guide?src=${partner.slug}`
+  const enFirstTimeVoterText = `Voting in your first Bengaluru ward election? This checklist walks you through it step by step — check you're on the roll, get or transfer your Voter ID before the deadline, find your new ward, and know exactly what happens at the booth: ${firstTimeVoterLink}`
+
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
@@ -89,19 +94,25 @@ export default function PartnerKit() {
           Ready-to-paste WhatsApp message
         </h2>
         <div>
-          <h3 className="text-sm font-semibold text-ink">English</h3>
+          <h3 className="text-sm font-semibold text-ink">English — general message</h3>
           <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-3 text-sm text-ink/90">
             {enForwardText}
           </p>
         </div>
         <div>
+          <h3 className="text-sm font-semibold text-ink">English — first-time voter message</h3>
+          <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-3 text-sm text-ink/90">
+            {enFirstTimeVoterText}
+          </p>
+        </div>
+        <div>
           <h3 className="text-sm font-semibold text-ink">ಕನ್ನಡ (Kannada)</h3>
           <p className="text-sm text-ink/70">
-            A reviewed Kannada translation of this message is not yet available in this
+            A reviewed Kannada translation of these messages is not yet available in this
             prototype. This is a real forward-text asset that ships to real partners, unlike the
             app&apos;s UI strings — a wrong or unnatural machine translation here is worse than
             none, so we are not inventing one. Until a genuine Kannada version is ready, use the
-            English text above.
+            English texts above.
           </p>
         </div>
       </section>
