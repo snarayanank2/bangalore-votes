@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository status
 
-This is currently a **documentation / specification repository** — there is no application code, build system, package manifest, or tests yet. The only source of truth is the product specification in `docs/`, plus `LICENSE` (MIT). Any implementation work starts from a blank slate; there are no established build/lint/test commands to follow, and no framework, language, or infra has been chosen. Do not assume a stack — confirm choices before scaffolding.
+This is currently a **documentation / specification repository** — there is no application code, build system, package manifest, or tests yet. The only source of truth is the product specification in `docs/`, plus `LICENSE` (MIT). Implementation starts from a blank slate, but the stack **is now decided** — see `docs/superpowers/specs/2026-07-17-production-architecture-design.md`: an Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache + a cron jobs container, on single-VM Docker Compose; English at root URLs, Kannada under `/kn/`. Scaffold to that design; don't introduce other frameworks or services without asking.
 
 ## What is being built
 
@@ -34,7 +34,7 @@ These four ideas recur across all features — internalize them before implement
 
 - **Auth:** a single **email / WhatsApp OTP** mechanism for *all* roles (citizen, curator, admin). No passwords, no 2FA.
 - **Curator publish:** trusted; edits publish immediately with no approval gate.
-- **Bilingual:** EN / Kannada throughout — session toggle for everyone, saved preference for registered users (also governs their notification language).
+- **Bilingual:** EN / Kannada throughout — each language has its own URL (EN at root, KN under `/kn/`, hreflang-linked); the app-bar toggle navigates between them. Registered users' saved preference governs their notification language.
 - **Scale target:** 369 wards, city-wide read traffic that spikes near election day; rate-limiting on all contribution actions.
 
 The full "Locked decisions" tables live in `docs/prd.md` §14 and `docs/overview.md` §7. Open questions (still undecided) are tracked in one place — `docs/prd.md` §17 — check there before inventing an answer.

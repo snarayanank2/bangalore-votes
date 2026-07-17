@@ -268,7 +268,8 @@ Registered citizens can see the **status of every flag they have submitted** on 
 ## 8. Language & localization
 
 - **Bilingual by default.** The entire interface and content are available in English and Kannada.
-- **Session toggle for everyone.** Any user — anonymous or registered — can switch language on the fly from the app bar; the choice persists for the session.
+- **Each language is its own URL.** English pages live at the root (`/ward/57`); Kannada pages live under a `/kn/` prefix (`/kn/ward/57`), cross-linked with `hreflang`. This makes Kannada content indexable, shareable, and forwardable on its own — an RWA can forward the Kannada link directly. (Supersedes the earlier same-URL session toggle; see `docs/superpowers/specs/2026-07-17-production-architecture-design.md`.)
+- **Toggle for everyone.** Any user — anonymous or registered — can switch language from the app bar; the toggle navigates to the same page in the other language, and a cookie remembers the choice for the session.
 - **Saved preference for registered users.** Registered users can set a preferred language (on `/account`) that persists across sessions and also governs the language of their email / WhatsApp updates.
 - **Curator content.** Curators author in one language; the Kannada version is **machine-generated** (Anthropic API — see `docs/project-dependencies.md` §6.6), with **no human review step** — a decided trade. The citizen flag flow (§6) is the correction path for translation errors. A field whose translation is not yet available displays in the authored language with a subtle indicator.
 
@@ -341,6 +342,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 - **Authentication.** Single OTP mechanism (email / WhatsApp) across all roles; no passwords, no 2FA.
 - **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions.
 - **Reach.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
+- **SEO / AEO.** Public pages render complete HTML server-side and carry structured data (JSON-LD), per-language sitemaps, `hreflang`, and Open Graph tags (the WhatsApp link preview is the first impression). Unlisted and private routes are `noindex`. Pre-notification candidate routes return 200 with their empty state so shared URLs accumulate search authority early.
 - **Accessibility.** No formal conformance target (WCAG or otherwise) is committed this release — a deliberate scope decision, recorded here so the gap is visible rather than mislabelled.
 
 ---
@@ -390,6 +392,8 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Report card content | Includes curator-maintained links to news articles about the candidate. |
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
+| Language URLs | English at the root, Kannada under `/kn/`, `hreflang`-linked; the app-bar toggle navigates between them (§8). |
+| Production stack | Astro SSR monolith (TypeScript) + Postgres + nginx micro-cache, on the single-VM Docker Compose host; a CDN can be added in front later unchanged. Full design: `docs/superpowers/specs/2026-07-17-production-architecture-design.md`. |
 | Launch phasing | Ward + logistics pages ship first; candidate pages open at the EC notification (§13.1). |
 | Distribution | Partner-led and unpaid — RWAs, civic orgs, press. No paid acquisition, on both cost and neutrality grounds. |
 | Teaser asset | The ward finder itself, not a standalone "notify me" page. Citizens don't know their new ward; the finder answers that and captures ward at registration. |

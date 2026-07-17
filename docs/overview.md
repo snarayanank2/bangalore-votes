@@ -94,7 +94,7 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 
 ## 6. Language & access highlights
 
-- **Bilingual by default** — the whole platform works in **English and Kannada**, with a toggle available to everyone and a saved preference for registered users.
+- **Bilingual by default** — the whole platform works in **English and Kannada**; each language has its own shareable URL (Kannada under `/kn/`), with a toggle available to everyone and a saved preference for registered users.
 - **One simple login** — citizens, curators, and admins all sign in the same way, via **email / WhatsApp OTP** (no passwords, no 2FA).
 - **No redirects** — registration and flagging are popups, so users stay on the page they were reading.
 - **Distinct URLs** — every page has its own shareable link under `bangalore-votes.opencity.in`.

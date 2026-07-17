@@ -151,7 +151,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.4 | **Google Maps Platform terms review** — see below | Whether the geocoding architecture is licensed at all | unassigned |
 | 6.5 | **Geocoding budget + quota alerts** — outside the app's own spend cap | A surprise invoice | unassigned |
 | 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8) | unassigned |
-| 6.7 | **CDN account** — sits in front of the VM and absorbs election-day read traffic | The traffic spike | unassigned |
+| 6.7 | **CDN account** — added in front of the VM post-launch for extra headroom; launch itself runs on the nginx micro-cache on the VM (architecture design doc) | Nothing at launch; election-day headroom | unassigned |
 | 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
 | 6.9 | **Off-box backup storage** + a rehearsed restore | Launch readiness | unassigned |
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
@@ -198,4 +198,4 @@ Three things make it useful rather than decorative:
 
 Related: `docs/gtm-plan.md` (§10 dependencies), `docs/prd.md` (§15), `docs/overview.md` (§8).
 
-*An earlier production-stack design document has been retired. The stack decisions this register relies on — Twilio/SendGrid as the single messaging vendor, Google geocoding with MapLibre rendering, machine-translated Kannada with human review, and single-VM Compose hosting behind a CDN — are stated inline above, where they matter.*
+*The production architecture is designed in `docs/superpowers/specs/2026-07-17-production-architecture-design.md`. The stack decisions this register relies on — Twilio/SendGrid as the single messaging vendor, Google geocoding with MapLibre rendering, machine-translated Kannada with **no** human review (PRD §8; an earlier version of this note said otherwise), and single-VM Compose hosting with an nginx micro-cache (CDN optional, post-launch) — are stated inline above, where they matter.*
