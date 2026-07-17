@@ -124,3 +124,16 @@ test('about: lists primary sources as clearly-marked placeholder links, not work
     expect(link.textContent).toMatch(/placeholder link in this prototype/i)
   }
 })
+
+// --- PRD §5.8: the named "registered in another city" path -------------------------------------
+
+test('voter-id has a named "registered in another city" path that answers the count-here question plainly', () => {
+  const main = renderAt('/voting-guide/voter-id')
+  expect(
+    main.getByRole('heading', { name: /registered in another city/i }),
+  ).toBeInTheDocument()
+  expect(main.getAllByText(/does not count here|will not count here/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/form 8/i).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/PG/).length).toBeGreaterThan(0)
+  expect(main.getAllByText(/rent/i).length).toBeGreaterThan(0)
+})

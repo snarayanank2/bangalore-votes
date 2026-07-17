@@ -55,6 +55,30 @@ export default function VoterId() {
         </a>
       </section>
 
+      <section
+        aria-labelledby="elsewhere-heading"
+        className="space-y-3 border-t border-slate-200 pt-6"
+      >
+        <h2 id="elsewhere-heading" className="text-lg font-semibold text-ink">
+          I&apos;m registered in another city — does my vote count here?
+        </h2>
+        <p className="text-sm text-ink/90">
+          <strong>No — a vote registered elsewhere does not count here.</strong> Many of
+          Bengaluru&apos;s first-time local voters moved here from another city or state, and this
+          is their first question. To vote in your GBA ward, transfer your registration to your
+          Bengaluru address using <strong>Form 8</strong> (steps below) <strong>before the
+          electoral roll closes</strong> — after that, you cannot vote in this election from
+          either address.
+        </p>
+        <p className="text-sm text-ink/70">
+          <strong>Renting, or living in a PG?</strong> You do not need to own property to enrol
+          where you live. Commonly accepted proof of your current address includes a registered
+          rent agreement, an Aadhaar card updated to this address, or a utility bill in your name;
+          PG residents can ask the owner for a simple residence declaration. The official EC list
+          of accepted documents is the final word — check it via the Form 8 link below.
+        </p>
+      </section>
+
       <section aria-labelledby="update-heading" className="space-y-3 border-t border-slate-200 pt-6">
         <h2 id="update-heading" className="text-lg font-semibold text-ink">
           I&apos;ve moved, or need to correct/transfer my details
