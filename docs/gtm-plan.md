@@ -8,7 +8,7 @@
 
 ## 1. Goal
 
-Grow **registered citizens with a home ward set**, spread across all 369 wards, and convert them into informed voters who reach the right polling booth on election day.
+Grow **registered citizens with a home ward set**, spread across all 369 wards, and convert them into informed voters who reach the right polling booth on election day. The release targets are **300,000 unique visitors** and **25,000 registered users**.
 
 Registration is the chosen metric because it is the only outcome that is both measurable and re-contactable. Anonymous readers are the majority of traffic and remain fully served, but they cannot be told that their electoral roll deadline is a week away. The list is what makes every later message possible.
 
@@ -23,7 +23,8 @@ Distribution is **partner-led and earned**: RWA and community networks, civic or
 | Operator | The **Oorvani Foundation**, the trust behind `opencity.in` | Named on `/about` and `/privacy`. An election platform whose operator is unclear has no neutrality claim to make. |
 | Citizen data use | No sale or sharing with third parties. Contacts used for ward election updates and **critical product updates** only | Oorvani's commitment. "Critical product updates" must be drafted narrowly — service-affecting notices, not feature marketing — or it becomes the loophole the DPDP purpose limitation exists to close. |
 | Primary metric | Registered citizens with home ward set | Measurable and re-contactable. Ward breadth tracked as a guardrail against central-Bengaluru skew. |
-| Phase 1 target | **~25,000 registrations, with ≥50 in ≥300 of 369 wards** | Built bottom-up from what a partner cascade can deliver unpaid, not down from a quotable share of the electorate. Ward breadth is half the target because a total alone is satisfiable entirely from central Bengaluru. |
+| Phase 1 target | **300,000 unique visitors; ~25,000 registrations, with ≥50 in ≥300 of 369 wards** | Registrations built bottom-up from what a partner cascade can deliver unpaid, not down from a quotable share of the electorate. Ward breadth guards the registration total because a total alone is satisfiable entirely from central Bengaluru. The visitor target sizes the anonymous read audience the registrations convert from. |
+| Analytics | **Google Analytics** tracks visitor and event data | Unique-visitor and on-page event measurement needs a client-side tracker; server-side application events remain the source of truth for registrations. Disclosed in `/privacy` (PRD §5.16). |
 | Ward readiness | Field completeness **and** curator sign-off; sign-off clears on candidate-set change | Completeness is automatic and honest but cannot tell a thin ward from a finished one. Sign-off adds the human who knows. Clearing on change stops a ward signed off at the notification counting as ready at E−2w against a list that no longer exists. |
 | Distribution shape | Partner-led cascade | The only shape that reaches ward breadth without paid spend. Press is an amplifier inside it, not a strategy. |
 | Paid acquisition | None | Costs money the project does not have, and paid political-adjacent ads undermine the neutrality claim that the whole platform rests on. |
@@ -141,9 +142,9 @@ It also carries Oorvani's **data commitments** in citizen-readable terms: the da
 
 ## 8. Measurement
 
-North star: registered citizens with a home ward set. **Phase 1 target: ~25,000, with ≥50 registrations in ≥300 of 369 wards.**
+North star: registered citizens with a home ward set. **Phase 1 targets: 300,000 unique visitors, and ~25,000 registrations with ≥50 registrations in ≥300 of 369 wards.**
 
-The target is deliberately two numbers. A single city-wide total is satisfiable entirely out of a dozen affluent central wards — it would be met, and the plan would have failed. The breadth number is the one that encodes the actual mission, and it is the one to look at first when the two disagree.
+The registration target is deliberately two numbers. A single city-wide total is satisfiable entirely out of a dozen affluent central wards — it would be met, and the plan would have failed. The breadth number is the one that encodes the actual mission, and it is the one to look at first when the two disagree. The visitor target sits above both: it sizes the anonymous read audience — the majority of traffic — that the registration funnel converts from.
 
 Both are built bottom-up from what the cascade can plausibly deliver without paid spend, not down from a quotable fraction of the electorate. 1% of Bengaluru's roughly 90–100 lakh voters would be ~90,000 — a better number to say out loud and a worse one to steer by, because everyone would know it was fiction by week three.
 
@@ -153,7 +154,7 @@ Both are built bottom-up from what the cascade can plausibly deliver without pai
 - **Recruitment funnel:** expressions of interest per path (awareness vs curation), and how many convert to live partners or curators. If the awareness path dwarfs the curation path, ward data readiness becomes the binding constraint and Phase 2 gating starts holding sends.
 - **List health:** WhatsApp opt-out rate and email bounce rate. Treat opt-out rate as a brake — if it climbs, cut sends. The list does not grow back.
 
-**All measurement is server-side.** Every funnel step after the raw visit is already a server action — ward lookup, registration, OTP confirmation — so they are counted as application events; visit counts come from CDN/server logs. No client-side tracker, no analytics cookies, no third-party analytics vendor: a platform that promises not to share citizen data should not be shipping browsing data to one. `/privacy` discloses the server logs (PRD §5.16).
+**Measurement runs on Google Analytics plus server-side events.** Visitor and event data — unique visitors (the 300,000 target), page views, ward-finder usage, language toggles, funnel-step events — is tracked client-side in **Google Analytics**. Funnel steps that are already server actions — ward lookup, registration, OTP confirmation — are additionally counted as application events, and those server-side counts remain the source of truth for registration and contribution numbers. Google Analytics and its cookies must be disclosed in `/privacy` (PRD §5.16) before the tracker ships — for a platform whose product is trust, undeclared analytics is its own risk.
 
 The public-facing subset of these figures is what `/data` publishes (§7).
 
@@ -190,6 +191,7 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 - **Booth-level data.** Required for C3 and F1 to be worth sending.
 - **Ward + delimitation data.** Gates Phase 1 entirely — the teaser *is* the ward finder.
 - **Press assets.** Logos, screenshots, and named spokespeople with quotes, for `/press` in Phase 1.
+- **Google Analytics property.** Backs the visitor target and funnel/attribution measurement; must be live (and disclosed in `/privacy`) from the Phase 1 teaser, or the unique-visitor baseline is lost.
 
 ---
 

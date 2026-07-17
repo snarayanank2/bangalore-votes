@@ -156,6 +156,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.9 | **Off-box backup storage** + a rehearsed restore | Launch readiness | unassigned |
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
 | 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
+| 6.12 | **Google Analytics property** — created, access shared, and the tracker disclosed in `/privacy` before it ships | The 300,000-unique-visitor target and funnel/attribution measurement (GTM §8) | unassigned |
 
 **6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 

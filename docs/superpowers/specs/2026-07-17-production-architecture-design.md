@@ -12,7 +12,7 @@ This document records the production architecture for the platform defined in `d
 - **Traffic shape:** overwhelmingly anonymous, read-only, spiking near election day. Content changes only when a curator publishes — not per request. Anonymous reads must stay fast with no login wall (PRD §12).
 - **Team:** TypeScript/Node.
 - **SEO/AEO is a requirement:** ward, candidate, and guide pages must be indexable by search engines and quotable by answer engines, in both English and Kannada.
-- **Decided vendors** (dependency register §3, §6): Twilio/SendGrid for messaging, Google Geocoding server-side, MapLibre rendering, Anthropic API for Kannada machine translation.
+- **Decided vendors** (dependency register §3, §6): Twilio/SendGrid for messaging, Google Geocoding server-side, MapLibre rendering, Anthropic API for Kannada machine translation, Google Analytics for visitor/event measurement (client-side snippet on public pages; static markup, so it does not break the one-cached-variant-per-URL invariant in §5).
 
 ## 2. Decision summary
 

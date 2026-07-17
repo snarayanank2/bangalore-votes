@@ -24,6 +24,11 @@ This platform makes trustworthy, ward-level election information easy to find, c
 - Give citizens a voice in which local issues matter, and surface that signal publicly.
 - Work fully in English and Kannada.
 
+**Success metrics (this release)**
+
+- **300,000 unique visitors** to the platform.
+- **25,000 registered users** — with the ward-breadth guardrail (≥50 registrations in ≥300 of 369 wards) defined in `docs/gtm-plan.md` §8.
+
 **Non-goals (this release)**
 
 - Tracking whether elected corporators keep their promises; ward budget transparency; a live officer/"who to contact" directory.
@@ -203,7 +208,7 @@ Press is an amplifier for the partner-led distribution model (§14), and journal
 *Pages: `/terms`, `/privacy`*
 
 - **`/terms`** — acceptable use; contribution licensing (flags, issue votes); accuracy and liability disclaimers; account termination grounds, consistent with the admin ban capability (§7).
-- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution, standard server logs) and why; that measurement is **server-side only** — no third-party analytics, no tracking cookies; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution, standard server logs, and **Google Analytics** usage data and cookies) and why; that visitor and event measurement uses **Google Analytics**, alongside server-side application events; email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights, and a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
 - **Data commitments (locked, §14).** Oorvani **does not sell or share citizen data with third parties**. Contact details are used for two purposes only: ward-scoped election updates (§9), and **critical product updates**.
 - **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause.
 - **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
@@ -342,6 +347,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 - **Authentication.** Single OTP mechanism (email / WhatsApp) across all roles; no passwords, no 2FA.
 - **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions.
 - **Reach.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
+- **Measurement.** Visitor and event data is tracked in **Google Analytics** across all public pages (page views, ward-finder usage, registration funnel events, language toggles), measured against the release targets of 300,000 unique visitors and 25,000 registered users (§2). Server-side application events remain the source of truth for registration and contribution counts. Google Analytics and its cookies are disclosed in `/privacy` (§5.16).
 - **SEO / AEO.** Public pages render complete HTML server-side and carry structured data (JSON-LD), per-language sitemaps, `hreflang`, and Open Graph tags (the WhatsApp link preview is the first impression). Unlisted and private routes are `noindex`. Pre-notification candidate routes return 200 with their empty state so shared URLs accumulate search authority early.
 - **Accessibility.** No formal conformance target (WCAG or otherwise) is committed this release — a deliberate scope decision, recorded here so the gap is visible rather than mislabelled.
 
@@ -407,6 +413,8 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Operator | The **Oorvani Foundation** runs the platform in production; named on `/about` and `/privacy`. |
 | Citizen data use | Oorvani does not sell or share citizen data with third parties. Contacts are used for ward election updates and critical product updates only — the latter meaning service-affecting notices, not feature marketing (§5.16). |
 | Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). |
+| Success metrics | **300,000 unique visitors** and **25,000 registered users** this release, with the ward-breadth guardrail (≥50 registrations in ≥300 of 369 wards) from the GTM plan (§2). |
+| Analytics | Visitor and event data is tracked in **Google Analytics**; server-side application events remain the source of truth for registration and contribution counts; disclosed in `/privacy` (§5.16, §12). |
 
 ---
 

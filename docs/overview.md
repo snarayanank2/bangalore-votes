@@ -10,7 +10,7 @@
 
 Bengaluru is heading into its first ward-level (GBA / corporator) elections in roughly a decade. Citizen interviews showed people are willing to vote but blocked by a few specific gaps: they don't know which ward they now belong to, they can't find trustworthy information about local candidates, and existing sources feel biased or unreliable.
 
-The platform makes trustworthy, ward-level election information easy to find, compare, and act on — and gives citizens a voice in which local issues matter. **This release is pre-election only.** Promise tracking, ward budgets, and a live civic-issue directory are deferred to a later phase.
+The platform makes trustworthy, ward-level election information easy to find, compare, and act on — and gives citizens a voice in which local issues matter. Success for this release is measured as **300,000 unique visitors** and **25,000 registered users**. **This release is pre-election only.** Promise tracking, ward budgets, and a live civic-issue directory are deferred to a later phase.
 
 ---
 
@@ -123,7 +123,8 @@ The correction loop connects citizens and curators. Both flagging and voting hap
 | Citizen data use | Oorvani does not sell or share citizen data. Contacts are used for ward election updates and critical product notices only — service-affecting messages, not feature marketing. |
 | Funding disclosure | The About page states who funds the platform. Neutrality is the product; its funding cannot be opaque. |
 | Ward readiness | A ward receives candidate comms only when its data passes a completeness check **and** its curator signs off. Sign-off clears when the candidate list changes. |
-| Phase 1 target | ~25,000 registrations, with at least 50 in at least 300 of the 369 wards. |
+| Phase 1 target | 300,000 unique visitors; ~25,000 registrations, with at least 50 in at least 300 of the 369 wards. |
+| Analytics | Visitor and event data is tracked in **Google Analytics**, disclosed in the privacy policy; registration counts come from our own application events. |
 | Public metrics | A Data page publishes our own coverage and integrity figures, plus a city-wide issue picture. Figures, not downloadable datasets. |
 | Legal sequencing | The privacy policy publishes **before the teaser** — Meta gates WhatsApp onboarding on it, so it gates the comms plan. |
 
