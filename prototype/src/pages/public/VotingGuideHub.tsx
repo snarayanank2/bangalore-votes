@@ -57,6 +57,10 @@ export default function VotingGuideHub() {
             New enrolment (Form 6), or transfer a registration from another city or address
             (Form 8). This step expires:
           </p>
+          {/* NOTE: RollDeadlineNotice renders null once ROLL_CLOSED is flipped by hand, leaving
+              the "This step expires:" lead-in above dangling with no deadline after it. If
+              ROLL_CLOSED is flipped, update this sentence too — and the checklist deadline test
+              in staticPages.test.tsx. */}
           <RollDeadlineNotice />
         </li>
         <li className="rounded-lg border border-slate-200 p-4">
