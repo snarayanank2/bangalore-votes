@@ -1,3 +1,5 @@
+import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
+
 /**
  * Voter-ID issuance & update (PRD §5.8, IA §3.10, `/voting-guide/voter-id`). Anonymous. Aimed at
  * first-time voters and citizens who've moved — plain, numbered steps rather than prose, per the
@@ -19,6 +21,8 @@ export default function VoterId() {
           depending on your situation.
         </p>
       </div>
+
+      <RollDeadlineNotice />
 
       <section aria-labelledby="new-heading" className="space-y-3">
         <h2 id="new-heading" className="text-lg font-semibold text-ink">

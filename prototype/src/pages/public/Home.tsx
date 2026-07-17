@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { WardSearch } from '../../components/WardSearch'
+import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
 
 /**
  * Static, fixed target for the countdown banner. A live `Date.now()` clock is
@@ -22,6 +23,7 @@ export default function Home() {
           Official notification expected: <strong>{ELECTION_NOTICE_TARGET}</strong>. Candidate
           data will be added ward by ward as it becomes available after the notification.
         </p>
+        <RollDeadlineNotice />
       </section>
 
       <section aria-labelledby="ward-search-heading" className="space-y-3">

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
 
 /**
  * Check registration / eligibility (PRD §5.6, IA §3.7, `/check-registration`). Anonymous,
@@ -23,6 +24,8 @@ export default function CheckRegistration() {
           time to fix a problem if you find one.
         </p>
       </div>
+
+      <RollDeadlineNotice />
 
       <div className="rounded-lg border border-slate-200 p-4">
         <h2 className="text-sm font-semibold text-ink">How to check</h2>
