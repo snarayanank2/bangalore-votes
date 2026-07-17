@@ -8,7 +8,7 @@
 
 ## 1. Purpose
 
-Bengaluru is heading into its first ward-level (GBA / corporator) elections in roughly a decade. Citizen interviews showed people are willing to vote but blocked by a few specific gaps: they don't know which ward they now belong to, they can't find trustworthy information about local candidates, and existing sources feel biased or unreliable.
+Bengaluru is heading into its first ward-level (GBA / corporator) elections in roughly a decade. Citizen interviews showed people are willing to vote but blocked by a few specific gaps: they don't know which ward they now belong to, they can't find trustworthy information about local candidates, and existing sources feel biased or unreliable. These gaps are widest for first-time voters — an unusually large group this election: after a decade without ward polls, nearly everyone under thirty, plus anyone who has moved to Bengaluru since, has never voted for a corporator.
 
 The platform makes trustworthy, ward-level election information easy to find, compare, and act on — and gives citizens a voice in which local issues matter. Success for this release is measured as **300,000 unique visitors** and **25,000 registered users**. **This release is pre-election only.** Promise tracking, ward budgets, and a live civic-issue directory are deferred to a later phase.
 
@@ -21,7 +21,7 @@ At a high level, the platform lets a citizen:
 - Find their **new GBA ward** and see who is standing there.
 - Read neutral, **sourced candidate report cards** (track record, cases, assets, education, news coverage) and compare candidates side by side.
 - See the **key issues** in their ward and **vote on the top 3** that matter to them.
-- Handle the logistics: **check registration**, **issue or update a voter ID**, learn **how to vote**, and **find their polling booth**.
+- Handle the logistics: **check registration**, **issue or update a voter ID**, learn **how to vote**, and **find their polling booth** — presented as an ordered checklist a first-time voter can follow end to end.
 - Use everything in **English or Kannada**.
 
 A small trusted team keeps the data accurate and governs access behind the scenes.

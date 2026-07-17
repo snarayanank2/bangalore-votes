@@ -77,7 +77,7 @@ bangalore-votes.opencity.in
 - **URL:** `/`
 - **Access:** Anonymous
 - **Purpose:** Entry point; get the citizen to their ward and orient them to the election.
-- **Key elements:** ward search (address or pincode — a pincode returns a shortlist of wards to pick from); election status + date countdown; shortcuts to Check registration and the voting guide; **Sign in** in app bar.
+- **Key elements:** ward search (address or pincode — a pincode returns a shortlist of wards to pick from); election status + date countdown; the **roll deadline** until the roll closes (PRD §5.7); shortcuts to Check registration and the voting guide; **Sign in** in app bar.
 - **Links to:** Ward result, Check registration, Voting guide, About-election; Register/Login modal.
 
 ### 3.2 Ward result
@@ -120,7 +120,7 @@ bangalore-votes.opencity.in
 - **URL:** `/check-registration`
 - **Access:** Anonymous
 - **Purpose:** Single authoritative place to confirm the citizen is on the GBA electoral roll.
-- **Key elements:** plain-language, bilingual explainer of how to check; prominent link out to the official EC / CEO Karnataka roll lookup (a guided link-out — no on-platform lookup, PRD §5.6); what to do if you're not on the roll (→ voter-ID guide).
+- **Key elements:** eligibility basics stated before the link-out — 18 or older on the qualifying date (now quarterly), enrolment in one place only, documents needed (PRD §5.6); plain-language, bilingual explainer of how to check; prominent link out to the official EC / CEO Karnataka roll lookup (a guided link-out — no on-platform lookup, PRD §5.6); **roll-deadline countdown** until the roll closes; what to do if you're not on the roll (→ voter-ID guide).
 - **Notes:** available early, before candidate data is populated.
 
 ### 3.8 Election info / explainer
@@ -132,21 +132,22 @@ bangalore-votes.opencity.in
 ### 3.9 Voting guide (hub)
 - **URL:** `/voting-guide`
 - **Access:** Anonymous
-- **Purpose:** Index for the three logistics guides.
-- **Key elements:** cards linking to Voter-ID, How to vote, Find polling booth.
-- **Links to:** the three pages below.
+- **Purpose:** Walk a first-time voter through the logistics in order, and index the three guides.
+- **Key elements:** an **ordered checklist** — check you're on the roll → enrol or transfer before the deadline → find your ward → read the candidates → find your booth → vote — each step deep-linking to the page that does the work (PRD §5.17); the roll deadline on the steps that expire; cards linking to Voter-ID, How to vote, Find polling booth.
+- **Links to:** the three pages below; Check registration; Ward result.
+- **Notes:** *This URL is the forwardable first-time voter link carried in partner kits (§3.19). The checklist assumes no prior knowledge — the last ward election was roughly a decade ago, so nearly everyone under thirty has never voted in one.*
 
 ### 3.10 Voter-ID issuance & update
 - **URL:** `/voting-guide/voter-id`
 - **Access:** Anonymous
 - **Purpose:** Guide new enrolment and updating/transferring details when a citizen moves.
-- **Key elements:** step-by-step for new voter (Form 6) and for address change/transfer; deep links into official EC processes.
+- **Key elements:** step-by-step for new voter (Form 6) and for address change/transfer; a named **"I'm registered in another city" path** — the vote does not follow you: Form 8 transfer before the roll closes, with proof-of-address guidance for renters and PG residents (PRD §5.8); roll-deadline countdown until the roll closes; deep links into official EC processes.
 
 ### 3.11 How to vote
 - **URL:** `/voting-guide/how-to-vote`
 - **Access:** Anonymous
 - **Purpose:** Step-by-step guide to the voting-day process.
-- **Key elements:** simple numbered steps; bilingual; aimed at first-time and less-digital voters.
+- **Key elements:** simple numbered steps; a first-timer FAQ — accepted documents when the EPIC hasn't arrived, voter slips, NOTA, what the ballot or machine looks like, what can't be taken inside (PRD §5.9); a "what's different about a ward election" block — one corporator per ward, the five-corporation GBA structure; bilingual; aimed at first-time and less-digital voters.
 
 ### 3.12 Find polling booth
 - **URL:** `/voting-guide/find-booth`
@@ -204,7 +205,7 @@ bangalore-votes.opencity.in
 - **URL:** `/partner/{partner-slug}`
 - **Access:** Anonymous, **unlisted** (not indexed, not linked from navigation; no login wall — it holds nothing sensitive, and gating it would defeat its purpose)
 - **Purpose:** Give a distribution partner — an RWA, a civic org — everything needed to forward the platform to their network, and an answer ready when someone accuses them of campaigning.
-- **Key elements:** the partner's tagged link (`/?src={partner-slug}`); ready-to-paste WhatsApp forward text in English and Kannada; a poster image sized for WhatsApp; a short neutrality statement.
+- **Key elements:** the partner's tagged link (`/?src={partner-slug}`); ready-to-paste WhatsApp forward text in English and Kannada — a general message and a first-time voter variant linking the `/voting-guide` checklist (§3.9); a poster image sized for WhatsApp; a short neutrality statement.
 - **Notes:** *Added from the GTM plan (PRD §5.12). Partners are **not a role** — this is a public page, and partner records are managed at `/admin/partners`. The unit of distribution is a message pasted into an apartment WhatsApp group, so the copy blocks matter more than the page design. Distinct from `/partner-with-us` (§3.15): that page recruits partners, this one equips an existing one.*
 
 ---
@@ -365,6 +366,7 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 | 5.14 Public data & metrics | `/data` |
 | 5.15 Press kit | `/press` |
 | 5.16 Legal pages | `/terms`, `/privacy` |
+| 5.17 First-time voter checklist | `/voting-guide` (hub checklist) + roll deadline / eligibility / transfer-path / FAQ elements on `/`, `/check-registration`, `/voting-guide/voter-id`, `/voting-guide/how-to-vote` |
 | §9.1 Ward data-readiness gating | `/curator/ward/{id}` (readiness panel + sign-off), `/curator` (awaiting sign-off), `/admin/partners` (held-wards view + override) |
 | §13.1 Phased launch | Candidate routes show the §3.3 empty state before notification |
 | §11 Trust, neutrality & provenance | Sources on report card; `/about` (incl. funding disclosure); `/admin/audit` |

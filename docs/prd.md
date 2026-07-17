@@ -10,7 +10,7 @@
 
 Bengaluru is heading into its first ward-level (GBA / corporator) elections in roughly a decade. Citizen interviews showed people are willing to vote but blocked by a few specific gaps: they don't know which ward they now belong to, they can't find trustworthy information about local candidates, and existing sources (mainstream media, WhatsApp, party workers) are seen as biased or unreliable.
 
-This platform makes trustworthy, ward-level election information easy to find, compare, and act on. **This release is pre-election only.** Post-election capabilities (promise/accountability tracking, ward budgets, a live civic-issue officer directory) are deferred to a later phase.
+This platform makes trustworthy, ward-level election information easy to find, compare, and act on. Those gaps are widest for first-time voters, and this election's first-timer cohort is unusually wide: the last ward election was roughly a decade ago, so nearly everyone under thirty — plus everyone who has moved to Bengaluru since — has never voted for a corporator, whatever their experience of assembly or general elections. **This release is pre-election only.** Post-election capabilities (promise/accountability tracking, ward budgets, a live civic-issue officer directory) are deferred to a later phase.
 
 ---
 
@@ -126,17 +126,22 @@ Let citizens signal which local issues matter most, and show that signal publicl
 - A **guided link-out, not an on-platform lookup**: the page explains the check in plain language (both languages) and hands off to the official EC / CEO Karnataka roll lookup, with the correct GBA roll link surfaced prominently.
 - No voter details are entered or stored on the platform. A wrong answer about someone's franchise is the worst error this platform could make, so the official source gives the answer; this page's job is getting the citizen there with no confusion.
 - Make roll tools available early (citizens check months out) even before candidate data is populated.
+- **State the eligibility basics before the link-out:** 18 or older on the qualifying date (qualifying dates now fall quarterly — many first-time voters assume they must wait a full year), enrolment in one place only, and the documents enrolment requires. The check is useless to someone who doesn't yet know whether they qualify.
+- **Show the roll deadline until the roll closes.** The R1 alert (§9) reaches only registered users; this page is where everyone else learns the one date in the funnel that cannot be recovered. The same element appears on `/` (§5.7) and `/voting-guide/voter-id` (§5.8).
 
 ### 5.7 Election awareness
 *Page: `/about-election` (+ Home banner)*
 
 - Prominent election status + date / official-notice countdown.
+- Until the electoral roll closes, the Home banner also carries the roll deadline (§5.6) — the site-side counterpart of the R1 alert, which reaches only registered users.
 - Plain-language explainer: what a GBA corporator does and why this local vote matters.
 
 ### 5.8 Voter-ID issuance & update / transfer
 *Page: `/voting-guide/voter-id`*
 
 - Guided flows for new enrolment (Form 6) and for updating / transferring details when a citizen moves.
+- **A named "I'm registered in another city" path.** Bengaluru's first-time-local voters are disproportionately migrants and renters, and their first question is whether a vote registered elsewhere counts here. The page answers it plainly: it does not — transfer (Form 8) before the roll closes, with proof-of-address guidance for renters and PG residents.
+- Shows the roll deadline until the roll closes (same element as §5.6).
 - Direct links into the official EC processes; clear step-by-step guidance.
 
 ### 5.9 How to vote
@@ -144,6 +149,8 @@ Let citizens signal which local issues matter most, and show that signal publicl
 
 - Simple step-by-step guide to the voting-day process, in both languages.
 - Primary value is first-time voters and the less-digital / Kannada-first audience.
+- **A first-timer FAQ beyond the steps:** which documents are accepted at the booth when the EPIC card hasn't arrived (the EC alternative-document list), what a voter slip is, NOTA, what the ballot or machine looks like (EVM vs paper is an open question, §17), and what can't be taken inside (phones).
+- **What's different about a ward election:** one corporator per ward, the new five-corporation GBA structure, and a ward that may not match the citizen's assembly constituency. Every voter is a first-timer for this format — the last ward election was roughly a decade ago.
 
 ### 5.10 Polling-booth locator
 *Page: `/voting-guide/find-booth`*
@@ -166,7 +173,7 @@ Let citizens signal which local issues matter most, and show that signal publicl
 Distribution is partner-led and unpaid (§14), so the platform must equip partners to forward links and must measure what that forwarding achieves.
 
 - **Attribution.** Any page accepts a `?src={partner-slug}` parameter. The value survives the visit and is **persisted onto the user record at registration**, so a signup can be attributed to the partner who sent it. Attribution is for measurement only — it grants no permissions and changes nothing the citizen sees.
-- **Partner kit page.** An unlisted, anonymous-access page per partner carrying: their tagged link; ready-to-paste WhatsApp forward text in English and Kannada; a poster image sized for WhatsApp; and a short neutrality statement. Unlisted means not indexed and not linked from navigation — but not access-controlled, since it holds nothing sensitive and a login wall would defeat its purpose.
+- **Partner kit page.** An unlisted, anonymous-access page per partner carrying: their tagged link; ready-to-paste WhatsApp forward text in English and Kannada — a general message and a **first-time voter variant** linking the `/voting-guide` checklist (§5.17); a poster image sized for WhatsApp; and a short neutrality statement. Unlisted means not indexed and not linked from navigation — but not access-controlled, since it holds nothing sensitive and a login wall would defeat its purpose.
 - **No new role.** Partners are not a role. The kit is a public page; partner records are managed by admins (§7).
 - **Why the neutrality statement.** An RWA secretary forwarding an election link *will* be accused of campaigning. A partner who cannot answer that stops forwarding — so the answer ships with the kit.
 - **Coverage view.** Admins can see partner → ward coverage against all 369 wards. The uncovered set is a work queue and the early warning for reach skewing to central Bengaluru.
@@ -213,6 +220,16 @@ Press is an amplifier for the partner-led distribution model (§14), and journal
 - **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause.
 - **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
 - Both need **legal review**; their content is outside a product spec's competence. `/privacy` is additionally blocked on an undecided retention policy (§17).
+
+### 5.17 First-time voter checklist
+*Page: `/voting-guide`*
+
+The logistics pages (§5.6–§5.10) each answer one question; a first-time voter needs them in order.
+
+- The voting-guide hub presents the guides as an **ordered checklist**, not an index: check you're on the roll → enrol or transfer before the deadline → find your ward → read the candidates → find your booth → vote. Each step deep-links to the page that does the work; no content is duplicated.
+- Steps that expire (enrol / transfer) carry the roll deadline (§5.6).
+- The hub URL is the forwardable **first-time voter link** carried in partner kits (§5.12).
+- The first-timer depth itself lives on the pages: eligibility basics (§5.6), the registered-elsewhere path (§5.8), and the voting-day FAQ and ward-election differences (§5.9).
 
 ---
 
@@ -449,6 +466,7 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 - Issue-vote results display: raw counts, percentages, or ranked order only?
 - Curator scoping unit: per-ward vs per-zone (affects `/curator` navigation).
 - Candidate comparison: maximum number of candidates shown at once on mobile.
+- Do GBA ward polls use EVMs or paper ballots? Determines the voting-day walkthrough on `/voting-guide/how-to-vote` (§5.9); resolvable from the State Election Commission before that content is written.
 - News links: curator-added only, or auto-suggested for curator approval?
 - Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
 - Does clearing sign-off on every candidate-set change (§9.1) create too much curator churn during the nomination window, when the set changes daily? A possible refinement: suspend gating entirely until withdrawals close, since no candidate-referencing send falls in that window except L1.

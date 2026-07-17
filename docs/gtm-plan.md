@@ -80,7 +80,7 @@ Four of these carry reasoning that is not obvious from the table:
 
 **L1 waits for scrutiny, not the notification.** Nominations only open at N and run about a week — at N there is nothing filed to announce, and a ward's completeness check (PRD §9.1) would pass vacuously against an empty list. Scrutiny is the first moment the platform can point at a list that is real, though withdrawals may still shrink it, which is why the message stays framed as provisional. The site opens its candidate pages at N and fills as nominations come in; only the send waits.
 
-**R1 is the highest-value message in the plan.** Missing the electoral roll deadline is the one failure in this funnel that is *irreversible* — no quantity of good candidate information helps someone who is not on the roll. R1 is also what justifies the teaser shipping months early. It is anchored to the roll deadline, an absolute date that moves independently of N and E.
+**R1 is the highest-value message in the plan.** Missing the electoral roll deadline is the one failure in this funnel that is *irreversible* — no quantity of good candidate information helps someone who is not on the roll. R1 is also what justifies the teaser shipping months early. It is anchored to the roll deadline, an absolute date that moves independently of N and E. R1 can only reach citizens who have already registered on the platform, so the site mirrors the same deadline to everyone else — on the Home banner, `/check-registration`, and `/voting-guide/voter-id` until the roll closes (PRD §5.6–5.8).
 
 **C1 is issue voting, not candidates.** At E−3w nominations are still churning, so candidate data is the one thing the platform cannot yet stand behind. Issue voting fills the slot with something true, drives the contribution loop, and produces the ward results that make C3 worth opening.
 
@@ -97,11 +97,13 @@ Going dark is a deliberate trade. It gives up the election-morning send, which i
 **The partner kit** (`/partner/{partner-slug}`, unlisted, anonymous-access) carries:
 
 - the partner's tagged link
-- pre-written WhatsApp forward text in English and Kannada — the unit of distribution is a message pasted into an apartment group, not a press release
+- pre-written WhatsApp forward text in English and Kannada — a general message and a first-time voter variant linking the `/voting-guide` checklist (PRD §5.17) — because the unit of distribution is a message pasted into an apartment group, not a press release
 - a poster image sized for WhatsApp
 - a one-paragraph neutrality statement
 
 The neutrality statement is not optional. An RWA secretary forwarding an election link will be accused of campaigning, and a partner who cannot answer that accusation stops forwarding.
+
+**Partner categories beyond RWAs.** The RWA cascade reaches homeowners and long-tenured residents. It largely misses first-time voters — students, PG residents, young renters — who sit in no apartment-owner group and are disproportionately unregistered here or registered in another city. And this election's first-timer cohort is unusually wide: the last ward election was roughly a decade ago, so nearly everyone under thirty has never voted for a corporator. Colleges, large employers, and youth and student organisations are therefore recruited as partners through the same `/partner-with-us` funnel, with the first-time voter forward text as their kit's lead asset.
 
 **Ward coverage as the operating dashboard** (`/admin/partners`, IA §6.4). Partner slug → wards covered, against all 369. The uncovered set is the Phase 0 and Phase 1 work queue, and the early-warning signal for the failure mode where the plan quietly becomes "central Bengaluru only."
 
@@ -173,6 +175,7 @@ The public-facing subset of these figures is what `/data` publishes (§7).
 | `/data` published too early | "14 of 369 wards" is honest and damaging, and hands critics a number | Ship `/data` in Phase 2, not Phase 1. Every figure timestamped. |
 | Election date moves | Calendar invalid | Relative anchors absorb it. Note R1 is anchored to the roll deadline, which moves independently. |
 | Partner network doesn't materialise | Ward coverage skews to affluent central wards | Coverage dashboard surfaces it early; press is the fallback amplifier. |
+| Partner mix skews to RWAs | First-time voters — the largest under-served cohort in a first ward election in a decade — never see the platform | Recruit colleges, employers, and youth orgs as partner categories (§5); first-time voter forward asset in every kit. |
 | Neutrality attack | Loss of the trust the platform rests on | Source on every field (PRD §11); partner neutrality statement; no paid spend, as evidence. |
 | Booth data doesn't land | C3 and F1 lose most of their value | Degrade to ward-level messaging. IA §3.12 commits to address-accurate booth data; treat as a launch dependency. |
 | Silence-period violation | Legal exposure under RPA §126 | The campaign goes dark from E−3d, well clear of the window. The PRD §9.2 content freeze remains as a guardrail against any send added later. |
