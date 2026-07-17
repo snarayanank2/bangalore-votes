@@ -120,7 +120,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 **4.3 and 4.4 move independently.** The roll deadline is not derived from the election date and must be tracked separately — R1 is anchored to it, and R1 is the one message whose failure cannot be undone (GTM spec §4).
 
-**4.6 has a shape problem worth knowing early.** Affidavits arrive as scanned PDFs, per candidate, on a returning officer's timeline. Across 369 wards that is a transcription operation with a deadline, not a data feed — and it is what curator capacity (§5.1) is actually spent on.
+**4.6 has a shape problem worth knowing early.** Affidavits arrive as scanned PDFs, per candidate, on a returning officer's timeline. Across 369 wards that was heading for a transcription operation with a deadline, not a data feed. The PRD now routes it through AI extraction (§5.2): the curator uploads the PDF (or its EC link), the Anthropic API (§6.6) extracts the fields, and they publish immediately marked *AI-extracted*. Curator capacity (§5.1) shifts from transcription to upload and spot-check — but the returning-officer timeline and per-candidate chase remain, and scanned-image quality is now an extraction-accuracy risk as well as a reading one.
 
 ---
 
@@ -137,7 +137,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 **5.3 is the cheapest item here and the one most likely to sink the plan.** Curator and partner recruitment are the same conversations with the same people (GTM spec §2). Split across two owners, the relationship gets asked twice and gives once. Unowned, it happens in whatever time is left over, which near an election is none.
 
-**Kannada is machine-generated with no human review — a decided trade (PRD §8).** The stack translates curator content via the Anthropic API (§6.6) and publishes it directly; the citizen flag flow is the correction path. The residual risk is owned rather than mitigated: a bad machine translation on a candidate's criminal record would be ours, published at scale — which makes moderation capacity (5.6) matter more, since flags are the only net under this.
+**Kannada is machine-generated with no human review — a decided trade (PRD §8).** The stack translates curator content via the Anthropic API (§6.6) and publishes it directly; the citizen flag flow is the correction path. The same trade now covers **affidavit extraction** (PRD §5.2): AI-extracted fields publish without prior review, marked *AI-extracted* until the curator confirms them. The residual risk is owned rather than mitigated: a bad machine translation — or a misread affidavit entry — on a candidate's criminal record would be ours, published at scale. That makes moderation capacity (5.6) and curator spot-checking matter more, since flags and the curator's confirm pass are the only nets under this.
 
 ---
 
@@ -150,7 +150,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.3 | **Geocoding API enabled + key**, restricted to the server | Address→ward lookup | unassigned |
 | 6.4 | **Google Maps Platform terms review** — see below | Whether the geocoding architecture is licensed at all | unassigned |
 | 6.5 | **Geocoding budget + quota alerts** — outside the app's own spend cap | A surprise invoice | unassigned |
-| 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8) | unassigned |
+| 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8); affidavit field extraction (PRD §5.2) | unassigned |
 | 6.7 | **CDN account** — added in front of the VM post-launch for extra headroom; launch itself runs on the nginx micro-cache on the VM (architecture design doc) | Nothing at launch; election-day headroom | unassigned |
 | 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
 | 6.9 | **Off-box backup storage** + a rehearsed restore | Launch readiness | unassigned |

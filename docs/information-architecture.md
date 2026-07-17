@@ -98,7 +98,7 @@ bangalore-votes.opencity.in
 - **URL:** `/candidate/{candidate-slug}`
 - **Access:** Anonymous
 - **Purpose:** A structured, neutral, sourced profile of a single candidate — the most-requested feature.
-- **Key elements:** name/photo/party; ward track record; criminal record / pending cases; declared assets; education; approachability; **links to news articles about the candidate**; source shown on every field (affidavit vs curator-compiled distinguished); **Flag an error** action.
+- **Key elements:** name/photo/party; ward track record; criminal record / pending cases; declared assets; education; approachability; **links to news articles about the candidate**; source shown on every field (affidavit vs curator-compiled distinguished) — affidavit-sourced fields link to the stored affidavit PDF, and carry an *AI-extracted* marker until curator-confirmed (PRD §5.2); **Flag an error** action.
 - **Links to:** Compare candidates, Ward issues; opens Flag modal.
 
 ### 3.5 Compare candidates
@@ -264,7 +264,7 @@ bangalore-votes.opencity.in
 - **URL:** `/curator/candidate/{id}`
 - **Access:** Curator
 - **Purpose:** Create/correct a candidate record.
-- **Key elements:** all report-card fields; **manage news-article links**; **source required per field**; edits publish immediately.
+- **Key elements:** all report-card fields; **affidavit upload** — the EC affidavit PDF, or its EC link fetched and stored; AI extraction populates the affidavit fields (cases, assets, education, including *not declared*), which publish immediately marked *AI-extracted* until confirmed or edited here, with the stored PDF attached as their source (PRD §5.2); **manage news-article links**; **source required per field**; edits publish immediately.
 
 ### 5.5 Edit ward
 - **URL:** `/curator/ward/{id}`

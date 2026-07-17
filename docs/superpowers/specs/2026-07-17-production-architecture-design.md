@@ -12,7 +12,7 @@ This document records the production architecture for the platform defined in `d
 - **Traffic shape:** overwhelmingly anonymous, read-only, spiking near election day. Content changes only when a curator publishes — not per request. Anonymous reads must stay fast with no login wall (PRD §12).
 - **Team:** TypeScript/Node.
 - **SEO/AEO is a requirement:** ward, candidate, and guide pages must be indexable by search engines and quotable by answer engines, in both English and Kannada.
-- **Decided vendors** (dependency register §3, §6): Twilio/SendGrid for messaging, Google Geocoding server-side, MapLibre rendering, Anthropic API for Kannada machine translation, Google Analytics for visitor/event measurement (client-side snippet on public pages; static markup, so it does not break the one-cached-variant-per-URL invariant in §5).
+- **Decided vendors** (dependency register §3, §6): Twilio/SendGrid for messaging, Google Geocoding server-side, MapLibre rendering, Anthropic API for Kannada machine translation and affidavit field extraction (PRD §5.2), Google Analytics for visitor/event measurement (client-side snippet on public pages; static markup, so it does not break the one-cached-variant-per-URL invariant in §5).
 
 ## 2. Decision summary
 
@@ -62,7 +62,7 @@ nginx `proxy_cache` on anonymous-shaped GET HTML:
 
 ## 6. Data model (sketch)
 
-`wards` (id, name_en, name_kn, corporation, boundary ref) · `candidates` (slug, ward, party, photo) · `candidate_fields` (candidate, field key, value_en, value_kn, authored_lang, translation_status, source_url, source_type `official|curator`) · `ward_issues` + per-candidate stances · `issue_votes` (user, ward, up to 3 issues; one active set per user, retired on home-ward change) · `users` (contact, home ward, language, role, `src` attribution, consent record: timestamp + wording version) · `otp_codes`, `sessions` · `flags` (dedupe key → count) · `partners` · `eoi_submissions` · `ward_readiness` (completeness snapshot, sign-off, cleared on candidate-set change) · `audit_log` (append-only; written in the same transaction as the change it records).
+`wards` (id, name_en, name_kn, corporation, boundary ref) · `candidates` (slug, ward, party, photo) · `candidate_fields` (candidate, field key, value_en, value_kn, authored_lang, translation_status, source_url, source_type `official|curator`) · `candidate_affidavits` (candidate, stored PDF on the VM's disk — covered by the §6.9 backup — origin EC URL if fetched, extraction status; the stored copy is the public source link for affidavit fields, PRD §5.2) · `ward_issues` + per-candidate stances · `issue_votes` (user, ward, up to 3 issues; one active set per user, retired on home-ward change) · `users` (contact, home ward, language, role, `src` attribution, consent record: timestamp + wording version) · `otp_codes`, `sessions` · `flags` (dedupe key → count) · `partners` · `eoi_submissions` · `ward_readiness` (completeness snapshot, sign-off, cleared on candidate-set change) · `audit_log` (append-only; written in the same transaction as the change it records).
 
 Sources are per-field (PRD §11). Ward boundaries are static GeoJSON files served by nginx and loaded into app memory at boot for point-in-polygon lookups.
 

@@ -65,6 +65,7 @@ A small trusted team keeps the data accurate and governs access behind the scene
 *A trusted, vetted individual responsible for data accuracy, scoped to a set of wards or a zone. Because curators are trusted, their edits go live immediately — no second approval.*
 
 - Create, upload, and correct ward and candidate information, including **links to news articles** about candidates.
+- Upload each candidate's **EC affidavit** (or its EC link); AI extracts the structured fields — cases, assets, education — which publish immediately marked *AI-extracted* until the curator confirms them, with the affidavit itself attached as the source.
 - **Define the list of votable issues** for each ward (this powers citizen issue voting).
 - Review the queue of citizen flags, and accept them (making the correction) or reject them (with a reason the submitter can see).
 - Attach a **source** to every record and change, so the public view can show its provenance.

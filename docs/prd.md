@@ -91,6 +91,9 @@ A structured, neutral, sourced profile for each candidate in a ward — the sing
   | Approachability | Curator-compiled | Lives in ward? public office? contactable? |
   | **News & coverage** | Curator-compiled links | Links to news articles about the candidate |
 
+- **Affidavit ingestion is AI-assisted, not manual transcription.** As affidavits arrive during the nomination window, the curator uploads the candidate's EC affidavit (Form 26) PDF — or pastes its EC link, which the platform fetches and stores. AI extraction (the same Anthropic API dependency as machine translation — `docs/project-dependencies.md` §6.6) populates the affidavit-sourced fields above — cases, assets, education — including marking a field *not declared* where the affidavit says so (a valid, complete answer per §9.1).
+- **Extracted fields publish immediately, mirroring the machine-translation trade (§8).** Each carries a visible *AI-extracted* marker until the curator confirms or edits it, which clears the marker. The citizen flag flow (§6) is the correction net, and extraction is audit-logged as a system entry.
+- **The stored affidavit is the public source.** Affidavit-sourced fields link to the platform's hosted copy of the PDF, so provenance is a clickable original rather than an EC URL that can move or rot.
 - Clearly distinguish official/affidavit data from curator-compiled context.
 - Carries the **Flag an error** action (opens the flag popup; see §6).
 
@@ -351,7 +354,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 
 ## 11. Trust, neutrality & data provenance
 
-- Every data point shows its source; official/affidavit data is visibly distinguished from curator-compiled context.
+- Every data point shows its source; official/affidavit data is visibly distinguished from curator-compiled context. Affidavit-sourced fields link to the stored affidavit PDF itself (§5.2).
 - No editorial voice or endorsements; the platform presents facts and citizen signal only.
 - Immutable audit trail on every published change supports both credibility and rollback.
 - A public `/about` page explains sourcing and verification.
@@ -413,6 +416,7 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Flagging scope | Registered citizens can flag misinformation across any ward. |
 | Issue list ownership | The per-ward list of votable issues is defined by the curator. |
 | Report card content | Includes curator-maintained links to news articles about the candidate. |
+| Affidavit ingestion | Curator uploads the EC affidavit (file or EC link); AI extracts the affidavit fields, which publish immediately marked *AI-extracted* until the curator confirms or edits them; the stored PDF is the public source link (§5.2). |
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
 | Language URLs | English at the root, Kannada under `/kn/`, `hreflang`-linked; the app-bar toggle navigates between them (§8). |
