@@ -155,14 +155,14 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8); affidavit field extraction (PRD §5.2) | unassigned |
 | 6.7 | **CDN account** — added in front of the VM post-launch for extra headroom; launch itself runs on the nginx micro-cache on the VM (architecture design doc) | Nothing at launch; election-day headroom | unassigned |
 | 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
-| 6.9 | **Off-box backup storage** + a rehearsed restore | Launch readiness | unassigned |
+| 6.9 | **Off-box backup storage** — encrypted at rest via restic (the dump holds DPDP-regulated personal data; security hardening design §4) + a rehearsed restore | Launch readiness | unassigned |
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
 | 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
 | 6.12 | **Google Analytics property** — created, access shared, and the tracker disclosed in `/privacy` before it ships | The 300,000-unique-visitor target and funnel/attribution measurement (GTM §8) | unassigned |
 
 **6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 
-The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation and EC data rather than from Google. Nothing Google-derived reaches the browser.
+The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation and EC data rather than from Google. Nothing Google-derived reaches the browser. The ward-lookup cache (security hardening design §3) keeps to the same line: it stores **normalized address → ward ID** — the platform's own derived conclusion — never Google's coordinates or response content.
 
 What is needed is a deliberate confirmation rather than a product spec's reading of the terms, plus the constraint written into the geocoding module when it is built. The risk is not the rule — it costs a feature nobody has asked for — but its invisibility. A future contributor who reads "returns a ward, not a point" without knowing why will eventually, helpfully, return the point.
 

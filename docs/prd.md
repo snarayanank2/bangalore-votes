@@ -348,7 +348,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 - **The ward-page entry point pre-fills the home ward.** When registration is opened from a ward page's "Register for updates" prompt, the ward the citizen is already viewing is carried into the confirm step as their home ward — read-only, not re-asked — while language selection is unchanged. Registering via the **Sign in** control or a gated action still asks the citizen to pick their ward as today.
 - **Registration is the consent act.** The confirm step links to `/terms` and `/privacy` and states plainly that registering signs the user up for ward election updates on their chosen channels; completing it is the affirmative opt-in, and the event (timestamp + wording version shown) is stored as the recorded opt-in evidence WhatsApp policy requires (`docs/project-dependencies.md` §3.10). No separate checkbox. The wording itself is legal-review input (§5.16).
 - **Role-based access control.** Curator edit/review rights are scoped to assigned wards/zone; admins have city-wide access.
-- **Sessions.** Standard session handling; re-auth via OTP.
+- **Sessions.** Sliding 1-hour idle timeout for all roles; re-auth via OTP (security hardening design, 2026-07-17).
 
 ---
 
@@ -365,7 +365,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 
 - **Scale.** Must handle 369 wards and city-wide read traffic that spikes near the election date; anonymous read paths must stay fast with no login wall.
 - **Authentication.** Single OTP mechanism (email / WhatsApp) across all roles; no passwords, no 2FA.
-- **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions.
+- **Security & integrity.** Role-based access control; curator edits scoped to assigned wards; full audit logging; rate-limiting on all contribution actions. Per the security hardening design (2026-07-17): CSRF protection on all state-changing requests; security headers and a nonce-based CSP on every page; OTP verify caps and per-destination request cooldowns; encrypted off-box backups (the dump contains DPDP-regulated personal data); 1-hour idle session timeout across roles.
 - **Reach.** Shareable, deep-linkable ward/candidate pages (for RWA forwarding); mobile-first; readable for a low-digital-literacy, bilingual audience.
 - **Measurement.** Visitor and event data is tracked in **Google Analytics** across all public pages (page views, ward-finder usage, registration funnel events, language toggles), measured against the release targets of 300,000 unique visitors and 25,000 registered users (§2). Server-side application events remain the source of truth for registration and contribution counts. Google Analytics and its cookies are disclosed in `/privacy` (§5.16).
 - **SEO / AEO.** Public pages render complete HTML server-side and carry structured data (JSON-LD), per-language sitemaps, `hreflang`, and Open Graph tags (the WhatsApp link preview is the first impression). Unlisted and private routes are `noindex`. Pre-notification candidate routes return 200 with their empty state so shared URLs accumulate search authority early.

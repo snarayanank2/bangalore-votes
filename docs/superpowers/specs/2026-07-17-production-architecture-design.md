@@ -54,11 +54,11 @@ No Redis, no queue, no separate API service. Deploys are `git pull && docker com
 nginx `proxy_cache` on anonymous-shaped GET HTML:
 
 - Public pages: **~60 s TTL**. Issue-vote results and `/data`: ~5 min. `/api/*`, `/account/*`, `/curator/*`, `/admin/*`: `no-store`, never cached.
-- **Invariant: public page HTML never varies by session.** Logged-in users receive the same cached anonymous markup; the three personalized elements (Sign-in vs Account control, register-for-updates slot, already-voted state) are swapped client-side from one `GET /api/me` call. nginx therefore ignores cookies on public pages, and each URL has exactly one cached variant per language.
-- `?src={partner}` is stripped from the cache key; a small inline script stores the slug in a cookie, which the registration endpoint reads (PRD §5.12). No cache fragmentation per partner.
+- **Invariant: public page HTML never varies by session.** Logged-in users receive the same cached anonymous markup; the three personalized elements (Sign-in vs Account control, register-for-updates slot, already-voted state) are swapped client-side from one `GET /api/me` call. The invariant is enforced, not assumed: **nginx strips the `Cookie` header** before proxying public-page routes, so the app cannot see a session on a cached path, and a route test asserts no `Set-Cookie` on public GETs (§12). Each URL has exactly one cached variant per language.
+- **The cache key ignores the query string entirely** on public pages — unknown params can neither fragment the cache nor cache-bust it into a DoS on the origin. `?src={partner}` attribution still works: a small inline script reads `location.search` client-side and stores the slug in a cookie, which the registration endpoint reads (PRD §5.12).
 - Worst-case origin load is every public URL rendered once per TTL — about 4,000 renders/minute at the absolute ceiling (369 wards × ~5 pages × 2 languages), well within one Node process. The spike lands on nginx, which serves cached responses at static-file speed.
 - The 60 s window satisfies "curator edits go live immediately"; curators previewing edits use uncached curator routes.
-- A CDN added later sits in front of nginx with the same cache headers; nothing else changes.
+- A CDN added later sits in front of nginx with the same cache headers; the one required change is trust: nginx then takes client IPs for rate limiting from `X-Forwarded-For` via `real_ip`, restricted to the CDN's published ranges, so per-IP limits stay unspoofable.
 
 ## 6. Data model (sketch)
 
@@ -72,9 +72,9 @@ Public endpoints:
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /api/ward-lookup` | Address → server-side Google geocode → point-in-polygon → ward. Returns a ward, never coordinates (Maps ToS constraint, dependency register §6.4) |
+| `POST /api/ward-lookup` | Address → server-side Google geocode → point-in-polygon → ward. Returns a ward, never coordinates (Maps ToS constraint, dependency register §6.4). Normalized-address → ward-ID results are cached (our derived conclusion, no Google content stored); a global daily geocode budget degrades the endpoint to pincode lookup when exhausted (§11) |
 | `POST /api/booth-lookup` | Same shape, booth data |
-| `POST /api/otp/request`, `POST /api/otp/verify` | Email OTP (SendGrid); WhatsApp OTP when templates approve. Hashed 6-digit code, 10-minute expiry |
+| `POST /api/otp/request`, `POST /api/otp/verify` | Email OTP (SendGrid); WhatsApp OTP when templates approve. Hashed 6-digit code, 10-minute expiry, 5 verify attempts per code (then invalidated); per-destination request cooldowns and a global daily send budget with an alarm (security design §2) |
 | `GET /api/me` | Session state for client-side personalization |
 | `POST /api/flags` | Gated write; dedupe; audit |
 | `PUT /api/issue-votes` | Home-ward check; one active vote-set |
@@ -82,7 +82,7 @@ Public endpoints:
 
 Pincode → ward shortlist is a static JSON lookup table — no API call.
 
-Sessions are signed HttpOnly cookies. One middleware enforces roles and curator ward scope (PRD §7). Rate limiting is layered: nginx `limit_req` per IP on `/api/*`, plus per-account app limits on OTP requests, flags, and votes.
+Sessions are signed cookies with `HttpOnly; Secure; SameSite=Lax` and a sliding **1-hour idle timeout for all roles**; re-auth is the normal OTP flow. One middleware enforces roles and curator ward scope (PRD §7); the same middleware rejects unsafe methods that fail an `Origin`/`Sec-Fetch-Site` same-origin check, and server-rendered forms carry a synchronizer CSRF token for the no-JS paths (§13). Rate limiting is layered: nginx `limit_req` per IP on `/api/*`, plus per-account app limits on OTP requests, flags, and votes, plus the per-destination OTP cooldowns above.
 
 ## 8. SEO / AEO
 
@@ -119,7 +119,7 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 
 - `jobs` runs the fixed campaign calendar (`docs/gtm-plan.md`) against SendGrid/Twilio, honouring ward readiness (PRD §9.1), the language preference, and channel toggles; plus translation retries and sitemap regeneration.
 - Structured logs to stdout via Compose logging; a healthcheck endpoint.
-- Nightly `pg_dump` shipped off-box (restic or rclone), with a rehearsed restore (dependency register §6.9).
+- Nightly `pg_dump` shipped off-box with **restic** — chosen over rclone because it encrypts at rest by default; the dump contains DPDP-regulated personal data (contacts, home wards, consent records, identity-linked issue votes). Repository key held off-box, admin-only. Rehearsed restore (dependency register §6.9).
 
 ## 11. Error handling
 
@@ -134,8 +134,22 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 - Vitest for unit and route tests.
 - Playwright smoke suite over the critical paths: lookup → ward page; OTP → vote; flag → curator accept → live; language toggle → `/kn/` equivalence.
 - One k6 load test proving the nginx micro-cache holds election-day read volume on the actual VM size.
+- A route test asserting public GETs set no cookies and contain no session-dependent bytes — the guard on the §5 cache invariant.
 
-## 13. Spec/doc changes made with this design
+## 13. Security
+
+Decided in `2026-07-17-security-hardening-design.md`; summary:
+
+- **CSRF:** `SameSite=Lax` cookies; middleware `Origin`/`Sec-Fetch-Site` check on all unsafe methods; synchronizer tokens on server-rendered forms (§7).
+- **OTP:** 5 verify attempts per code; per-destination request cooldowns; global daily send budget with alarm (§7).
+- **Cost amplification:** derived-ward geocode cache + daily budget with pincode degradation (§7).
+- **Headers:** nginx sets HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, and a CSP with `frame-ancestors 'none'` and per-request nonces for the two inline scripts (`?src` writer, GA). No `unsafe-inline`.
+- **Content rules:** flag text renders as text; `source_url` validated to `http(s)` at write time; JSON-LD serialized with `<` escaped; MT output rendered through normal escaping.
+- **Affidavit PDFs:** PDF magic-byte check at ingest; served as `application/pdf` with `Content-Disposition` and `nosniff`.
+- **Secrets:** one `.env` outside the repo, mode 600, referenced by Compose; rotation is a runbook step (custody: dependency register §6.10).
+- **Accepted limitations, recorded deliberately:** the audit log is append-only at the application level only — database compromise defeats it; prompt injection into the MT/extraction calls is mitigated by escaping, fixed extraction schema, provenance markers, and the citizen-flag correction path, with no further machinery.
+
+## 14. Spec/doc changes made with this design
 
 - `docs/prd.md` §8: language toggle now navigates between per-language URLs (`/kn/` prefix); §12: SEO/AEO added to NFRs; §14: stack and language-URL rows added to locked decisions.
 - `docs/information-architecture.md` §1: the `/kn/` convention — each language variant is its own URL and screen.
