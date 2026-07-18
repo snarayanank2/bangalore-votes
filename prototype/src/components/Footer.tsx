@@ -46,7 +46,9 @@ export function Footer() {
         className="mx-auto mt-4 flex max-w-2xl items-center gap-2 rounded-sm"
       >
         <span className="text-sm text-white/80">A program by</span>
-        <img src={oorvaniLogo} alt="Oorvani Foundation" className="h-4 w-auto" />
+        {/* Real Oorvani Foundation logo, white-with-tagline variant — sized up from the plain
+         *  wordmark's old h-4 since "Empowering Citizens" needs more room to stay legible. */}
+        <img src={oorvaniLogo} alt="Oorvani Foundation — Empowering Citizens" className="h-8 w-auto" />
       </a>
     </footer>
   )

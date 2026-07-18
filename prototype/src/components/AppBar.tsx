@@ -39,18 +39,22 @@ export function AppBar() {
       <div className="w-full bg-sun-tint px-4 py-1.5 text-center text-xs font-medium text-ink sm:text-sm">
         Prototype — sample data is fictional. Not real candidates or election data.
       </div>
-      <div className="mx-auto flex h-14 max-w-2xl flex-wrap items-center justify-between gap-3 px-4">
+      {/* max-w-app (§6.2's 64rem container), not max-w-2xl (42rem, the prose width other pages
+       *  use): the app bar holds logo + language toggle + auth + the dev role switcher, which
+       *  doesn't fit in a prose-width row — that was forcing a wrap on every viewport, not just
+       *  narrow ones. min-h-14, not h-14: §7.1's 56px is the common single-line height, but this
+       *  row still wraps below `sm` (narrow viewport, or Kannada's longer labels) — a fixed
+       *  height there would clip the wrapped content instead of growing to fit it. */}
+      <div className="mx-auto flex min-h-14 max-w-app flex-wrap items-center justify-between gap-3 px-4 py-2">
         <div className="flex items-center gap-2">
           <Link to="/" className="rounded-sm font-heading text-lg font-bold text-forest">
             Bangalore Votes
           </Link>
-          <a
-            href="https://opencity.in"
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center rounded-sm bg-ink px-2 py-1"
-          >
-            <img src={opencityLogo} alt="OpenCity" className="h-4 w-auto" />
+          <a href="https://opencity.in" target="_blank" rel="noreferrer" className="flex items-center rounded-sm">
+            {/* Real OpenCity logo (light-background wordmark, black "City") — opencity.in itself
+             *  renders this directly on its own white header with no surrounding box, so this
+             *  app bar matches that rather than inventing a dark-box treatment. */}
+            <img src={opencityLogo} alt="OpenCity" className="h-6 w-auto" />
           </a>
         </div>
 
