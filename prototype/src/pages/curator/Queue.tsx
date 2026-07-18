@@ -70,7 +70,7 @@ export default function Queue() {
               id="queue-ward-filter"
               value={wardFilter}
               onChange={(e) => setWardFilter(e.target.value)}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[44px] rounded-sm border border-gray-300 px-3 py-1.5 text-base focus:border-forest"
             >
               <option value={ALL_WARDS}>All wards</option>
               {wardOptions.map((w) => (
@@ -88,7 +88,7 @@ export default function Queue() {
               id="queue-sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="rounded border border-slate-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[44px] rounded-sm border border-gray-300 px-3 py-1.5 text-base focus:border-forest"
             >
               <option value="count">Most flagged</option>
               <option value="newest">Newest</option>
@@ -98,7 +98,7 @@ export default function Queue() {
       )}
 
       {sorted.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
           Nothing pending — the queue is clear.
         </p>
       ) : (
@@ -109,17 +109,17 @@ export default function Queue() {
               <li key={sub.id}>
                 <Link
                   to={`/curator/queue/${sub.id}`}
-                  className="block space-y-2 rounded-lg border border-slate-200 p-4 hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="block space-y-2 rounded-md border border-gray-300 p-4 hover:border-forest"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <h2 className="font-semibold text-ink">{fieldLabel(sub.field)}</h2>
                     {sub.count > 1 && (
-                      <span className="inline-flex items-center rounded-full border border-accent bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+                      <span className="inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
                         {sub.count} flags
                       </span>
                     )}
                   </div>
-                  <p className="text-xs uppercase tracking-wide text-ink/60">
+                  <p className="text-sm font-medium text-ink/60">
                     {ward}
                     {candidate ? ` · ${candidate}` : ''}
                   </p>

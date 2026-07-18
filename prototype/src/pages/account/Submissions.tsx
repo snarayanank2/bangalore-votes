@@ -9,16 +9,18 @@ const STATUS_LABEL: Record<SubmissionStatus, string> = {
   rejected: 'Rejected',
 }
 
+// design-system.md §7.7 — reserved chip treatment for flag status on /account/submissions:
+// pending = gray, accepted = forest on tint, rejected = brick on tint.
 const STATUS_STYLE: Record<SubmissionStatus, string> = {
-  pending: 'bg-amber-100 text-amber-900 border-amber-300',
-  accepted: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-  rejected: 'bg-red-100 text-red-900 border-red-300',
+  pending: 'bg-gray-100 text-gray-600 border-transparent',
+  accepted: 'bg-forest-tint text-forest border-transparent',
+  rejected: 'bg-brick-tint text-brick border-transparent',
 }
 
 function StatusPill({ status }: { status: SubmissionStatus }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}
     >
       {STATUS_LABEL[status]}
     </span>
@@ -57,7 +59,7 @@ export default function Submissions() {
       </div>
 
       {submissions.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
           You haven&apos;t flagged anything yet. Visit a candidate&apos;s report card to flag an
           error.
         </p>
@@ -66,18 +68,18 @@ export default function Submissions() {
           {submissions.map((sub) => {
             const { ward, candidate } = describe(sub)
             return (
-              <li key={sub.id} className="space-y-2 rounded-lg border border-slate-200 p-4">
+              <li key={sub.id} className="space-y-2 rounded-md border border-gray-300 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="font-semibold text-ink">{fieldLabel(sub.field)}</h2>
                   <StatusPill status={sub.status} />
                 </div>
-                <p className="text-xs uppercase tracking-wide text-ink/60">
+                <p className="text-sm font-medium text-forest">
                   {ward}
                   {candidate ? ` · ${candidate}` : ''}
                 </p>
                 <p className="text-sm text-ink/80">{sub.detail}</p>
                 {sub.status === 'rejected' && sub.reason && (
-                  <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+                  <p className="rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
                     <span className="font-semibold">Why it was rejected: </span>
                     {sub.reason}
                   </p>

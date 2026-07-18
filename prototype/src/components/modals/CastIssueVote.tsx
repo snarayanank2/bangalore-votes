@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Modal } from '../Modal'
+import { Button } from '../Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import type { VoteContext } from '../../context/ModalContext'
@@ -74,14 +75,14 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
   return (
     <Modal open={open} onClose={onClose} title="Vote your top 3 issues">
       {wardMismatch ? (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
           You can only vote in your home ward
           {homeWard ? `, ${homeWard.name}.` : '.'}
         </p>
       ) : (
         <>
           {error && (
-            <p role="alert" className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p role="alert" className="mb-3 rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
               {error}
             </p>
           )}
@@ -91,28 +92,20 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
                 Thanks — your top issues for this ward have been recorded. You can change your
                 vote any time.
               </p>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-              >
+              <Button type="button" onClick={onClose} fullWidth>
                 Close
-              </button>
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-3">
               {isEditing && (
-                <p className="rounded bg-slate-50 px-3 py-2 text-sm text-ink">
+                <p className="rounded-md bg-gray-100 px-3 py-2 text-sm text-ink">
                   You already voted in this ward. Your previous picks are shown below — change
                   them and submit to update your vote.
                 </p>
               )}
-              <p className="text-sm text-ink">
-                Select up to three issues that matter most to you.{' '}
-                <span className="font-medium">
-                  {selected.length} of {MAX_ISSUES} selected
-                </span>
-              </p>
+              <p className="text-sm text-ink">Select up to three issues that matter most to you.</p>
+              {/* §7.9: checkbox list capped at three, submit label itself carries the countdown. */}
               <fieldset className="space-y-2">
                 <legend className="sr-only">Ward issues</legend>
                 {issues.map((issue) => {
@@ -121,7 +114,7 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
                   return (
                     <label
                       key={issue.id}
-                      className={`flex items-start gap-2 rounded border border-slate-200 p-3 text-sm ${disabled ? 'opacity-50' : ''}`}
+                      className={`flex items-start gap-2 rounded-md border border-gray-300 p-3 text-sm ${disabled ? 'opacity-50' : ''}`}
                     >
                       <input
                         type="checkbox"
@@ -132,19 +125,15 @@ export function CastIssueVote({ open, ctx, onClose }: CastIssueVoteProps) {
                       />
                       <span>
                         <span className="block font-medium text-ink">{issue.title}</span>
-                        <span className="block text-slate-600">{issue.description}</span>
+                        <span className="block text-gray-600">{issue.description}</span>
                       </span>
                     </label>
                   )
                 })}
               </fieldset>
-              <button
-                type="submit"
-                disabled={selected.length === 0}
-                className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isEditing ? 'Update my vote' : 'Submit'}
-              </button>
+              <Button type="submit" disabled={selected.length === 0} fullWidth>
+                {isEditing ? 'Update my vote' : 'Vote'} ({selected.length} of {MAX_ISSUES} selected)
+              </Button>
             </form>
           )}
         </>

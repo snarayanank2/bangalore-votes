@@ -70,10 +70,10 @@ export default function Dashboard() {
 
       <Link
         to="/curator/queue"
-        className="block rounded-lg border border-brand/30 bg-brand/5 p-5 hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand"
+        className="block rounded-md border border-forest bg-forest-tint p-5 hover:bg-forest-tint/70"
       >
         <p className="text-sm font-medium text-ink/70">Review queue</p>
-        <p className="mt-1 text-3xl font-bold text-brand">
+        <p className="mt-1 text-3xl font-bold text-forest">
           {pendingCount} pending review{pendingCount === 1 ? '' : 's'}
         </p>
       </Link>
@@ -91,10 +91,10 @@ export default function Dashboard() {
         ) : (
           <ul className="space-y-2">
             {awaitingSignOff.map(({ ward, readiness, completeness }) => (
-              <li key={ward.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+              <li key={ward.id} className="rounded-sm border border-gray-300 px-3 py-2 text-sm">
                 <Link
                   to={`/curator/ward/${ward.id}`}
-                  className="font-medium text-brand underline underline-offset-2 hover:no-underline"
+                  className="font-medium text-forest underline underline-offset-2 hover:no-underline"
                 >
                   {ward.name}
                 </Link>
@@ -123,18 +123,18 @@ export default function Dashboard() {
         ) : (
           <ul className="space-y-3">
             {wards.map((ward) => (
-              <li key={ward.id} className="rounded-lg border border-slate-200 p-4">
+              <li key={ward.id} className="rounded-md border border-gray-300 p-4">
                 <h3 className="font-semibold text-ink">{ward.name}</h3>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                   <Link
                     to={`/curator/ward/${ward.id}`}
-                    className="text-brand underline underline-offset-2 hover:no-underline"
+                    className="text-forest underline underline-offset-2 hover:no-underline"
                   >
                     Edit ward
                   </Link>
                   <Link
                     to={`/curator/ward/${ward.id}/issues`}
-                    className="text-brand underline underline-offset-2 hover:no-underline"
+                    className="text-forest underline underline-offset-2 hover:no-underline"
                   >
                     Define ward issues
                   </Link>
@@ -148,7 +148,7 @@ export default function Dashboard() {
                         <li key={candidate.id}>
                           <Link
                             to={`/curator/candidate/${candidate.id}`}
-                            className="text-brand underline underline-offset-2 hover:no-underline"
+                            className="text-forest underline underline-offset-2 hover:no-underline"
                           >
                             Edit {candidate.name}
                           </Link>
@@ -172,7 +172,7 @@ export default function Dashboard() {
         ) : (
           <ul className="space-y-2">
             {recentActivity.map((entry) => (
-              <li key={entry.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+              <li key={entry.id} className="rounded-sm border border-gray-300 px-3 py-2 text-sm">
                 <span className="font-medium text-ink">{humanizeAction(entry.action)}</span>
                 <span className="text-ink/70"> — {entry.detail}</span>
               </li>

@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { SourceBadge } from '../../components/SourceBadge'
+import { Button } from '../../components/Button'
 import { fieldLabel, isCandidateSourcedField } from '../../lib/fields'
 import type { Source, SourceType } from '../../types'
 
@@ -61,7 +62,7 @@ export default function SubmissionReview() {
       <div className="mx-auto max-w-2xl px-4 py-8">
         <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that submission</h1>
         <p className="mt-2 text-sm text-ink/70">
-          It may have already been handled. <Link to="/curator/queue" className="text-brand underline underline-offset-2">Back to the queue</Link>.
+          It may have already been handled. <Link to="/curator/queue" className="text-forest underline underline-offset-2">Back to the queue</Link>.
         </p>
       </div>
     )
@@ -118,29 +119,29 @@ export default function SubmissionReview() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">
+        <p className="text-sm font-medium text-forest">
           {ward?.name ?? submission.wardId}
           {candidate ? ` · ${candidate.name}` : ''}
         </p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">{fieldLabel(submission.field)}</h1>
         {submission.count > 1 && (
-          <p className="mt-1 inline-flex items-center rounded-full border border-accent bg-accent/10 px-2 py-0.5 text-xs font-semibold text-accent">
+          <p className="mt-1 inline-flex items-center rounded-full border border-gray-300 bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
             {submission.count} citizens flagged this
           </p>
         )}
       </div>
 
       {resolved && (
-        <p className="rounded bg-slate-100 px-3 py-2 text-sm text-ink/80">
+        <p className="rounded-sm bg-gray-100 px-3 py-2 text-sm text-ink/80">
           This submission has already been resolved: <strong>{STATUS_LABEL[submission.status]}</strong>
           {submission.reason ? ` — ${submission.reason}` : ''}.{' '}
-          <Link to="/curator/queue" className="text-brand underline underline-offset-2">
+          <Link to="/curator/queue" className="text-forest underline underline-offset-2">
             Back to the queue
           </Link>
         </p>
       )}
 
-      <section aria-labelledby="flag-heading" className="space-y-2 rounded-lg border border-slate-200 p-4">
+      <section aria-labelledby="flag-heading" className="space-y-2 rounded-md border border-gray-300 p-4">
         <h2 id="flag-heading" className="text-sm font-semibold text-ink">
           What was flagged
         </h2>
@@ -150,7 +151,7 @@ export default function SubmissionReview() {
             href={submission.sourceUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-block text-sm text-brand underline underline-offset-2 hover:no-underline"
+            className="inline-block text-sm text-forest underline underline-offset-2 hover:no-underline"
           >
             Submitter&apos;s source
           </a>
@@ -162,12 +163,12 @@ export default function SubmissionReview() {
           Current value
         </h2>
         {currentSourced ? (
-          <div className="space-y-1.5 rounded-lg border border-slate-200 p-4">
+          <div className="space-y-1.5 rounded-md border border-gray-300 p-4">
             <p className="text-sm text-ink/90">{currentSourced.value}</p>
             <SourceBadge source={currentSourced.source} />
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm text-ink/70">
+          <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-3 text-sm text-ink/70">
             This flag isn&apos;t tied to a known candidate field, so there is no current sourced
             value to show.
           </p>
@@ -176,10 +177,10 @@ export default function SubmissionReview() {
 
       {!resolved && (
         <div className="grid gap-6 sm:grid-cols-2">
-          <form onSubmit={handleAccept} className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50/40 p-4">
+          <form onSubmit={handleAccept} className="space-y-3 rounded-md border border-forest bg-forest-tint/40 p-4">
             <h2 className="text-sm font-semibold text-ink">Accept &amp; publish correction</h2>
             {acceptError && (
-              <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+              <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
                 {acceptError}
               </p>
             )}
@@ -192,7 +193,7 @@ export default function SubmissionReview() {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 rows={3}
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
               />
             </div>
             <div>
@@ -203,7 +204,7 @@ export default function SubmissionReview() {
                 id="accept-source-type"
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value as SourceType)}
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
               >
                 <option value="curator">Curator-compiled</option>
                 <option value="affidavit">Official (affidavit)</option>
@@ -219,7 +220,7 @@ export default function SubmissionReview() {
                 value={sourceLabel}
                 onChange={(e) => setSourceLabel(e.target.value)}
                 placeholder="e.g. Sub-registrar office confirmation"
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
               />
             </div>
             <div>
@@ -232,21 +233,18 @@ export default function SubmissionReview() {
                 value={sourceUrl}
                 onChange={(e) => setSourceUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
               />
             </div>
-            <button
-              type="submit"
-              className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-            >
+            <Button type="submit" variant="primary" fullWidth>
               Accept &amp; publish
-            </button>
+            </Button>
           </form>
 
-          <form onSubmit={handleReject} className="space-y-3 rounded-lg border border-red-300 bg-red-50/40 p-4">
+          <form onSubmit={handleReject} className="space-y-3 rounded-md border border-brick bg-brick-tint/40 p-4">
             <h2 className="text-sm font-semibold text-ink">Reject this flag</h2>
             {rejectError && (
-              <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+              <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
                 {rejectError}
               </p>
             )}
@@ -260,15 +258,12 @@ export default function SubmissionReview() {
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
                 placeholder="Shown to the citizen who flagged this."
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
               />
             </div>
-            <button
-              type="submit"
-              className="w-full rounded border border-red-600 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-600"
-            >
+            <Button type="submit" variant="destructive" fullWidth>
               Reject flag
-            </button>
+            </Button>
           </form>
         </div>
       )}

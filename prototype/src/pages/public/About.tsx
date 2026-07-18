@@ -17,19 +17,19 @@ import { Link } from 'react-router-dom'
  */
 export default function About() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">About &amp; how we source data</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">About &amp; how we source data</h1>
       </div>
 
       <section
         aria-labelledby="prototype-heading"
-        className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
-        <h2 id="prototype-heading" className="text-sm font-semibold uppercase tracking-wide text-amber-900">
+        <h2 id="prototype-heading" className="text-sm font-medium text-forest">
           This is a prototype
         </h2>
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-ink">
           This build of Bangalore Votes is a prototype. Every ward, candidate, and news link you
           see here is fictional sample data used to demonstrate how the real platform would work
           — none of it describes real people or a real GBA election outcome. Nothing here should
@@ -75,7 +75,7 @@ export default function About() {
           <strong>critical product updates</strong> — meaning service-affecting notices, such as a
           data breach, a material change to our terms, or the platform shutting down, never to
           announce new features. Full detail lives on the{' '}
-          <Link to="/privacy" className="text-brand underline underline-offset-2">
+          <Link to="/privacy" className="text-forest underline underline-offset-2">
             privacy policy
           </Link>{' '}
           page.
@@ -119,7 +119,7 @@ export default function About() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               EC candidate nomination affidavits (placeholder link in this prototype)
             </a>
@@ -127,7 +127,7 @@ export default function About() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               Official election notifications (placeholder link in this prototype)
             </a>
@@ -135,7 +135,7 @@ export default function About() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               GBA ward-delimitation data (placeholder link in this prototype)
             </a>
@@ -157,14 +157,14 @@ export default function About() {
         </p>
       </section>
 
-      <section aria-labelledby="contact-heading" className="space-y-1 border-t border-slate-200 pt-6">
+      <section aria-labelledby="contact-heading" className="space-y-1 border-t border-gray-300 pt-6">
         <h2 id="contact-heading" className="text-lg font-semibold text-ink">
           Questions or corrections
         </h2>
         <p className="text-sm text-ink/80">
           For anything you see on a candidate or ward page, the fastest route is the{' '}
           <strong>Flag an error</strong> button on that page. For everything else, see the{' '}
-          <Link to="/voting-guide" className="text-brand underline underline-offset-2">
+          <Link to="/voting-guide" className="text-forest underline underline-offset-2">
             voting guide
           </Link>{' '}
           for logistics questions.

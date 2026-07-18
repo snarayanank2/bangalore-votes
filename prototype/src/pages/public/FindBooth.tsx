@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { Button } from '../../components/Button'
 
 /**
  * Find polling booth (PRD §5.10, IA §3.12, `/voting-guide/find-booth`). Anonymous.
@@ -18,16 +19,16 @@ export default function FindBooth() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Find your polling booth</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Find your polling booth</h1>
         <p className="mt-2 text-sm text-ink/80">
           Your assigned polling booth is tied to your address on the electoral roll, and can
           change between elections. Look it up before polling day so there are no surprises.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border border-slate-200 p-4">
+      <form onSubmit={handleSubmit} className="space-y-3 rounded-md border border-gray-300 p-4">
         <label htmlFor="booth-lookup" className="block text-sm font-medium text-ink">
           Your address or Voter ID (EPIC number)
         </label>
@@ -38,22 +39,19 @@ export default function FindBooth() {
           onChange={(event) => setAddress(event.target.value)}
           placeholder="e.g. your house/flat number and street"
           autoComplete="off"
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm text-ink focus:border-forest"
         />
-        <button
-          type="submit"
-          className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        <Button type="submit" variant="primary">
           Find my booth
-        </button>
+        </Button>
       </form>
 
       {searched && (
         <div
           role="status"
-          className="space-y-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"
+          className="space-y-3 rounded-md border border-gray-300 bg-sun-tint p-4 text-sm text-ink"
         >
-          <p className="font-semibold uppercase tracking-wide">
+          <p className="font-semibold">
             Prototype demo result — not a real booth lookup
           </p>
           <p>
@@ -61,13 +59,13 @@ export default function FindBooth() {
             address-to-booth data, so this isn&apos;t a real assignment — please don&apos;t use it
             to decide where to go on election day.
           </p>
-          <div className="rounded border border-amber-200 bg-white p-3 text-ink">
+          <div className="rounded-md border border-gray-300 bg-white p-3 text-ink">
             <p className="font-medium">Sample booth: Govt. Higher Primary School, 5th Cross</p>
             <p className="text-ink/70">Illustrative address only — not a real polling location.</p>
             <div
               role="img"
               aria-label="Illustrative placeholder — not a real map of a polling booth location"
-              className="mt-2 flex h-32 items-center justify-center rounded border-2 border-dashed border-slate-300 bg-slate-50 text-center text-xs text-ink/60"
+              className="mt-2 flex h-32 items-center justify-center rounded-md border-2 border-dashed border-gray-300 bg-gray-100 text-center text-xs text-ink/60"
             >
               Map placeholder — illustrative only, not a real booth location.
             </div>
@@ -75,7 +73,7 @@ export default function FindBooth() {
         </div>
       )}
 
-      <div className="rounded-lg border border-slate-200 p-4">
+      <div className="rounded-md border border-gray-300 p-4">
         <h2 className="text-sm font-semibold text-ink">
           Prefer to check directly with the Election Commission?
         </h2>
@@ -84,7 +82,7 @@ export default function FindBooth() {
         </p>
         <a
           href="#"
-          className="mt-2 inline-block text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+          className="mt-2 inline-block text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
         >
           Open the official EC polling station locator (placeholder link in this prototype)
         </a>

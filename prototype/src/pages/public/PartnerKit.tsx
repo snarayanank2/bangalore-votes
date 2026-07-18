@@ -30,7 +30,7 @@ export default function PartnerKit() {
         <p className="text-sm text-ink/80">
           We don&apos;t recognise this partner link. If you were sent this page, double-check the
           link, or visit{' '}
-          <Link to="/" className="text-brand underline underline-offset-2">
+          <Link to="/" className="text-forest underline underline-offset-2">
             the home page
           </Link>{' '}
           to find your ward directly.
@@ -50,21 +50,21 @@ export default function PartnerKit() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink/60">Partner kit</p>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">{partner.name}</h1>
+        <p className="text-sm font-medium text-forest">Partner kit</p>
+        <h1 className="text-2xl text-ink sm:text-3xl">{partner.name}</h1>
       </div>
 
       <section
         aria-labelledby="demo-partner-heading"
-        className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
         <h2
           id="demo-partner-heading"
-          className="text-sm font-semibold uppercase tracking-wide text-amber-900"
+          className="text-sm font-semibold text-ink"
         >
           Demo partner — fictional
         </h2>
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-ink">
           {partner.name} is a fictional demo organisation used to show how this page works. It is
           not a real Bengaluru RWA, NGO, or press outlet, and this is not a real partnership with
           anyone.
@@ -72,7 +72,7 @@ export default function PartnerKit() {
       </section>
 
       <section aria-labelledby="link-heading" className="space-y-2">
-        <h2 id="link-heading" className="text-lg font-semibold text-ink">
+        <h2 id="link-heading" className="text-lg text-ink">
           Your tagged link
         </h2>
         <p className="text-sm text-ink/80">
@@ -85,23 +85,23 @@ export default function PartnerKit() {
           value={taggedLink}
           aria-label="Your tagged link"
           onFocus={(event) => event.currentTarget.select()}
-          className="w-full rounded border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-ink"
+          className="w-full rounded-sm border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-ink"
         />
       </section>
 
       <section aria-labelledby="forward-heading" className="space-y-3">
-        <h2 id="forward-heading" className="text-lg font-semibold text-ink">
+        <h2 id="forward-heading" className="text-lg text-ink">
           Ready-to-paste WhatsApp message
         </h2>
         <div>
           <h3 className="text-sm font-semibold text-ink">English — general message</h3>
-          <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-3 text-sm text-ink/90">
+          <p className="mt-1 whitespace-pre-wrap rounded-sm border border-gray-300 bg-gray-100 p-3 text-sm text-ink/90">
             {enForwardText}
           </p>
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink">English — first-time voter message</h3>
-          <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-3 text-sm text-ink/90">
+          <p className="mt-1 whitespace-pre-wrap rounded-sm border border-gray-300 bg-gray-100 p-3 text-sm text-ink/90">
             {enFirstTimeVoterText}
           </p>
         </div>
@@ -118,15 +118,15 @@ export default function PartnerKit() {
       </section>
 
       <section aria-labelledby="poster-heading" className="space-y-2">
-        <h2 id="poster-heading" className="text-lg font-semibold text-ink">
+        <h2 id="poster-heading" className="text-lg text-ink">
           Poster (WhatsApp-sized)
         </h2>
         <div
           role="img"
           aria-label="Placeholder poster image — final artwork not yet produced"
-          className="flex aspect-square w-full max-w-xs flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center"
+          className="flex aspect-square w-full max-w-xs flex-col items-center justify-center gap-1 rounded-md border-2 border-dashed border-gray-300 bg-gray-100 p-6 text-center"
         >
-          <p className="text-sm font-semibold uppercase tracking-wide text-ink/60">
+          <p className="text-sm font-medium text-ink/60">
             Poster placeholder
           </p>
           <p className="text-xs text-ink/50">
@@ -136,8 +136,8 @@ export default function PartnerKit() {
         </div>
       </section>
 
-      <section aria-labelledby="neutrality-heading" className="space-y-2 border-t border-slate-200 pt-6">
-        <h2 id="neutrality-heading" className="text-lg font-semibold text-ink">
+      <section aria-labelledby="neutrality-heading" className="space-y-2 border-t border-gray-300 pt-6">
+        <h2 id="neutrality-heading" className="text-lg text-ink">
           &quot;Isn&apos;t forwarding this campaigning?&quot;
         </h2>
         <p className="text-sm text-ink/80">
@@ -146,7 +146,7 @@ export default function PartnerKit() {
           page names or favours a candidate. Forwarding this link shares a neutral information
           tool that helps your neighbours find accurate, sourced facts about their own ward
           election; it is not campaign material for anyone. See{' '}
-          <Link to="/about" className="text-brand underline underline-offset-2">
+          <Link to="/about" className="text-forest underline underline-offset-2">
             how we source data
           </Link>{' '}
           for more.

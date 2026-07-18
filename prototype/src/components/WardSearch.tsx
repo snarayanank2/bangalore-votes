@@ -38,7 +38,7 @@ export function WardSearch() {
         onChange={(event) => setQuery(event.target.value)}
         placeholder="e.g. Koramangala"
         autoComplete="off"
-        className="w-full rounded border border-slate-300 px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+        className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base text-ink focus:border-forest"
       />
       <p className="mt-1 text-xs text-ink/60">
         Looking up your ward by address or pincode isn&apos;t available yet — search by ward name.
@@ -46,13 +46,13 @@ export function WardSearch() {
 
       {trimmed &&
         (results.length > 0 ? (
-          <ul className="mt-2 divide-y divide-slate-200 rounded border border-slate-200 bg-white">
+          <ul className="mt-2 divide-y divide-gray-300 rounded-sm border border-gray-300 bg-white">
             {results.map((ward) => (
               <li key={ward.id}>
                 <button
                   type="button"
                   onClick={() => handleSelect(ward.id)}
-                  className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand"
+                  className="block min-h-[44px] w-full px-3 py-2 text-left text-sm text-ink hover:bg-gray-100"
                 >
                   {ward.name} — Ward #{ward.number}, {ward.corporation}
                 </button>

@@ -1,10 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Modal } from '../Modal'
+import { Button } from '../Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import { useI18n, type Lang } from '../../context/I18nContext'
 import type { LoginContext } from '../../context/ModalContext'
 import { getAttributedSrc } from '../../lib/attribution'
+
+// §7.10 forms: labels above inputs, 16px text, 44px min height, radius-sm, gray-300 border,
+// forest focus border. Shared across all three steps' text inputs.
+const INPUT_CLASS =
+  'min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base text-ink focus:border-forest'
 
 type Step = 'contact' | 'otp' | 'ward'
 
@@ -131,8 +137,9 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
 
   return (
     <div className="space-y-4">
+      {/* Error banner (§7.6): brick text on brick-tint. */}
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
@@ -148,16 +155,13 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
               type="text"
               value={contact}
               onChange={(e) => setContact(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={INPUT_CLASS}
               placeholder="you@example.com or +91…"
             />
           </div>
-          <button
-            type="submit"
-            className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="submit" fullWidth>
             Send OTP
-          </button>
+          </Button>
         </form>
       )}
 
@@ -175,18 +179,16 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
               id="rl-otp"
               type="text"
               inputMode="numeric"
+              autoComplete="one-time-code"
               maxLength={6}
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={INPUT_CLASS}
             />
           </div>
-          <button
-            type="submit"
-            className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="submit" fullWidth>
             Verify
-          </button>
+          </Button>
         </form>
       )}
 
@@ -195,7 +197,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
           {prefillWardId ? (
             <div>
               <p className="mb-1 block text-sm font-medium text-ink">Home ward</p>
-              <p className="w-full rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-ink">
+              <p className="w-full rounded-sm border border-gray-300 bg-gray-100 px-3 py-2 text-base text-ink">
                 {getWard(prefillWardId)?.name ?? prefillWardId}
               </p>
               <p className="mt-1 text-xs text-ink/60">
@@ -212,7 +214,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
                 id="rl-ward"
                 value={homeWardId}
                 onChange={(e) => setHomeWardId(e.target.value)}
-                className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className={INPUT_CLASS}
               >
                 <option value="">Select your ward…</option>
                 {wards.map((w) => (
@@ -248,7 +250,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
               </label>
             </div>
           </fieldset>
-          <div className="rounded-lg border border-brand/30 bg-brand/5 p-3 text-sm text-ink">
+          <div className="rounded-md bg-forest-tint p-3 text-sm text-ink">
             <p>
               By finishing registration, you&apos;re signing up for{' '}
               <strong>ward election updates</strong> on your chosen channels, in your chosen
@@ -257,7 +259,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
                 href={`${import.meta.env.BASE_URL}terms`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-brand underline underline-offset-2"
+                className="font-medium text-forest underline underline-offset-2"
               >
                 Terms
               </a>{' '}
@@ -266,7 +268,7 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
                 href={`${import.meta.env.BASE_URL}privacy`}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-brand underline underline-offset-2"
+                className="font-medium text-forest underline underline-offset-2"
               >
                 Privacy Policy
               </a>
@@ -285,12 +287,9 @@ export function RegisterLoginForm({ onDone, open = true, prefillWardId }: Regist
               this unchecked doesn&apos;t affect your registration.
             </span>
           </label>
-          <button
-            type="submit"
-            className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="submit" fullWidth>
             Finish
-          </button>
+          </Button>
         </form>
       )}
     </div>

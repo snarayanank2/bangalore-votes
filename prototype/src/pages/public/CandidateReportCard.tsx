@@ -4,6 +4,7 @@ import { useModal, type FlagField } from '../../context/ModalContext'
 import { GatedButton } from '../../components/GatedButton'
 import { SourceBadge } from '../../components/SourceBadge'
 import { AiExtractedBadge } from '../../components/AiExtractedBadge'
+import { BUTTON_BASE_CLASS, BUTTON_VARIANT_CLASSES } from '../../components/Button'
 import type { Sourced } from '../../types'
 
 /** The five sourced fields a citizen can flag, in report-card order. Keys must match the
@@ -29,16 +30,16 @@ function ReportField({
   caveat?: string
 }) {
   return (
-    <div className="border-t border-slate-200 pt-4 first:border-t-0 first:pt-0">
-      <dt className="text-sm font-semibold text-ink">{label}</dt>
+    <div className="border-t border-gray-300 pt-4 first:border-t-0 first:pt-0">
+      <dt className="text-sm text-gray-600">{label}</dt>
       <dd className="mt-1.5 space-y-1.5">
         {/* PRD §9.1: "not declared" is a fact about the affidavit, not a gap — render it as an
          *  explicit, neutral state, visibly distinct from both a real value and an empty/unknown
          *  field. Deliberately no warning colour and no wording implying concealment (PRD §11). */}
         {sourced.notDeclared ? (
-          <p className="text-sm italic text-ink/70">Not declared</p>
+          <p className="text-base italic text-ink/70">Not declared</p>
         ) : (
-          <p className="text-sm leading-relaxed text-ink/90">{sourced.value}</p>
+          <p className="text-base leading-relaxed text-ink">{sourced.value}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5">
           <SourceBadge source={sourced.source} />
@@ -68,11 +69,11 @@ export default function CandidateReportCard() {
 
   if (!candidate) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that candidate</h1>
+      <div className="mx-auto max-w-prose px-4 py-8">
+        <h1 className="text-xl text-ink">We couldn&apos;t find that candidate</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/" className="text-brand underline underline-offset-2">
+          <Link to="/" className="text-forest underline underline-offset-2">
             search for your ward by name
           </Link>
           .
@@ -84,18 +85,16 @@ export default function CandidateReportCard() {
   const ward = data.getWard(candidate.wardId)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <header className="flex items-center gap-4">
         <img
           src={candidate.photoUrl}
           alt=""
-          className="h-20 w-20 flex-shrink-0 rounded-full border border-slate-200 bg-slate-50"
+          className="h-20 w-20 flex-shrink-0 rounded-full border border-gray-300 bg-gray-100"
         />
         <div>
-          {ward && (
-            <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
-          )}
-          <h1 className="text-2xl font-bold text-ink sm:text-3xl">{candidate.name}</h1>
+          {ward && <p className="text-sm font-medium text-forest">{ward.name}</p>}
+          <h1 className="text-2xl text-ink sm:text-3xl">{candidate.name}</h1>
           <p className="text-sm text-ink/70">{candidate.party}</p>
         </div>
       </header>
@@ -115,7 +114,7 @@ export default function CandidateReportCard() {
         <ReportField label="Approachability" sourced={candidate.approachability} />
       </dl>
 
-      <section aria-labelledby="news-heading" className="space-y-2 border-t border-slate-200 pt-4">
+      <section aria-labelledby="news-heading" className="space-y-2 border-t border-gray-300 pt-4">
         <div className="flex flex-wrap items-center gap-2">
           <h2 id="news-heading" className="text-sm font-semibold text-ink">
             News &amp; coverage
@@ -132,7 +131,7 @@ export default function CandidateReportCard() {
                   href={item.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-brand underline underline-offset-2 hover:no-underline"
+                  className="text-forest underline underline-offset-2 hover:no-underline"
                 >
                   {item.title}
                 </a>
@@ -143,19 +142,19 @@ export default function CandidateReportCard() {
         )}
       </section>
 
-      <div className="flex flex-wrap gap-3 border-t border-slate-200 pt-6">
+      <div className="flex flex-wrap gap-3 border-t border-gray-300 pt-6">
         <GatedButton
+          variant="secondary"
           onAct={() =>
             openFlag({ wardId: candidate.wardId, candidateId: candidate.id, fields: FLAG_FIELDS })
           }
-          className="rounded border border-accent px-4 py-2 text-sm font-semibold text-accent hover:bg-accent/5 focus:outline-none focus:ring-2 focus:ring-accent"
         >
           Flag an error
         </GatedButton>
         {ward && (
           <Link
             to={`/ward/${ward.id}/compare`}
-            className="rounded border border-brand px-4 py-2 text-sm font-semibold text-brand hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand"
+            className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASSES.secondary}`}
           >
             Compare candidates
           </Link>
@@ -163,7 +162,7 @@ export default function CandidateReportCard() {
         {ward && (
           <Link
             to={`/ward/${ward.id}/issues`}
-            className="rounded border border-slate-300 px-4 py-2 text-sm font-semibold text-ink hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+            className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASSES.tertiary}`}
           >
             Ward issues &amp; voting
           </Link>

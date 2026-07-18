@@ -106,7 +106,7 @@ test('voting in a ward that is not the citizen home ward is blocked with a clear
   expect(alert).toHaveTextContent(/you can only vote in your home ward/i)
   expect(alert).toHaveTextContent(/koramangala/i)
   // No submit affordance / checkboxes when the ward doesn't match — nothing to cast a vote with.
-  expect(screen.queryByRole('button', { name: /submit/i })).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /vote \(/i })).not.toBeInTheDocument()
   expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 })
 
@@ -138,7 +138,7 @@ test('anonymous vote: login modal shows first, then the vote modal reopens with 
   expect(screen.getByLabelText(/traffic congestion/i)).toBeInTheDocument()
 
   await user.click(screen.getByLabelText(/traffic congestion/i))
-  await user.click(screen.getByRole('button', { name: /submit/i }))
+  await user.click(screen.getByRole('button', { name: /vote \(/i }))
 
   const newUserId = auth.user.id
   const mine = store

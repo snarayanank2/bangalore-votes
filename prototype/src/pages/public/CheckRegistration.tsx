@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
+import { BUTTON_BASE_CLASS, BUTTON_VARIANT_CLASSES } from '../../components/Button'
 
 /**
  * Check registration / eligibility (PRD §5.6, IA §3.7, `/check-registration`). Anonymous,
@@ -15,9 +16,9 @@ import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
  */
 export default function CheckRegistration() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Check your registration</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Check your registration</h1>
         <p className="mt-2 text-sm text-ink/80">
           Confirm whether you&apos;re on the GBA electoral roll before election day. Checking is
           worth doing months in advance — well before candidate lists are published — so you have
@@ -27,7 +28,7 @@ export default function CheckRegistration() {
 
       <RollDeadlineNotice />
 
-      <div className="rounded-lg border border-slate-200 p-4">
+      <div className="rounded-md border border-gray-300 p-4">
         <h2 className="text-sm font-semibold text-ink">Am I eligible in the first place?</h2>
         <p className="mt-1 text-sm text-ink/70">
           The check below is useless if you don&apos;t yet know whether you qualify, so start
@@ -46,7 +47,7 @@ export default function CheckRegistration() {
           <li>
             Enrolment needs a recent passport-size photo, <strong>proof of age</strong> and{' '}
             <strong>proof of address</strong> (e.g. Aadhaar, passport, utility bill) — see the{' '}
-            <Link to="/voting-guide/voter-id" className="text-brand underline underline-offset-2">
+            <Link to="/voting-guide/voter-id" className="text-forest underline underline-offset-2">
               Voter ID guide
             </Link>{' '}
             for the step-by-step forms.
@@ -54,7 +55,7 @@ export default function CheckRegistration() {
         </ul>
       </div>
 
-      <div className="rounded-lg border border-slate-200 p-4">
+      <div className="rounded-md border border-gray-300 p-4">
         <h2 className="text-sm font-semibold text-ink">How to check</h2>
         <p className="mt-1 text-sm text-ink/70">
           The Election Commission of India runs the official electoral roll, and the CEO
@@ -65,18 +66,18 @@ export default function CheckRegistration() {
         </p>
         <a
           href="#"
-          className="mt-3 inline-block rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
+          className={`mt-3 ${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASSES.primary}`}
         >
           Open the official EC / CEO Karnataka electoral roll search (placeholder link in this
           prototype)
         </a>
       </div>
 
-      <div className="rounded-lg border border-slate-200 p-4">
+      <div className="rounded-md border border-gray-300 p-4">
         <h2 className="text-sm font-semibold text-ink">Not on the roll?</h2>
         <p className="mt-1 text-sm text-ink/70">
           If the search says you&apos;re not registered, or your details are out of date, see our{' '}
-          <Link to="/voting-guide/voter-id" className="text-brand underline underline-offset-2">
+          <Link to="/voting-guide/voter-id" className="text-forest underline underline-offset-2">
             Voter ID guide
           </Link>{' '}
           for how to enrol or update your entry.

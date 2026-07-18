@@ -1,8 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Modal } from '../Modal'
+import { Button } from '../Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData } from '../../context/DataContext'
 import type { FlagContext } from '../../context/ModalContext'
+
+const INPUT_CLASS =
+  'min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base text-ink focus:border-forest'
 
 interface FlagMisinformationProps {
   open: boolean
@@ -73,7 +77,7 @@ export function FlagMisinformation({ open, ctx, onClose }: FlagMisinformationPro
   return (
     <Modal open={open} onClose={onClose} title="Flag misinformation">
       {error && (
-        <p role="alert" className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="mb-3 rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
@@ -82,13 +86,9 @@ export function FlagMisinformation({ open, ctx, onClose }: FlagMisinformationPro
           <p className="text-sm text-ink">
             Thanks — this has been sent to the curator responsible for this ward.
           </p>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="button" onClick={onClose} fullWidth>
             Close
-          </button>
+          </Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -100,7 +100,7 @@ export function FlagMisinformation({ open, ctx, onClose }: FlagMisinformationPro
               id="flag-field"
               value={fieldKey}
               onChange={(e) => setFieldKey(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={INPUT_CLASS}
             >
               {fields.map((f) => (
                 <option key={f.key} value={f.key}>
@@ -118,7 +118,7 @@ export function FlagMisinformation({ open, ctx, onClose }: FlagMisinformationPro
               value={detail}
               onChange={(e) => setDetail(e.target.value)}
               rows={3}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={INPUT_CLASS}
               placeholder="What's incorrect, and what should it say instead?"
             />
           </div>
@@ -131,16 +131,13 @@ export function FlagMisinformation({ open, ctx, onClose }: FlagMisinformationPro
               type="text"
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className={INPUT_CLASS}
               placeholder="https://…"
             />
           </div>
-          <button
-            type="submit"
-            className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="submit" fullWidth>
             Submit
-          </button>
+          </Button>
         </form>
       )}
     </Modal>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { fieldLabel } from '../../lib/fields'
+import { Button } from '../../components/Button'
 import type { Submission, User } from '../../types'
 
 interface RowProps {
@@ -34,21 +35,19 @@ function UserRow({ targetUser, admin }: RowProps) {
   const submissions = data.listSubmissionsByUser(targetUser.id)
 
   return (
-    <li className="space-y-3 rounded-lg border border-slate-200 p-4">
+    <li className="space-y-3 rounded-md border border-gray-300 p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-semibold text-ink">{targetUser.name}</p>
           <p className="text-xs text-ink/60">{targetUser.contact}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs font-medium capitalize text-ink/70">
+          <span className="rounded-full border border-transparent bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
             {targetUser.role}
           </span>
           <span
-            className={`rounded-full border px-2 py-0.5 text-xs font-medium ${
-              targetUser.active
-                ? 'border-emerald-300 bg-emerald-100 text-emerald-900'
-                : 'border-red-300 bg-red-100 text-red-900'
+            className={`rounded-full border border-transparent px-2.5 py-0.5 text-xs font-medium ${
+              targetUser.active ? 'bg-forest-tint text-forest' : 'bg-gray-100 text-gray-600'
             }`}
           >
             {targetUser.active ? 'Active' : 'Inactive'}
@@ -57,34 +56,26 @@ function UserRow({ targetUser, admin }: RowProps) {
       </div>
 
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
+          variant={targetUser.active ? 'destructive' : 'primary'}
           onClick={toggleActive}
-          className={`rounded border px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 ${
-            targetUser.active
-              ? 'border-red-600 text-red-700 hover:bg-red-50 focus:ring-red-600'
-              : 'border-emerald-600 text-emerald-700 hover:bg-emerald-50 focus:ring-emerald-600'
-          }`}
         >
           {targetUser.active ? 'Deactivate' : 'Reactivate'}
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowSubmissions((v) => !v)}
-          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-ink hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setShowSubmissions((v) => !v)}>
           {showSubmissions ? 'Hide submissions' : 'View submissions'}
-        </button>
+        </Button>
       </div>
 
       {showSubmissions && (
-        <div className="border-t border-slate-200 pt-3">
+        <div className="border-t border-gray-300 pt-3">
           {submissions.length === 0 ? (
             <p className="text-sm text-ink/70">No submissions from this user yet.</p>
           ) : (
@@ -92,10 +83,10 @@ function UserRow({ targetUser, admin }: RowProps) {
               {submissions.map((sub) => {
                 const { ward, candidate } = describe(sub)
                 return (
-                  <li key={sub.id} className="rounded border border-slate-200 px-3 py-2 text-sm">
+                  <li key={sub.id} className="rounded-sm border border-gray-300 px-3 py-2 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="font-medium text-ink">{fieldLabel(sub.field)}</span>
-                      <span className="text-xs uppercase tracking-wide text-ink/60">{sub.status}</span>
+                      <span className="text-xs font-medium text-gray-600">{sub.status}</span>
                     </div>
                     <p className="text-xs text-ink/60">
                       {ward}
@@ -141,7 +132,7 @@ export default function Users() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Manage users</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Manage users</h1>
         <p className="mt-1 text-sm text-ink/70">
           {users.length} account{users.length === 1 ? '' : 's'} registered.
         </p>
@@ -157,12 +148,12 @@ export default function Users() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="e.g. Asha, vikram@example.com"
-          className="w-full max-w-sm rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-sm min-h-[44px] rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
         />
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
           No users match that search.
         </p>
       ) : (

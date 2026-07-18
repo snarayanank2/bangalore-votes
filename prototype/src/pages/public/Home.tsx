@@ -12,11 +12,9 @@ const ELECTION_NOTICE_TARGET = 'September 2026 (expected)'
 export default function Home() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
-      <section className="space-y-2 rounded-lg border border-brand/20 bg-brand/5 p-6 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-brand">
-          GBA ward elections
-        </p>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+      <section className="space-y-2 rounded-md border border-gray-300 bg-white p-6 text-center">
+        <p className="text-sm font-medium text-forest">GBA ward elections</p>
+        <h1 className="text-2xl text-ink sm:text-3xl">
           Find your ward. Know your candidates.
         </h1>
         <p className="text-sm text-ink/80">
@@ -27,7 +25,7 @@ export default function Home() {
       </section>
 
       <section aria-labelledby="ward-search-heading" className="space-y-3">
-        <h2 id="ward-search-heading" className="text-lg font-semibold text-ink">
+        <h2 id="ward-search-heading" className="text-lg text-ink">
           Which ward am I in?
         </h2>
         <WardSearch />
@@ -36,16 +34,16 @@ export default function Home() {
       <section aria-label="Shortcuts" className="grid gap-4 sm:grid-cols-2">
         <Link
           to="/check-registration"
-          className="block rounded-lg border border-slate-200 p-4 hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          className="block rounded-md border border-gray-300 p-4 hover:border-forest"
         >
-          <h3 className="font-semibold text-ink">Check your registration</h3>
+          <h3 className="text-ink">Check your registration</h3>
           <p className="mt-1 text-sm text-ink/70">Confirm you&apos;re on the electoral roll.</p>
         </Link>
         <Link
           to="/voting-guide"
-          className="block rounded-lg border border-slate-200 p-4 hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          className="block rounded-md border border-gray-300 p-4 hover:border-forest"
         >
-          <h3 className="font-semibold text-ink">Voting guide</h3>
+          <h3 className="text-ink">Voting guide</h3>
           <p className="mt-1 text-sm text-ink/70">
             Voter ID, how to vote, and finding your polling booth.
           </p>

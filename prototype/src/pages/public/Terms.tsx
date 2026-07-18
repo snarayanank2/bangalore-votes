@@ -9,19 +9,19 @@
  */
 export default function Terms() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Terms &amp; conditions</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Terms &amp; conditions</h1>
       </div>
 
       <section
         aria-labelledby="terms-pending-review-heading"
-        className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
-        <h2 id="terms-pending-review-heading" className="text-sm font-semibold uppercase tracking-wide text-amber-900">
+        <h2 id="terms-pending-review-heading" className="text-sm font-medium text-forest">
           Pending legal review — not the final terms
         </h2>
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-ink">
           This page lays out the sections our terms of use will contain, so you can see what they
           will cover before they are finished. It is <strong>not the final terms of use</strong>,
           has not been reviewed by a lawyer, and creates no binding agreement. The finished,

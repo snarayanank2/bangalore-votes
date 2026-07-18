@@ -42,10 +42,10 @@ export default function CompareCandidates() {
   if (!ward) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that ward</h1>
+        <h1 className="text-xl text-ink">We couldn&apos;t find that ward</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/" className="text-brand underline underline-offset-2">
+          <Link to="/" className="text-forest underline underline-offset-2">
             search for your ward by name
           </Link>
           .
@@ -59,23 +59,23 @@ export default function CompareCandidates() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Compare candidates</h1>
+        <p className="text-sm font-medium text-forest">{ward.name}</p>
+        <h1 className="text-2xl text-ink sm:text-3xl">Compare candidates</h1>
       </div>
 
       <RegisterForUpdatesSlot wardId={ward.id} />
 
       {candidates.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
           No candidates yet — candidate nomination data is only published once the official
           nomination window opens. Check back closer to the election.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="overflow-x-auto rounded-md border border-gray-300">
           <table className="w-full min-w-[640px] border-collapse text-left">
             <caption className="sr-only">Candidate comparison for {ward.name}</caption>
             <thead>
-              <tr className="border-b border-slate-200 bg-slate-50">
+              <tr className="border-b border-gray-300 bg-gray-100">
                 <th scope="col" className="min-w-[9rem] px-3 py-3">
                   <span className="sr-only">Field</span>
                 </th>
@@ -87,12 +87,12 @@ export default function CompareCandidates() {
                   >
                     <Link
                       to={`/candidate/${candidate.slug}`}
-                      className="flex flex-col items-start gap-1 rounded focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="flex flex-col items-start gap-1 rounded-sm"
                     >
                       <img
                         src={candidate.photoUrl}
                         alt=""
-                        className="h-12 w-12 rounded-full border border-slate-200 bg-white"
+                        className="h-12 w-12 rounded-full border border-gray-300 bg-gray-100"
                       />
                       <span className="font-semibold text-ink">{candidate.name}</span>
                       <span className="text-xs font-normal text-ink/70">{candidate.party}</span>
@@ -103,7 +103,7 @@ export default function CompareCandidates() {
             </thead>
             <tbody>
               {FIELDS.map((field) => (
-                <tr key={field.label} className="border-b border-slate-200 align-top last:border-b-0">
+                <tr key={field.label} className="border-b border-gray-300 align-top last:border-b-0">
                   <th scope="row" className="min-w-[9rem] px-3 py-3 text-sm font-semibold text-ink">
                     {field.label}
                   </th>
@@ -138,7 +138,7 @@ export default function CompareCandidates() {
 
       <Link
         to={`/ward/${ward.id}/candidates`}
-        className="inline-block text-sm text-brand underline underline-offset-2"
+        className="inline-block text-sm text-forest underline underline-offset-2"
       >
         Back to candidate list
       </Link>

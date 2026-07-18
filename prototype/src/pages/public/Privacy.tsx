@@ -15,19 +15,19 @@
  */
 export default function Privacy() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Privacy policy</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Privacy policy</h1>
       </div>
 
       <section
         aria-labelledby="pending-review-heading"
-        className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
-        <h2 id="pending-review-heading" className="text-sm font-semibold uppercase tracking-wide text-amber-900">
+        <h2 id="pending-review-heading" className="text-sm font-medium text-forest">
           Pending legal review — not the final policy
         </h2>
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-ink">
           This page lays out the sections our privacy policy will contain, so you can see what it
           will cover before it is finished. It is <strong>not the final policy</strong>, has not
           been reviewed by a lawyer, and should not be relied on as a statement of your actual
@@ -153,7 +153,7 @@ export default function Privacy() {
         </p>
       </section>
 
-      <section aria-labelledby="privacy-review-footer-heading" className="space-y-1 border-t border-slate-200 pt-6">
+      <section aria-labelledby="privacy-review-footer-heading" className="space-y-1 border-t border-gray-300 pt-6">
         <h2 id="privacy-review-footer-heading" className="text-lg font-semibold text-ink">
           Questions about this draft
         </h2>

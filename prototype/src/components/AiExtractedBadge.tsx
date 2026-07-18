@@ -5,7 +5,7 @@
  * by tests; keep helper copy elsewhere from duplicating it verbatim. */
 export function AiExtractedBadge() {
   return (
-    <span className="inline-flex items-center rounded-full border border-amber-400 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-900">
+    <span className="inline-flex items-center rounded-full border border-dotted border-sun bg-sun-tint px-2.5 py-0.5 text-xs font-medium text-ink">
       AI-extracted — not yet curator-confirmed
     </span>
   )

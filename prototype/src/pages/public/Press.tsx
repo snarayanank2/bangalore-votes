@@ -12,9 +12,9 @@ import { Link } from 'react-router-dom'
  */
 export default function Press() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Press kit</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Press kit</h1>
         <p className="mt-2 text-sm text-ink/80">
           Everything a journalist needs to file an accurate story about Bangalore Votes without
           having to reach anyone first.
@@ -87,7 +87,7 @@ export default function Press() {
         </p>
         <Link
           to="/data"
-          className="inline-block text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+          className="inline-block text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
         >
           View current key stats on the data page
         </Link>
@@ -101,7 +101,7 @@ export default function Press() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               Bangalore Votes logo, transparent PNG (placeholder link in this prototype)
             </a>
@@ -109,7 +109,7 @@ export default function Press() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               Homepage screenshot (placeholder link in this prototype)
             </a>
@@ -117,7 +117,7 @@ export default function Press() {
           <li>
             <a
               href="#"
-              className="text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               Candidate report card screenshot (placeholder link in this prototype)
             </a>
@@ -134,7 +134,7 @@ export default function Press() {
           They are not real Oorvani Foundation staff or any real person, and none of these quotes
           were said by anyone real.
         </p>
-        <div className="rounded-lg border border-slate-200 p-4">
+        <div className="rounded-md border border-gray-300 p-4">
           <p className="text-sm font-semibold text-ink">
             Demo spokesperson — Aditi Rao <span className="font-normal text-ink/60">(fictional, prototype demo only)</span>
           </p>
@@ -142,7 +142,7 @@ export default function Press() {
             &ldquo;Every fact on a report card carries its source — that&apos;s the whole idea.&rdquo;
           </p>
         </div>
-        <div className="rounded-lg border border-slate-200 p-4">
+        <div className="rounded-md border border-gray-300 p-4">
           <p className="text-sm font-semibold text-ink">
             Demo spokesperson — Farhan Sheikh <span className="font-normal text-ink/60">(fictional, prototype demo only)</span>
           </p>
@@ -160,7 +160,7 @@ export default function Press() {
         <p className="text-sm text-ink/80">
           <a
             href="#"
-            className="font-medium text-brand underline underline-offset-2 hover:no-underline"
+            className="font-medium text-forest underline underline-offset-2 hover:no-underline"
           >
             press@bangalorevotes.example (placeholder link in this prototype)
           </a>
@@ -183,13 +183,13 @@ export default function Press() {
         </p>
       </section>
 
-      <section aria-labelledby="press-sourcing-heading" className="space-y-1 border-t border-slate-200 pt-6">
+      <section aria-labelledby="press-sourcing-heading" className="space-y-1 border-t border-gray-300 pt-6">
         <h2 id="press-sourcing-heading" className="text-lg font-semibold text-ink">
           Sourcing methodology
         </h2>
         <p className="text-sm text-ink/80">
           For how data is sourced, verified, and attributed, see our{' '}
-          <Link to="/about" className="text-brand underline underline-offset-2">
+          <Link to="/about" className="text-forest underline underline-offset-2">
             sourcing methodology on the About page
           </Link>
           .

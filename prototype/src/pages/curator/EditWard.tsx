@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { Button } from '../../components/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { formatStamp } from '../../lib/stamps'
@@ -42,7 +43,7 @@ export default function EditWard() {
         <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that ward</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/curator" className="text-brand underline underline-offset-2">
+          <Link to="/curator" className="text-forest underline underline-offset-2">
             back to your dashboard
           </Link>
           .
@@ -108,18 +109,18 @@ export default function EditWard() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">Ward {ward.number}</p>
+        <p className="text-sm font-medium text-forest">Ward {ward.number}</p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">{ward.name}</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
             {error}
           </p>
         )}
         {saved && !error && (
-          <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
             Saved — this ward&apos;s details are now updated.
           </p>
         )}
@@ -133,7 +134,7 @@ export default function EditWard() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
           />
         </div>
 
@@ -146,7 +147,7 @@ export default function EditWard() {
             type="number"
             value={number}
             onChange={(e) => setNumber(e.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
           />
         </div>
 
@@ -158,7 +159,7 @@ export default function EditWard() {
             id="ward-corporation"
             value={corporation}
             onChange={(e) => setCorporation(e.target.value as Corporation)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
           >
             {CORPORATIONS.map((c) => (
               <option key={c} value={c}>
@@ -168,18 +169,15 @@ export default function EditWard() {
           </select>
         </div>
 
-        <button
-          type="submit"
-          className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        <Button type="submit" variant="primary" fullWidth>
           Save changes
-        </button>
+        </Button>
       </form>
 
       <p className="text-sm">
         <Link
           to={`/curator/ward/${ward.id}/issues`}
-          className="text-brand underline underline-offset-2 hover:no-underline"
+          className="text-forest underline underline-offset-2 hover:no-underline"
         >
           Define this ward&apos;s votable issues
         </Link>
@@ -187,7 +185,7 @@ export default function EditWard() {
 
       <section
         aria-labelledby="readiness-heading"
-        className="space-y-4 rounded-lg border border-slate-200 p-4"
+        className="space-y-4 rounded-md border border-gray-300 p-4"
       >
         <div>
           <h2 id="readiness-heading" className="text-lg font-semibold text-ink">
@@ -200,18 +198,22 @@ export default function EditWard() {
         </div>
 
         {readinessError && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
             {readinessError}
           </p>
         )}
         {readinessSaved && !readinessError && (
-          <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
             Signed off — this ward is now ready for candidate-referencing comms.
           </p>
         )}
 
-        <div className="text-sm">
-          <p className="font-medium text-ink">
+        {/* Pass/fail readiness block (design-system.md §7.13): forest tint when ready, sun tint
+         *  with the gap list when held — "not ready" is a work state, never an error/brick. */}
+        <div
+          className={`space-y-2 rounded-sm p-3 text-sm ${readiness.ready ? 'bg-forest-tint text-forest' : 'bg-sun-tint text-ink'}`}
+        >
+          <p className="font-medium">
             Completeness:{' '}
             {completeness.complete
               ? 'Complete'
@@ -220,17 +222,12 @@ export default function EditWard() {
                 : `${completeness.issues.length} candidate${completeness.issues.length === 1 ? '' : 's'} with gaps`}
           </p>
           {completeness.candidateCount === 0 && (
-            <p className="mt-1 text-ink/70">
-              {completeness.reason ?? 'No candidates have filed nominations in this ward yet.'}
-            </p>
+            <p>{completeness.reason ?? 'No candidates have filed nominations in this ward yet.'}</p>
           )}
           {completeness.issues.length > 0 && (
-            <ul className="mt-2 space-y-2">
+            <ul className="space-y-2">
               {completeness.issues.map((issue) => (
-                <li
-                  key={issue.candidateId}
-                  className="rounded border border-amber-300 bg-amber-50 px-3 py-2"
-                >
+                <li key={issue.candidateId} className="rounded-sm border border-gray-300 bg-white px-3 py-2">
                   <p className="font-medium text-ink">{issue.candidateName}</p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-5 text-ink/80">
                     {issue.reasons.map((reason) => (
@@ -241,6 +238,9 @@ export default function EditWard() {
               ))}
             </ul>
           )}
+          <p className="font-medium">
+            Ready for candidate-referencing comms: {readiness.ready ? 'Yes' : 'No'}
+          </p>
         </div>
 
         <div className="text-sm">
@@ -261,21 +261,13 @@ export default function EditWard() {
               An admin has overridden this ward&apos;s comms hold.
             </p>
           )}
-          <p className="mt-1 font-medium text-ink">
-            Ready for candidate-referencing comms: {readiness.ready ? 'Yes' : 'No'}
-          </p>
         </div>
 
         {!readiness.signedOff && (
           <div>
-            <button
-              type="button"
-              onClick={handleSignOff}
-              disabled={!completeness.complete}
-              className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand disabled:cursor-not-allowed disabled:opacity-50"
-            >
+            <Button type="button" variant="primary" onClick={handleSignOff} disabled={!completeness.complete}>
               Mark ward ready
-            </button>
+            </Button>
             {!completeness.complete && (
               <p className="mt-1 text-xs text-ink/60">
                 {completeness.candidateCount === 0

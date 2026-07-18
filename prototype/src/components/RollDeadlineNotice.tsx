@@ -15,11 +15,13 @@ export const ROLL_CLOSED = false
 export function RollDeadlineNotice({ closed = ROLL_CLOSED }: { closed?: boolean }) {
   if (closed) return null
   return (
-    <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">
+    // §7.6 deadline banner: ink on --oc-sun, radius-md — reserved for a real statutory deadline
+    // (as opposed to the ink-on-sun-tint "notice banner" used for status/empty-state text).
+    <div className="rounded-md bg-sun px-4 py-3 text-left text-sm text-ink">
       <p>
-        <strong>Electoral roll deadline: {ROLL_DEADLINE_LABEL}.</strong> Enrol or transfer before
-        the roll closes — this is the one date in the process that cannot be recovered. If you are
-        not on the roll when it closes, you cannot vote in this election.
+        <strong className="font-heading">Electoral roll deadline: {ROLL_DEADLINE_LABEL}.</strong>{' '}
+        Enrol or transfer before the roll closes — this is the one date in the process that cannot
+        be recovered. If you are not on the roll when it closes, you cannot vote in this election.
       </p>
       <p className="mt-1 text-xs">
         Placeholder date in this prototype — always confirm the real deadline on the official EC

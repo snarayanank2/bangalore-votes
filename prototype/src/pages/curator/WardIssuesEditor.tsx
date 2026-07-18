@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import { Button } from '../../components/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import type { Issue } from '../../types'
@@ -70,7 +71,7 @@ export default function WardIssuesEditor() {
         <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that ward</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/curator" className="text-brand underline underline-offset-2">
+          <Link to="/curator" className="text-forest underline underline-offset-2">
             back to your dashboard
           </Link>
           .
@@ -162,19 +163,19 @@ export default function WardIssuesEditor() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
+        <p className="text-sm font-medium text-forest">{ward.name}</p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Define ward issue list</h1>
         <p className="mt-1 text-sm text-ink/70">
           Add, edit, and choose which issues are votable in this ward&apos;s issue-voting page.
         </p>
       </div>
 
-      <section aria-labelledby="add-issue-heading" className="space-y-3 rounded-lg border border-slate-200 p-4">
+      <section aria-labelledby="add-issue-heading" className="space-y-3 rounded-md border border-gray-300 p-4">
         <h2 id="add-issue-heading" className="text-sm font-semibold text-ink">
           Add a new issue
         </h2>
         {addError && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
             {addError}
           </p>
         )}
@@ -188,7 +189,7 @@ export default function WardIssuesEditor() {
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
             />
           </div>
           <div>
@@ -200,32 +201,29 @@ export default function WardIssuesEditor() {
               value={newDescription}
               onChange={(e) => setNewDescription(e.target.value)}
               rows={2}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
             />
           </div>
-          <button
-            type="submit"
-            className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="submit" variant="primary">
             Add issue
-          </button>
+          </Button>
         </form>
       </section>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
             {error}
           </p>
         )}
         {saved && !error && (
-          <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
             Saved — the votable issue list is now updated.
           </p>
         )}
 
         {catalog.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+          <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
             No issues have been defined for this ward yet. Use &quot;Add a new issue&quot; above
             to author the first one.
           </p>
@@ -236,11 +234,11 @@ export default function WardIssuesEditor() {
               const votes = voteCountByIssue.get(issue.id) ?? 0
               const isEditing = editingId === issue.id
               return (
-                <li key={issue.id} className="rounded-lg border border-slate-200 p-4">
+                <li key={issue.id} className="rounded-md border border-gray-300 p-4">
                   {isEditing ? (
                     <div className="space-y-2">
                       {editError && (
-                        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+                        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
                           {editError}
                         </p>
                       )}
@@ -252,7 +250,7 @@ export default function WardIssuesEditor() {
                         type="text"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
                       />
                       <label htmlFor={`edit-description-${issue.id}`} className="block text-sm font-medium text-ink">
                         Description
@@ -262,23 +260,15 @@ export default function WardIssuesEditor() {
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                         rows={2}
-                        className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
                       />
                       <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={handleSaveEdit}
-                          className="rounded bg-brand px-3 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-                        >
+                        <Button type="button" variant="primary" onClick={handleSaveEdit}>
                           Save issue
-                        </button>
-                        <button
-                          type="button"
-                          onClick={cancelEdit}
-                          className="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-brand"
-                        >
+                        </Button>
+                        <Button type="button" variant="secondary" onClick={cancelEdit}>
                           Cancel
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ) : (
@@ -288,7 +278,7 @@ export default function WardIssuesEditor() {
                         type="checkbox"
                         checked={checked}
                         onChange={() => toggle(issue.id)}
-                        className="mt-1 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                        className="mt-1 h-4 w-4 rounded-sm border-gray-300 text-forest"
                       />
                       <label htmlFor={`issue-${issue.id}`} className="flex-1">
                         <span className="block font-semibold text-ink">{issue.title}</span>
@@ -300,13 +290,14 @@ export default function WardIssuesEditor() {
                             : ''}
                         </span>
                       </label>
-                      <button
+                      <Button
                         type="button"
+                        variant="secondary"
                         onClick={() => startEdit(issue)}
-                        className="shrink-0 rounded border border-slate-300 px-2 py-1 text-xs font-medium text-ink hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+                        className="shrink-0"
                       >
                         Edit
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </li>
@@ -315,12 +306,9 @@ export default function WardIssuesEditor() {
           </ul>
         )}
 
-        <button
-          type="submit"
-          className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        <Button type="submit" variant="primary" fullWidth>
           Save changes
-        </button>
+        </Button>
       </form>
     </div>
   )

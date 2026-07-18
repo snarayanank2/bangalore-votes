@@ -10,9 +10,9 @@ import { RollDeadlineNotice } from '../../components/RollDeadlineNotice'
  */
 export default function VoterId() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+        <h1 className="text-2xl text-ink sm:text-3xl">
           Voter ID — new enrolment &amp; updates
         </h1>
         <p className="mt-2 text-sm text-ink/80">
@@ -49,7 +49,7 @@ export default function VoterId() {
         </ol>
         <a
           href="#"
-          className="inline-block text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+          className="inline-block text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
         >
           Open Form 6 on the official EC portal (placeholder link in this prototype)
         </a>
@@ -57,7 +57,7 @@ export default function VoterId() {
 
       <section
         aria-labelledby="elsewhere-heading"
-        className="space-y-3 border-t border-slate-200 pt-6"
+        className="space-y-3 border-t border-gray-300 pt-6"
       >
         <h2 id="elsewhere-heading" className="text-lg font-semibold text-ink">
           I&apos;m registered in another city — does my vote count here?
@@ -79,7 +79,7 @@ export default function VoterId() {
         </p>
       </section>
 
-      <section aria-labelledby="update-heading" className="space-y-3 border-t border-slate-200 pt-6">
+      <section aria-labelledby="update-heading" className="space-y-3 border-t border-gray-300 pt-6">
         <h2 id="update-heading" className="text-lg font-semibold text-ink">
           I&apos;ve moved, or need to correct/transfer my details
         </h2>
@@ -102,7 +102,7 @@ export default function VoterId() {
         </ol>
         <a
           href="#"
-          className="inline-block text-sm font-medium text-brand underline underline-offset-2 hover:no-underline"
+          className="inline-block text-sm font-medium text-forest underline underline-offset-2 hover:no-underline"
         >
           Open Form 8 on the official EC portal (placeholder link in this prototype)
         </a>

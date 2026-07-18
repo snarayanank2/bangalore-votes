@@ -1,5 +1,6 @@
 import { useAuth } from '../context/AuthContext'
 import { useModal } from '../context/ModalContext'
+import { Button } from './Button'
 
 interface RegisterForUpdatesSlotProps {
   wardId: string
@@ -26,19 +27,15 @@ export function RegisterForUpdatesSlot({ wardId }: RegisterForUpdatesSlotProps) 
   if (isAuthed) {
     if (user.homeWardId !== wardId) return null
     return (
-      <p className="rounded border border-brand/30 bg-brand/5 px-3 py-2 text-sm text-ink">
+      <p className="rounded-md bg-forest-tint px-3 py-2 text-sm text-forest">
         Receiving updates for this ward.
       </p>
     )
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => openLogin({ prefillWardId: wardId })}
-      className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-    >
+    <Button type="button" onClick={() => openLogin({ prefillWardId: wardId })}>
       Register for updates
-    </button>
+    </Button>
   )
 }

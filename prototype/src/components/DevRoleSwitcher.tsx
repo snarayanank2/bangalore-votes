@@ -34,14 +34,14 @@ export function DevRoleSwitcher() {
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <label htmlFor="dev-role-switcher" className="font-semibold text-accent">
+      <label htmlFor="dev-role-switcher" className="font-semibold text-ink">
         ⚙ Prototype
       </label>
       <select
         id="dev-role-switcher"
         value={user.role === 'anonymous' ? ANON_VALUE : user.id}
         onChange={handleChange}
-        className="rounded border border-slate-300 bg-white px-1 py-0.5 text-ink focus:outline-none focus:ring-2 focus:ring-brand"
+        className="rounded-sm border border-gray-300 bg-white px-1 py-0.5 text-ink"
       >
         <option value={ANON_VALUE}>Anonymous</option>
         {DEMO_USERS.map((demoUser) => (

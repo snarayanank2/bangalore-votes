@@ -5,9 +5,9 @@
  */
 export default function HowToVote() {
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">How to vote</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">How to vote</h1>
         <p className="mt-2 text-sm text-ink/80">
           Voting takes most people under ten minutes. Here&apos;s exactly what happens, step by
           step.
@@ -53,7 +53,7 @@ export default function HowToVote() {
         </ol>
       </section>
 
-      <section aria-labelledby="tips-heading" className="space-y-2 border-t border-slate-200 pt-6">
+      <section aria-labelledby="tips-heading" className="space-y-2 border-t border-gray-300 pt-6">
         <h2 id="tips-heading" className="text-lg font-semibold text-ink">
           A few things that trip people up
         </h2>
@@ -64,7 +64,7 @@ export default function HowToVote() {
         </ul>
       </section>
 
-      <section aria-labelledby="faq-heading" className="space-y-3 border-t border-slate-200 pt-6">
+      <section aria-labelledby="faq-heading" className="space-y-3 border-t border-gray-300 pt-6">
         <h2 id="faq-heading" className="text-lg font-semibold text-ink">
           First-time voter FAQ
         </h2>
@@ -75,7 +75,7 @@ export default function HowToVote() {
               Yes, if your name is on the electoral roll. The EC publishes a list of alternative
               photo documents accepted at the booth — Aadhaar, passport, driving licence, and
               others.{' '}
-              <a href="#" className="text-brand underline underline-offset-2">
+              <a href="#" className="text-forest underline underline-offset-2">
                 Official EC alternative-document list (placeholder link in this prototype)
               </a>
             </dd>
@@ -107,7 +107,7 @@ export default function HowToVote() {
 
       <section
         aria-labelledby="ward-difference-heading"
-        className="space-y-2 border-t border-slate-200 pt-6"
+        className="space-y-2 border-t border-gray-300 pt-6"
       >
         <h2 id="ward-difference-heading" className="text-lg font-semibold text-ink">
           What&apos;s different about a ward election

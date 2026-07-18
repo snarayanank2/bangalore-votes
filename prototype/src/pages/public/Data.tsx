@@ -1,5 +1,6 @@
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { formatStamp } from '../../lib/stamps'
+import { IssueResultsList } from '../../components/IssueResultsList'
 
 /**
  * Public data & key metrics (PRD §5.14, IA §3.14, `/data`) — "a platform that publishes other
@@ -46,7 +47,7 @@ export default function Data() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Data &amp; key metrics</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Data &amp; key metrics</h1>
         <p className="mt-2 text-sm text-ink/80">
           A platform that publishes other people&apos;s records should publish its own. These
           figures are computed live from this platform&apos;s own data — coverage, integrity, and
@@ -56,15 +57,15 @@ export default function Data() {
 
       <section
         aria-labelledby="prototype-scale-heading"
-        className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
         <h2
           id="prototype-scale-heading"
-          className="text-sm font-semibold uppercase tracking-wide text-amber-900"
+          className="text-sm font-semibold text-ink"
         >
           These are prototype-scale figures
         </h2>
-        <p className="text-sm text-amber-900">
+        <p className="text-sm text-ink">
           This build only seeds a handful of demo wards, so the coverage numbers below are small
           by construction — they are not a claim about real citywide progress. The Bengaluru GBA
           election covers <strong>{metrics.coverage.totalWards} wards</strong>; the figures below
@@ -114,7 +115,7 @@ export default function Data() {
             hint="Distinct review items a curator has acted on — not directly comparable to flags raised."
           />
           <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-ink/60">
+            <dt className="text-xs font-medium text-ink/60">
               Median time to resolve
             </dt>
             <dd className="mt-1 text-sm font-medium text-ink/80">Not available in this prototype</dd>
@@ -143,26 +144,20 @@ export default function Data() {
             only — individual votes are never made public.
           </p>
           {metrics.citizenSignal.issueRollUp.length === 0 ? (
-            <p className="mt-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+            <p className="mt-2 rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
               No issue votes have been cast yet.
             </p>
           ) : (
-            <ol aria-label="City-wide ranked issues" className="mt-2 space-y-2">
-              {metrics.citizenSignal.issueRollUp.map((row, index) => (
-                <li
-                  key={row.issueId}
-                  className="flex items-center justify-between gap-3 rounded border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <span className="text-ink">
-                    <span className="mr-2 font-semibold text-brand">#{index + 1}</span>
-                    {row.title}
-                  </span>
-                  <span className="whitespace-nowrap font-medium text-ink/80">
-                    {row.count} {row.count === 1 ? 'vote' : 'votes'}
-                  </span>
-                </li>
-              ))}
-            </ol>
+            <div className="mt-2">
+              <IssueResultsList
+                rows={metrics.citizenSignal.issueRollUp.map((row) => ({
+                  id: row.issueId,
+                  title: row.title,
+                  count: row.count,
+                }))}
+                ariaLabel="City-wide ranked issues"
+              />
+            </div>
           )}
         </div>
       </section>
@@ -181,7 +176,7 @@ function Metric({
 }) {
   return (
     <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-ink/60">{label}</dt>
+      <dt className="text-xs font-medium text-ink/60">{label}</dt>
       <dd className="mt-1 text-xl font-bold text-ink">{value}</dd>
       {hint && <dd className="mt-1 text-xs text-ink/60">{hint}</dd>}
     </div>

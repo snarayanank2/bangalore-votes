@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useData } from '../../context/DataContext'
+import { Button } from '../../components/Button'
 import type { InterestPath } from '../../types'
 
 /**
@@ -55,10 +56,10 @@ export default function PartnerWithUs() {
   if (submitted) {
     return (
       <div className="mx-auto max-w-2xl space-y-4 px-4 py-8">
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Partner with us</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Partner with us</h1>
         <div
           role="status"
-          className="space-y-2 rounded-lg border border-emerald-300 bg-emerald-50 p-4 text-sm text-emerald-900"
+          className="space-y-2 rounded-md bg-forest-tint p-4 text-sm text-ink"
         >
           <p className="font-semibold">Thanks — your application is pending admin review.</p>
           <p>
@@ -75,7 +76,7 @@ export default function PartnerWithUs() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Partner with us</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Partner with us</h1>
         <p className="mt-2 text-sm text-ink/80">
           Bangalore Votes reaches citizens through people and organisations like you — RWAs,
           civic groups, and volunteers — not paid ads (see how we source data on{' '}
@@ -86,9 +87,9 @@ export default function PartnerWithUs() {
       <div className="grid gap-4 sm:grid-cols-2">
         <section
           aria-labelledby="awareness-heading"
-          className="space-y-2 rounded-lg border border-slate-200 p-4"
+          className="space-y-2 rounded-md border border-gray-300 p-4"
         >
-          <h2 id="awareness-heading" className="text-lg font-semibold text-ink">
+          <h2 id="awareness-heading" className="text-lg text-ink">
             Spread awareness
           </h2>
           <p className="text-sm text-ink/80">
@@ -111,9 +112,9 @@ export default function PartnerWithUs() {
         </section>
         <section
           aria-labelledby="curation-heading"
-          className="space-y-2 rounded-lg border border-slate-200 p-4"
+          className="space-y-2 rounded-md border border-gray-300 p-4"
         >
-          <h2 id="curation-heading" className="text-lg font-semibold text-ink">
+          <h2 id="curation-heading" className="text-lg text-ink">
             Curate data
           </h2>
           <p className="text-sm text-ink/80">
@@ -137,10 +138,10 @@ export default function PartnerWithUs() {
 
       <form
         onSubmit={handleSubmit}
-        className="space-y-4 rounded-lg border border-slate-200 p-4"
+        className="space-y-4 rounded-md border border-gray-300 p-4"
         aria-label="Express your interest"
       >
-        <h2 className="text-lg font-semibold text-ink">Express your interest</h2>
+        <h2 className="text-lg text-ink">Express your interest</h2>
         <p className="text-sm text-ink/70">
           No account needed — this form doesn&apos;t require you to register or sign in.
           Submitting doesn&apos;t grant access to anything by itself; an admin reviews every
@@ -148,7 +149,7 @@ export default function PartnerWithUs() {
         </p>
 
         {error && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-md bg-brick-tint px-3 py-2 text-sm text-brick">
             {error}
           </p>
         )}
@@ -192,7 +193,7 @@ export default function PartnerWithUs() {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-forest"
           />
         </div>
 
@@ -206,7 +207,7 @@ export default function PartnerWithUs() {
             value={contact}
             onChange={(e) => setContact(e.target.value)}
             placeholder="you@example.com or +91…"
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-forest"
           />
         </div>
 
@@ -218,7 +219,7 @@ export default function PartnerWithUs() {
             id="pwu-ward"
             value={wardId}
             onChange={(e) => setWardId(e.target.value)}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-forest"
           >
             <option value="">Not sure / not applicable</option>
             {wards.map((w) => (
@@ -238,16 +239,11 @@ export default function PartnerWithUs() {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+            className="w-full rounded-sm border border-gray-300 px-3 py-2 text-sm focus:border-forest"
           />
         </div>
 
-        <button
-          type="submit"
-          className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
-          Submit application
-        </button>
+        <Button type="submit">Submit application</Button>
       </form>
     </div>
   )

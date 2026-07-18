@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
+import { Button } from '../../components/Button'
 import type { Role, User, Ward } from '../../types'
 
 const ASSIGNABLE_ROLES: Role[] = ['citizen', 'curator', 'admin']
@@ -47,24 +48,24 @@ function RoleRow({ targetUser, wards, admin }: RowProps) {
   const roleSelectId = `role-${targetUser.id}`
 
   return (
-    <li className="space-y-3 rounded-lg border border-slate-200 p-4">
+    <li className="space-y-3 rounded-md border border-gray-300 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
           <p className="font-semibold text-ink">{targetUser.name}</p>
           <p className="text-xs text-ink/60">{targetUser.contact}</p>
         </div>
-        <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs font-medium capitalize text-ink/70">
+        <span className="rounded-full border border-transparent bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
           Currently: {targetUser.role}
         </span>
       </div>
 
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
       {saved && !error && (
-        <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Saved.</p>
+        <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">Saved.</p>
       )}
 
       <div>
@@ -78,7 +79,7 @@ function RoleRow({ targetUser, wards, admin }: RowProps) {
             setRole(e.target.value as Role)
             setSaved(false)
           }}
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-xs min-h-[44px] rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
         >
           {ASSIGNABLE_ROLES.map((r) => (
             <option key={r} value={r}>
@@ -101,7 +102,7 @@ function RoleRow({ targetUser, wards, admin }: RowProps) {
                     type="checkbox"
                     checked={wardIds.has(ward.id)}
                     onChange={() => toggleWard(ward.id)}
-                    className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded-sm border-gray-300 text-forest focus:ring-forest"
                   />
                   <label htmlFor={id} className="text-sm text-ink">
                     {ward.name}
@@ -113,13 +114,9 @@ function RoleRow({ targetUser, wards, admin }: RowProps) {
         </fieldset>
       )}
 
-      <button
-        type="button"
-        onClick={handleSave}
-        className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-      >
+      <Button type="button" variant="primary" onClick={handleSave}>
         Save
-      </button>
+      </Button>
     </li>
   )
 }
@@ -144,7 +141,7 @@ export default function Roles() {
   return (
     <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Roles &amp; access</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Roles &amp; access</h1>
         <p className="mt-1 text-sm text-ink/70">
           Grant or revoke the curator role, and set which wards a curator is scoped to.
         </p>

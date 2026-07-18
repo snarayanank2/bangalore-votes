@@ -14,7 +14,7 @@ function ToggleRow({ id, label, checked, onChange }: ToggleRowProps) {
   return (
     <label
       htmlFor={id}
-      className="flex items-center justify-between gap-3 rounded border border-slate-200 px-3 py-2 text-sm"
+      className="flex items-center justify-between gap-3 rounded-sm border border-gray-300 px-3 py-2 text-sm"
     >
       <span className="text-ink">{label}</span>
       <input
@@ -22,7 +22,7 @@ function ToggleRow({ id, label, checked, onChange }: ToggleRowProps) {
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4"
+        className="h-4 w-4 accent-forest"
       />
     </label>
   )
@@ -54,7 +54,7 @@ export default function Notifications() {
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">Notification settings</h1>
-        <p className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <p className="mt-2 rounded-md bg-sun-tint px-3 py-2 text-sm text-ink">
           Simulated only — this prototype never sends a real email or WhatsApp message. Toggles
           below just record your preference.
         </p>

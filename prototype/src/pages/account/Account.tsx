@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { useI18n, type Lang } from '../../context/I18nContext'
+import { BUTTON_BASE_CLASS, BUTTON_VARIANT_CLASSES } from '../../components/Button'
 
 /**
  * My account (PRD §5.1/§8, IA §4.1, `/account`). Registered-only (RoleGuard wraps this route for
@@ -40,22 +41,22 @@ export default function Account() {
         </p>
       </div>
 
-      <nav aria-label="Account pages" className="flex flex-wrap gap-3 text-sm">
+      <nav aria-label="Account pages" className="flex flex-wrap gap-3">
         <Link
           to="/account/notifications"
-          className="rounded border border-slate-300 px-3 py-1.5 font-medium text-ink hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASSES.secondary}`}
         >
           Notification settings
         </Link>
         <Link
           to="/account/submissions"
-          className="rounded border border-slate-300 px-3 py-1.5 font-medium text-ink hover:border-brand focus:outline-none focus:ring-2 focus:ring-brand"
+          className={`${BUTTON_BASE_CLASS} ${BUTTON_VARIANT_CLASSES.secondary}`}
         >
           My submissions
         </Link>
       </nav>
 
-      <section aria-labelledby="profile-heading" className="space-y-3 border-t border-slate-200 pt-6">
+      <section aria-labelledby="profile-heading" className="space-y-3 border-t border-gray-300 pt-6">
         <h2 id="profile-heading" className="text-lg font-semibold text-ink">
           Profile
         </h2>
@@ -75,7 +76,7 @@ export default function Account() {
         </dl>
       </section>
 
-      <section aria-labelledby="language-heading" className="space-y-2 border-t border-slate-200 pt-6">
+      <section aria-labelledby="language-heading" className="space-y-2 border-t border-gray-300 pt-6">
         <h2 id="language-heading" className="text-lg font-semibold text-ink">
           Language
         </h2>
@@ -86,7 +87,7 @@ export default function Account() {
           id="account-language"
           value={lang}
           onChange={(e) => handleLanguageChange(e.target.value)}
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-xs rounded-sm border border-gray-300 px-3 py-2 text-sm text-ink focus:border-forest"
         >
           <option value="en">English</option>
           <option value="kn">ಕನ್ನಡ (Kannada)</option>
@@ -96,7 +97,7 @@ export default function Account() {
         </p>
       </section>
 
-      <section aria-labelledby="ward-heading" className="space-y-2 border-t border-slate-200 pt-6">
+      <section aria-labelledby="ward-heading" className="space-y-2 border-t border-gray-300 pt-6">
         <h2 id="ward-heading" className="text-lg font-semibold text-ink">
           Home ward
         </h2>
@@ -107,7 +108,7 @@ export default function Account() {
           id="account-home-ward"
           value={user.homeWardId ?? ''}
           onChange={(e) => data.setHomeWard(user.id, e.target.value, user)}
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-xs rounded-sm border border-gray-300 px-3 py-2 text-sm text-ink focus:border-forest"
         >
           <option value="" disabled>
             Choose your ward
@@ -121,7 +122,7 @@ export default function Account() {
         {homeWard && (
           <p className="text-xs text-ink/60">
             You can vote on top issues in{' '}
-            <Link to={`/ward/${homeWard.id}/issues`} className="text-brand underline underline-offset-2">
+            <Link to={`/ward/${homeWard.id}/issues`} className="text-forest underline underline-offset-2">
               {homeWard.name}
             </Link>
             .

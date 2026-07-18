@@ -18,12 +18,12 @@ export default function VotingGuideHub() {
   const candidatesHref =
     isAuthed && user.homeWardId ? `/ward/${user.homeWardId}/candidates` : '/'
 
-  const stepLink = 'font-semibold text-brand underline underline-offset-2 hover:no-underline'
+  const stepLink = 'font-semibold text-forest underline underline-offset-2 hover:no-underline'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">
+        <h1 className="text-2xl text-ink sm:text-3xl">
           Voting guide — your first-time voter checklist
         </h1>
         <p className="mt-2 text-sm text-ink/80">
@@ -34,7 +34,7 @@ export default function VotingGuideHub() {
       </div>
 
       <ol aria-label="First-time voter checklist" className="space-y-4">
-        <li className="rounded-lg border border-slate-200 p-4">
+        <li className="rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             1.{' '}
             <Link to="/check-registration" className={stepLink}>
@@ -46,7 +46,7 @@ export default function VotingGuideHub() {
             time to fix a problem.
           </p>
         </li>
-        <li className="space-y-2 rounded-lg border border-slate-200 p-4">
+        <li className="space-y-2 rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             2.{' '}
             <Link to="/voting-guide/voter-id" className={stepLink}>
@@ -63,7 +63,7 @@ export default function VotingGuideHub() {
               in staticPages.test.tsx. */}
           <RollDeadlineNotice />
         </li>
-        <li className="rounded-lg border border-slate-200 p-4">
+        <li className="rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             3.{' '}
             <Link to="/" className={stepLink}>
@@ -74,7 +74,7 @@ export default function VotingGuideHub() {
             Ward boundaries changed in the delimitation — find your new ward by name or area.
           </p>
         </li>
-        <li className="rounded-lg border border-slate-200 p-4">
+        <li className="rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             4.{' '}
             <Link to={candidatesHref} className={stepLink}>
@@ -86,7 +86,7 @@ export default function VotingGuideHub() {
             to see them.
           </p>
         </li>
-        <li className="rounded-lg border border-slate-200 p-4">
+        <li className="rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             5.{' '}
             <Link to="/voting-guide/find-booth" className={stepLink}>
@@ -97,7 +97,7 @@ export default function VotingGuideHub() {
             Booths change between elections — look up the exact location you&apos;re assigned to.
           </p>
         </li>
-        <li className="rounded-lg border border-slate-200 p-4">
+        <li className="rounded-md border border-gray-300 p-4">
           <h2 className="font-semibold text-ink">
             6.{' '}
             <Link to="/voting-guide/how-to-vote" className={stepLink}>

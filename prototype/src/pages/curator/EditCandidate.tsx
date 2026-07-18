@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AiExtractedBadge } from '../../components/AiExtractedBadge'
+import { Button } from '../../components/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
 import { fieldLabel } from '../../lib/fields'
@@ -94,7 +95,7 @@ export default function EditCandidate() {
         <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that candidate</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/curator" className="text-brand underline underline-offset-2">
+          <Link to="/curator" className="text-forest underline underline-offset-2">
             back to your dashboard
           </Link>
           .
@@ -212,7 +213,7 @@ export default function EditCandidate() {
   return (
     <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">
+        <p className="text-sm font-medium text-forest">
           {ward?.name ?? candidate.wardId}
         </p>
         <h1 className="text-2xl font-bold text-ink sm:text-3xl">{candidate.name}</h1>
@@ -220,12 +221,12 @@ export default function EditCandidate() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {error && (
-          <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+          <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
             {error}
           </p>
         )}
         {saved && !error && (
-          <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
             Saved — this candidate&apos;s report card is now updated.
           </p>
         )}
@@ -243,7 +244,7 @@ export default function EditCandidate() {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
             />
           </div>
           <div>
@@ -255,12 +256,12 @@ export default function EditCandidate() {
               type="text"
               value={party}
               onChange={(e) => setParty(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              className="min-h-[44px] w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
             />
           </div>
         </section>
 
-        <section aria-labelledby="affidavit-heading" className="space-y-3 rounded-lg border border-slate-200 p-4">
+        <section aria-labelledby="affidavit-heading" className="space-y-3 rounded-md border border-gray-300 p-4">
           <h2 id="affidavit-heading" className="text-sm font-semibold text-ink">
             Affidavit (Form 26) — AI-assisted ingestion
           </h2>
@@ -273,7 +274,7 @@ export default function EditCandidate() {
               —{' '}
               <a
                 href={activeCandidate.affidavit.storedUrl}
-                className="text-brand underline underline-offset-2"
+                className="text-forest underline underline-offset-2"
               >
                 stored copy (placeholder link in this prototype)
               </a>{' '}
@@ -298,7 +299,7 @@ export default function EditCandidate() {
                 value={affidavitFile}
                 onChange={(e) => setAffidavitFile(e.target.value)}
                 placeholder="e.g. candidate-form26.pdf"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
               />
             </div>
             <div>
@@ -311,28 +312,24 @@ export default function EditCandidate() {
                 value={affidavitEcUrl}
                 onChange={(e) => setAffidavitEcUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
               />
             </div>
           </div>
           {ingestError && (
-            <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+            <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
               {ingestError}
             </p>
           )}
           {ingested && !ingestError && (
-            <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+            <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
               Extraction published — cases, assets and education below now carry AI-extracted
               markers until you confirm or edit them.
             </p>
           )}
-          <button
-            type="button"
-            onClick={handleIngest}
-            className="rounded border border-brand px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="button" variant="secondary" onClick={handleIngest}>
             Ingest affidavit &amp; extract (simulated AI)
-          </button>
+          </Button>
         </section>
 
         <section aria-labelledby="fields-heading" className="space-y-6">
@@ -343,7 +340,7 @@ export default function EditCandidate() {
             const draft = drafts[field]
             const idBase = `field-${field}`
             return (
-              <fieldset key={field} className="space-y-2 rounded-lg border border-slate-200 p-4">
+              <fieldset key={field} className="space-y-2 rounded-md border border-gray-300 p-4">
                 <legend className="px-1 text-sm font-semibold text-ink">{fieldLabel(field)}</legend>
                 {activeCandidate[field].aiExtracted && <AiExtractedBadge />}
                 <div>
@@ -356,7 +353,7 @@ export default function EditCandidate() {
                     onChange={(e) => updateDraft(field, { value: e.target.value })}
                     rows={2}
                     disabled={draft.notDeclared}
-                    className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-slate-100 disabled:text-ink/50"
+                    className="w-full rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest disabled:bg-gray-100 disabled:text-ink/50"
                   />
                 </div>
                 <div className="flex items-start gap-2">
@@ -365,7 +362,7 @@ export default function EditCandidate() {
                     type="checkbox"
                     checked={draft.notDeclared}
                     onChange={(e) => updateDraft(field, { notDeclared: e.target.checked })}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand focus:outline-none focus:ring-2 focus:ring-brand"
+                    className="mt-0.5 h-4 w-4 rounded-sm border-gray-300 text-forest"
                   />
                   <label htmlFor={`${idBase}-not-declared`} className="text-sm text-ink">
                     Not declared on the affidavit
@@ -384,7 +381,7 @@ export default function EditCandidate() {
                       id={`${idBase}-source-type`}
                       value={draft.sourceType}
                       onChange={(e) => updateDraft(field, { sourceType: e.target.value as SourceType })}
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
                     >
                       <option value="curator">Curator-compiled</option>
                       <option value="affidavit">Official (affidavit)</option>
@@ -399,7 +396,7 @@ export default function EditCandidate() {
                       type="text"
                       value={draft.sourceLabel}
                       onChange={(e) => updateDraft(field, { sourceLabel: e.target.value })}
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
                     />
                   </div>
                   <div>
@@ -412,7 +409,7 @@ export default function EditCandidate() {
                       value={draft.sourceUrl}
                       onChange={(e) => updateDraft(field, { sourceUrl: e.target.value })}
                       placeholder="https://…"
-                      className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
                     />
                   </div>
                 </div>
@@ -432,25 +429,25 @@ export default function EditCandidate() {
               {news.map((link, index) => (
                 <li
                   key={`${link.url}-${index}`}
-                  className="flex items-center justify-between gap-3 rounded border border-slate-200 px-3 py-2 text-sm"
+                  className="flex items-center justify-between gap-3 rounded-sm border border-gray-300 px-3 py-2 text-sm"
                 >
                   <span className="text-ink">
                     {link.title} <span className="text-ink/60">— {link.publisher}</span>
                   </span>
-                  <button
+                  <Button
                     type="button"
+                    variant="destructive"
                     onClick={() => handleRemoveNews(index)}
                     aria-label={`Remove news link: ${link.title}`}
-                    className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-600"
                   >
                     Remove
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
           )}
 
-          <div className="grid gap-2 rounded-lg border border-dashed border-slate-300 p-4 sm:grid-cols-3">
+          <div className="grid gap-2 rounded-md border border-dashed border-gray-300 p-4 sm:grid-cols-3">
             <div>
               <label htmlFor="news-title" className="mb-1 block text-xs font-medium text-ink/70">
                 News title
@@ -460,7 +457,7 @@ export default function EditCandidate() {
                 type="text"
                 value={newsTitle}
                 onChange={(e) => setNewsTitle(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
               />
             </div>
             <div>
@@ -473,7 +470,7 @@ export default function EditCandidate() {
                 value={newsUrl}
                 onChange={(e) => setNewsUrl(e.target.value)}
                 placeholder="https://…"
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
               />
             </div>
             <div>
@@ -485,27 +482,20 @@ export default function EditCandidate() {
                 type="text"
                 value={newsPublisher}
                 onChange={(e) => setNewsPublisher(e.target.value)}
-                className="w-full rounded border border-slate-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="min-h-[44px] w-full rounded-sm border border-gray-300 px-2 py-1.5 text-base focus:border-forest"
               />
             </div>
             <div className="sm:col-span-3">
-              <button
-                type="button"
-                onClick={handleAddNews}
-                className="rounded border border-brand px-3 py-1.5 text-sm font-semibold text-brand hover:bg-brand/10 focus:outline-none focus:ring-2 focus:ring-brand"
-              >
+              <Button type="button" variant="secondary" onClick={handleAddNews}>
                 Add news link
-              </button>
+              </Button>
             </div>
           </div>
         </section>
 
-        <button
-          type="submit"
-          className="w-full rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        <Button type="submit" variant="primary" fullWidth>
           Save changes
-        </button>
+        </Button>
       </form>
     </div>
   )

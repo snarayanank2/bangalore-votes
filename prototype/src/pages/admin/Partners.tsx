@@ -2,8 +2,18 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { useData, useStoreVersion } from '../../context/DataContext'
+import { Button } from '../../components/Button'
 import type { WardReadiness } from '../../store/store'
 import type { Interest, Partner, PartnerKind, User, Ward } from '../../types'
+
+/** Reserved chip pattern (design-system.md §7.7): pending = neutral gray, accepted = forest on
+ *  tint, rejected = brick on tint (rejected is a genuine "blocked" outcome, not a routine
+ *  inactive toggle). */
+function statusChipClass(status: Interest['status']): string {
+  if (status === 'accepted') return 'bg-forest-tint text-forest'
+  if (status === 'rejected') return 'bg-brick-tint text-brick'
+  return 'bg-gray-100 text-gray-600'
+}
 
 const PARTNER_KINDS: PartnerKind[] = ['rwa', 'ngo', 'press', 'other']
 
@@ -39,7 +49,7 @@ function WardCoverageFieldset({
                 type="checkbox"
                 checked={wardIds.has(ward.id)}
                 onChange={() => onToggle(ward.id)}
-                className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+                className="h-4 w-4 rounded-sm border-gray-300 text-forest focus:ring-forest"
               />
               <label htmlFor={id} className="text-sm text-ink">
                 {ward.name}
@@ -113,13 +123,15 @@ function InterestRow({ interest, admin }: InterestRowProps) {
       : undefined
 
   return (
-    <li className="space-y-2 rounded-lg border border-slate-200 p-4">
+    <li className="space-y-2 rounded-md border border-gray-300 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="font-semibold text-ink">{interest.name}</p>
           <p className="text-xs text-ink/60">{interest.contact}</p>
         </div>
-        <span className="rounded-full border border-slate-300 px-2 py-0.5 text-xs font-medium capitalize text-ink/70">
+        <span
+          className={`rounded-full border border-transparent px-2.5 py-0.5 text-xs font-medium capitalize ${statusChipClass(interest.status)}`}
+        >
           {interest.path} · {interest.status}
         </span>
       </div>
@@ -132,7 +144,7 @@ function InterestRow({ interest, admin }: InterestRowProps) {
       {interest.note && <p className="text-sm text-ink/80">{interest.note}</p>}
 
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
@@ -146,7 +158,7 @@ function InterestRow({ interest, admin }: InterestRowProps) {
                 value={kind}
                 onChange={(e) => setKind(e.target.value as PartnerKind)}
                 aria-label={`Partner type for ${interest.name}`}
-                className="rounded border border-slate-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                className="rounded-sm border border-gray-300 px-2 py-1 text-sm focus:border-forest"
               >
                 {PARTNER_KINDS.map((k) => (
                   <option key={k} value={k}>
@@ -156,25 +168,17 @@ function InterestRow({ interest, admin }: InterestRowProps) {
               </select>
             </label>
           )}
-          <button
-            type="button"
-            onClick={accept}
-            className="rounded border border-emerald-600 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-          >
+          <Button type="button" variant="primary" onClick={accept}>
             Accept
-          </button>
-          <button
-            type="button"
-            onClick={reject}
-            className="rounded border border-red-600 px-3 py-1.5 text-sm font-semibold text-red-700 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-600"
-          >
+          </Button>
+          <Button type="button" variant="destructive" onClick={reject}>
             Reject
-          </button>
+          </Button>
         </div>
       )}
 
       {interest.status === 'accepted' && interest.path === 'awareness' && (
-        <p className="text-sm text-emerald-800">
+        <p className="text-sm text-forest">
           {provisionedPartner ? (
             <>
               Partner kit provisioned:{' '}
@@ -196,7 +200,7 @@ function InterestRow({ interest, admin }: InterestRowProps) {
           Accepted — applications are not access. This applicant has no account yet, so nothing
           was granted automatically. Next: vet them, then once they have a registered account,
           grant the curator role and ward scope at{' '}
-          <Link to="/admin/roles" className="text-brand underline underline-offset-2">
+          <Link to="/admin/roles" className="text-forest underline underline-offset-2">
             Roles &amp; access
           </Link>
           .
@@ -263,7 +267,7 @@ function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
     <form
       onSubmit={handleSubmit}
       aria-label="Add a partner"
-      className="space-y-3 rounded-lg border border-slate-200 p-4"
+      className="space-y-3 rounded-md border border-gray-300 p-4"
     >
       <div>
         <label htmlFor="new-partner-name" className="mb-1 block text-sm font-medium text-ink">
@@ -277,7 +281,7 @@ function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
             setName(e.target.value)
             setCreated(null)
           }}
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full min-h-[44px] rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
         />
       </div>
       <div>
@@ -288,7 +292,7 @@ function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
           id="new-partner-kind"
           value={kind}
           onChange={(e) => setKind(e.target.value as PartnerKind)}
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-xs min-h-[44px] rounded-sm border border-gray-300 px-3 py-2 text-base focus:border-forest"
         >
           {PARTNER_KINDS.map((k) => (
             <option key={k} value={k}>
@@ -305,12 +309,12 @@ function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
         onToggle={toggleWard}
       />
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
       {created && !error && (
-        <p className="rounded bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+        <p className="rounded-sm bg-forest-tint px-3 py-2 text-sm text-forest">
           Added —{' '}
           <Link
             to={`/partner/${created.slug}`}
@@ -320,12 +324,9 @@ function AddPartnerForm({ wards, admin }: AddPartnerFormProps) {
           </Link>
         </p>
       )}
-      <button
-        type="submit"
-        className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-      >
+      <Button type="submit" variant="primary">
         Add partner
-      </button>
+      </Button>
     </form>
   )
 }
@@ -390,25 +391,20 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
 
   if (!editing) {
     return (
-      <li className="rounded border border-slate-200 px-3 py-2 text-sm">
+      <li className="rounded-sm border border-gray-300 px-3 py-2 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <Link
               to={`/partner/${partner.slug}`}
-              className="font-medium text-brand underline underline-offset-2 hover:no-underline"
+              className="font-medium text-forest underline underline-offset-2 hover:no-underline"
             >
               {partner.name}
             </Link>
-            <span className="ml-2 text-xs uppercase tracking-wide text-ink/60">{partner.kind}</span>
+            <span className="ml-2 text-xs text-ink/60">{partner.kind}</span>
           </div>
-          <button
-            type="button"
-            onClick={startEdit}
-            aria-label={`Edit ${partner.name}`}
-            className="rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-ink hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <Button type="button" variant="secondary" onClick={startEdit} aria-label={`Edit ${partner.name}`}>
             Edit
-          </button>
+          </Button>
         </div>
         <p className="text-xs text-ink/60">
           {partner.wardIds.length === 0
@@ -423,7 +419,7 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
   }
 
   return (
-    <li className="space-y-3 rounded-lg border border-brand/40 bg-brand/5 p-4 text-sm">
+    <li className="space-y-3 rounded-md border border-forest bg-forest-tint p-4 text-sm">
       <div>
         <label
           htmlFor={`edit-partner-name-${partner.slug}`}
@@ -436,7 +432,7 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full min-h-[44px] rounded-sm border border-gray-300 bg-white px-3 py-2 text-base focus:border-forest"
         />
       </div>
       <div>
@@ -450,7 +446,7 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
           id={`edit-partner-kind-${partner.slug}`}
           value={kind}
           onChange={(e) => setKind(e.target.value as PartnerKind)}
-          className="w-full max-w-xs rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+          className="w-full max-w-xs min-h-[44px] rounded-sm border border-gray-300 bg-white px-3 py-2 text-base focus:border-forest"
         >
           {PARTNER_KINDS.map((k) => (
             <option key={k} value={k}>
@@ -467,7 +463,7 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
         onToggle={toggleWard}
       />
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
@@ -476,20 +472,12 @@ function PartnerRosterRow({ partner, wards, admin, registrationCount }: PartnerR
         working.
       </p>
       <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={handleSave}
-          className="rounded bg-brand px-4 py-1.5 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        <Button type="button" variant="primary" onClick={handleSave}>
           Save
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing(false)}
-          className="rounded border border-slate-300 px-4 py-1.5 text-sm font-semibold text-ink hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand"
-        >
+        </Button>
+        <Button type="button" variant="secondary" onClick={() => setEditing(false)}>
           Cancel
-        </button>
+        </Button>
       </div>
     </li>
   )
@@ -531,7 +519,7 @@ function HeldWardRow({ wardId, wardName, readiness, admin }: HeldWardRowProps) {
   }
 
   return (
-    <li className="space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-4">
+    <li className="space-y-2 rounded-md border border-gray-300 bg-sun-tint p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Link
           to={`/curator/ward/${wardId}`}
@@ -539,23 +527,19 @@ function HeldWardRow({ wardId, wardName, readiness, admin }: HeldWardRowProps) {
         >
           {wardName}
         </Link>
-        <span className="rounded-full border border-amber-400 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-amber-900">
+        <span className="rounded-full border border-transparent bg-sun-tint px-2.5 py-0.5 text-xs font-medium text-ink">
           Held
         </span>
       </div>
-      <p className="text-sm text-amber-900">{reason}</p>
+      <p className="text-sm text-ink">{reason}</p>
       {error && (
-        <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-red-800">
+        <p role="alert" className="rounded-sm bg-brick-tint px-3 py-2 text-sm text-brick">
           {error}
         </p>
       )}
-      <button
-        type="button"
-        onClick={override}
-        className="rounded border border-slate-700 px-3 py-1.5 text-sm font-semibold text-ink hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-brand"
-      >
+      <Button type="button" variant="primary" onClick={override}>
         Override hold
-      </button>
+      </Button>
     </li>
   )
 }
@@ -601,7 +585,7 @@ export default function Partners() {
   return (
     <div className="mx-auto max-w-3xl space-y-10 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Partners &amp; ward coverage</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Partners &amp; ward coverage</h1>
         <p className="mt-1 text-sm text-ink/70">
           Distribution partner reach across the city, expressions of interest awaiting a decision,
           and wards currently held from candidate-referencing comms.
@@ -661,7 +645,7 @@ export default function Partners() {
                 return (
                   <li
                     key={id}
-                    className="rounded border border-dashed border-slate-300 px-3 py-2 text-sm text-ink/80"
+                    className="rounded-sm border border-dashed border-gray-300 px-3 py-2 text-sm text-ink/80"
                   >
                     {ward?.wardName ?? id} — no partner
                   </li>

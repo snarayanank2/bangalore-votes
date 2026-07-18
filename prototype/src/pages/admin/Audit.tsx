@@ -41,7 +41,7 @@ export default function Audit() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Audit log</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">Audit log</h1>
         <p className="mt-1 text-sm text-ink/70">
           {entries.length} entr{entries.length === 1 ? 'y' : 'ies'} — every published change and
           admin action, newest first.
@@ -49,29 +49,29 @@ export default function Audit() {
       </div>
 
       {entries.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+        <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
           Nothing recorded yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <div className="max-h-[70vh] overflow-auto rounded-md border border-gray-300">
           <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-ink/60">
+            <thead className="sticky top-0 bg-white text-sm font-medium text-gray-600">
               <tr>
-                <th scope="col" className="px-3 py-2">When</th>
-                <th scope="col" className="px-3 py-2">Actor</th>
-                <th scope="col" className="px-3 py-2">Action</th>
-                <th scope="col" className="px-3 py-2">Ward</th>
-                <th scope="col" className="px-3 py-2">Detail</th>
+                <th scope="col" className="p-2 border-b border-gray-300">When</th>
+                <th scope="col" className="p-2 border-b border-gray-300">Actor</th>
+                <th scope="col" className="p-2 border-b border-gray-300">Action</th>
+                <th scope="col" className="p-2 border-b border-gray-300">Ward</th>
+                <th scope="col" className="p-2 border-b border-gray-300">Detail</th>
               </tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr key={entry.id} className="border-t border-slate-200 align-top">
-                  <td className="whitespace-nowrap px-3 py-2 text-ink/70">{formatStamp(entry.at)}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{actorName(entry.actorUserId)}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink">{entry.action}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-ink/70">{wardName(entry.wardId)}</td>
-                  <td className="px-3 py-2 text-ink/80">{entry.detail}</td>
+                <tr key={entry.id} className="align-top even:bg-gray-100">
+                  <td className="whitespace-nowrap p-2 text-ink/70">{formatStamp(entry.at)}</td>
+                  <td className="whitespace-nowrap p-2 text-ink">{actorName(entry.actorUserId)}</td>
+                  <td className="whitespace-nowrap p-2 text-ink">{entry.action}</td>
+                  <td className="whitespace-nowrap p-2 text-ink/70">{wardName(entry.wardId)}</td>
+                  <td className="p-2 text-ink/80">{entry.detail}</td>
                 </tr>
               ))}
             </tbody>

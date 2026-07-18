@@ -13,16 +13,16 @@ const ELECTION_STATUS = 'Not yet officially notified by the Election Commission'
 
 export default function AboutElection() {
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">About the GBA ward election</h1>
+        <h1 className="text-2xl text-ink sm:text-3xl">About the GBA ward election</h1>
       </div>
 
       <section
         aria-labelledby="status-heading"
-        className="space-y-2 rounded-lg border border-brand/20 bg-brand/5 p-4"
+        className="space-y-2 rounded-md bg-sun-tint p-4"
       >
-        <h2 id="status-heading" className="text-sm font-semibold uppercase tracking-wide text-brand">
+        <h2 id="status-heading" className="text-sm font-medium text-forest">
           Election status
         </h2>
         <p className="text-sm text-ink/90">{ELECTION_STATUS}.</p>

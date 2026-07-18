@@ -3,6 +3,7 @@ import { useData, useStoreVersion } from '../../context/DataContext'
 import { useModal } from '../../context/ModalContext'
 import { GatedButton } from '../../components/GatedButton'
 import { RegisterForUpdatesSlot } from '../../components/RegisterForUpdatesSlot'
+import { IssueResultsList } from '../../components/IssueResultsList'
 
 /**
  * Ward issues & voting (PRD §5.4/§5.5, IA §3.6, `/ward/:wardId/issues`). Anonymous-readable:
@@ -30,11 +31,11 @@ export default function WardIssues() {
 
   if (!ward) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="text-xl font-bold text-ink">We couldn&apos;t find that ward</h1>
+      <div className="mx-auto max-w-prose px-4 py-8">
+        <h1 className="text-xl text-ink">We couldn&apos;t find that ward</h1>
         <p className="mt-2 text-sm text-ink/70">
           Check the link, or{' '}
-          <Link to="/" className="text-brand underline underline-offset-2">
+          <Link to="/" className="text-forest underline underline-offset-2">
             search for your ward by name
           </Link>
           .
@@ -46,30 +47,36 @@ export default function WardIssues() {
   const issues = data.listIssues(ward.id)
   const tally = data.issueTally(ward.id)
   const issueById = new Map(issues.map((issue) => [issue.id, issue]))
+  const resultRows = tally
+    .map((row) => {
+      const issue = issueById.get(row.issueId)
+      return issue ? { id: row.issueId, title: issue.title, count: row.count } : null
+    })
+    .filter((row): row is { id: string; title: string; count: number } => row !== null)
 
   return (
-    <div className="mx-auto max-w-2xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-prose space-y-8 px-4 py-8">
       <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-brand">{ward.name}</p>
-        <h1 className="text-2xl font-bold text-ink sm:text-3xl">Ward issues &amp; voting</h1>
+        <p className="text-sm font-medium text-forest">{ward.name}</p>
+        <h1 className="text-2xl text-ink sm:text-3xl">Ward issues &amp; voting</h1>
       </div>
 
       <RegisterForUpdatesSlot wardId={ward.id} />
 
       <section aria-labelledby="issues-heading" className="space-y-3">
-        <h2 id="issues-heading" className="text-lg font-semibold text-ink">
+        <h2 id="issues-heading" className="text-lg text-ink">
           Key issues in this ward
         </h2>
         {issues.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-ink/70">
+          <p className="rounded-md border border-dashed border-gray-300 bg-gray-100 px-4 py-6 text-sm text-ink/70">
             No issues have been defined for this ward yet — a data curator sets the votable issue
             list. Check back closer to the election.
           </p>
         ) : (
           <ul className="space-y-3">
             {issues.map((issue) => (
-              <li key={issue.id} className="rounded-lg border border-slate-200 p-4">
-                <h3 className="font-semibold text-ink">{issue.title}</h3>
+              <li key={issue.id} className="rounded-md border border-gray-300 p-4">
+                <h3 className="text-ink">{issue.title}</h3>
                 <p className="mt-1 text-sm text-ink/80">{issue.description}</p>
                 <p className="mt-2 text-xs italic text-ink/60">
                   Candidate stances on this issue are not yet recorded. We&apos;ll show what each
@@ -84,49 +91,27 @@ export default function WardIssues() {
 
       {issues.length > 0 && (
         <section aria-labelledby="results-heading" className="space-y-3">
-          <h2 id="results-heading" className="text-lg font-semibold text-ink">
+          <h2 id="results-heading" className="text-lg text-ink">
             Public ranked results
           </h2>
           <p className="text-sm text-ink/70">
             What registered citizens in this ward say matters most, ranked by votes. Only
             aggregate totals are ever shown — individual votes are never made public.
           </p>
-          <ol aria-label="Ranked results" className="space-y-2">
-            {tally.map((row, index) => {
-              const issue = issueById.get(row.issueId)
-              if (!issue) return null
-              return (
-                <li
-                  key={row.issueId}
-                  className="flex items-center justify-between gap-3 rounded border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <span className="text-ink">
-                    <span className="mr-2 font-semibold text-brand">#{index + 1}</span>
-                    {issue.title}
-                  </span>
-                  <span className="whitespace-nowrap font-medium text-ink/80">
-                    {row.count} {row.count === 1 ? 'vote' : 'votes'}
-                  </span>
-                </li>
-              )
-            })}
-          </ol>
+          <IssueResultsList rows={resultRows} ariaLabel="Ranked results" />
         </section>
       )}
 
       {issues.length > 0 && (
-        <section aria-labelledby="vote-heading" className="space-y-3 border-t border-slate-200 pt-6">
-          <h2 id="vote-heading" className="text-lg font-semibold text-ink">
+        <section aria-labelledby="vote-heading" className="space-y-3 border-t border-gray-300 pt-6">
+          <h2 id="vote-heading" className="text-lg text-ink">
             Vote for your top issues
           </h2>
           <p className="text-sm text-ink/70">
             Voting is limited to your registered home ward. If this isn&apos;t your home ward,
             you&apos;ll be shown which ward you can vote in.
           </p>
-          <GatedButton
-            onAct={() => openVote({ wardId: ward.id })}
-            className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white focus:outline-none focus:ring-2 focus:ring-brand"
-          >
+          <GatedButton onAct={() => openVote({ wardId: ward.id })} variant="primary">
             Vote your top 3
           </GatedButton>
         </section>
