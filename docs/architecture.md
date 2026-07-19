@@ -25,6 +25,9 @@ This document records the production architecture for the platform defined in `d
 | Geo | Ward polygons as static GeoJSON (MapLibre reads them directly) + in-memory point-in-polygon (Turf.js); **no PostGIS** |
 | Client JS | Zero by default; islands only for modals, maps, and lookup forms |
 | Deployment | **DigitalOcean Droplet (BLR1)**; staging + production on one box; CI-built public GHCR images; push-to-main → staging, GitHub Release → production (§14) |
+| Migrations | **Drizzle SQL migrations**, forward-only and backward-compatible; run as an explicit deploy step before restart (§14.7) |
+| Media | Curator uploads (affidavit PDFs, candidate photos) stored **as bytea in Postgres**, served at immutable content-hashed URLs (§6, §7) |
+| Monitoring | **DO Uptime checks + server-side Sentry + email budget alarms** — external and minimal, nothing new on the VM (§10) |
 
 Alternatives considered: a Next.js monolith with ISR (heavier runtime, React hydration on every page, more framework than 19 mostly-read routes need) and a fully static build plus separate API service (spike-proof reads, but "publish immediately" becomes a rebuild pipeline and one deployable becomes two). Both were rejected in favour of the lighter shape above.
 
@@ -44,7 +47,7 @@ No Redis, no queue, no separate API service. Deploys pull CI-built images from G
 ## 4. Routing & rendering
 
 - Public pages are server-rendered to complete HTML with **zero client JavaScript by default**. Hydrated islands only for: the Register/Login, Flag, and Cast-vote modals; MapLibre maps; the address/pincode lookup; the booth lookup.
-- **Language:** every public path exists twice — `/ward/57` (EN) and `/kn/ward/57` (KN) — via Astro i18n routing. The app-bar toggle links to the same page in the other language. Every page emits `hreflang` alternates and `x-default`. A cookie remembers the last choice so `/` can offer Kannada on entry; a registered user's saved preference governs notification language only (PRD §8).
+- **Language:** every public path exists twice — `/ward/57` (EN) and `/kn/ward/57` (KN) — via Astro i18n routing. The app-bar toggle links to the same page in the other language. Every page emits `hreflang` alternates and `x-default`. A cookie remembers the last choice so `/` can offer Kannada on entry — read **client-side** by a small script, like the `?src` writer (§5), because nginx strips cookies on public routes and the cached HTML is identical for everyone; the offer is a client-rendered banner, never a server-side variant. A registered user's saved preference governs notification language only (PRD §8).
 - Curator, admin, and account screens are server-rendered forms with standard POSTs in the same app — no SPA.
 - Modals are progressive enhancements over real routes, so the `/login` no-JS fallback comes free.
 
@@ -57,13 +60,16 @@ nginx `proxy_cache` on anonymous-shaped GET HTML:
 - **The cache key ignores the query string entirely** on public pages — unknown params can neither fragment the cache nor cache-bust it into a DoS on the origin. `?src={partner}` attribution still works: a small inline script reads `location.search` client-side and stores the slug in a cookie, which the registration endpoint reads (PRD §5.12).
 - Worst-case origin load is every public URL rendered once per TTL — about 4,000 renders/minute at the absolute ceiling (369 wards × ~5 pages × 2 languages), well within one Node process. The spike lands on nginx, which serves cached responses at static-file speed.
 - The 60 s window satisfies "curator edits go live immediately"; curators previewing edits use uncached curator routes.
+- **Stale-while-restart:** `proxy_cache_use_stale error timeout updating` plus `proxy_cache_background_update` — cached public pages keep serving through the seconds an app restart takes (deploys, §14.4; a pre-election resize, §14.1) and through brief origin failures. Only uncached paths (`/api/*`, account/curator/admin) blip during a restart.
+- **Uploaded media** (candidate photos, affidavit PDFs) is served at immutable content-hashed URLs (`/media/{id}/{hash}`, §7) with a long nginx cache TTL. An edit produces a new URL, so long-lived media caching coexists with the 60 s page TTL and the query-string rule above.
+- **The Host header cannot poison the cache.** Every server-generated absolute URL — canonicals, `hreflang` alternates, `og:url`, JSON-LD `@id`, sitemap entries — derives from the fixed configured origin (Astro `site`), never from the request's `Host` or `X-Forwarded-Host`. nginx proxies only its named server blocks and passes a pinned `Host`; a default server rejects unmatched hosts. With output Host-independent, the path-plus-language cache key stays safe.
 - A CDN added later sits in front of nginx with the same cache headers; the one required change is trust: nginx then takes client IPs for rate limiting from `X-Forwarded-For` via `real_ip`, restricted to the CDN's published ranges, so per-IP limits stay unspoofable.
 
 ## 6. Data model (sketch)
 
-`wards` (id, name_en, name_kn, corporation, boundary ref) · `candidates` (slug, ward, party, photo) · `candidate_fields` (candidate, field key, value_en, value_kn, authored_lang, translation_status, source_url, source_type `official|curator`) · `candidate_affidavits` (candidate, stored PDF on the VM's disk — covered by the §6.9 backup — origin EC URL if fetched, extraction status; the stored copy is the public source link for affidavit fields, PRD §5.2) · `ward_issues` + per-candidate stances · `issue_votes` (user, ward, up to 3 issues; one active set per user, retired on home-ward change) · `users` (contact, home ward, language, role, `src` attribution, consent record: timestamp + wording version) · `otp_codes`, `sessions` · `flags` (dedupe key → count) · `partners` · `eoi_submissions` · `ward_readiness` (completeness snapshot, sign-off, cleared on candidate-set change) · `audit_log` (append-only; written in the same transaction as the change it records).
+`wards` (id, name_en, name_kn, corporation, boundary ref) · `candidates` (slug, ward, party, photo → media) · `candidate_fields` (candidate, field key, value_en, value_kn, authored_lang, translation_status, source_url, source_type `official|curator`) · `candidate_affidavits` (candidate, media ref, origin EC URL if fetched, extraction status; the stored copy is the public source link for affidavit fields, PRD §5.2) · `media` (bytes as bytea, validated content type, sha256, size — candidate photos and affidavit PDFs, so the nightly `pg_dump` covers every curator upload with no second backup path) · `ward_issues` + per-candidate stances · `booths` (name_en, name_kn, address, location, ward) · `issue_votes` (user, ward, up to 3 issues; one active set per user, retired on home-ward change) · `users` (contact, home ward, language, role, `src` attribution, consent record: timestamp + wording version) · `otp_codes`, `sessions` · `suppressions` (contact, channel, reason `bounce|complaint|stop`; written by the §7 webhooks, honoured before every send) · `flags` (dedupe key → count) · `partners` · `eoi_submissions` · `ward_readiness` (completeness snapshot, sign-off, cleared on candidate-set change) · `audit_log` (append-only; written in the same transaction as the change it records).
 
-Sources are per-field (PRD §11). Ward boundaries are static GeoJSON files served by nginx and loaded into app memory at boot for point-in-polygon lookups.
+Sources are per-field (PRD §11). Ward boundaries are static GeoJSON files served by nginx and loaded into app memory at boot for point-in-polygon lookups. The pincode → ward shortlist table (§7) is likewise a build artifact, not a runtime table: generated by a repo script from official delimitation and postal data, committed, and served as static JSON.
 
 ## 7. API surface & auth
 
@@ -77,11 +83,24 @@ Public endpoints:
 | `GET /api/me` | Session state for client-side personalization |
 | `POST /api/flags` | Gated write; dedupe; audit |
 | `PUT /api/issue-votes` | Home-ward check; one active vote-set |
-| `POST /api/eoi` | The one anonymous write; CAPTCHA-protected (PRD §6.3) |
+| `POST /api/eoi` | The one anonymous write; protected by **reCAPTCHA v3** (server-verified token + score; the script loads only on `/partner-with-us` — §13), disclosed in `/privacy` alongside GA |
+| `POST /api/webhooks/sendgrid` | SendGrid event webhook: bounces and spam complaints write `suppressions` (§6). Signed-event verification |
+| `POST /api/webhooks/twilio` | Twilio callbacks: WhatsApp delivery status; an inbound STOP suppresses the channel permanently. `X-Twilio-Signature`-verified |
+| `GET /media/{id}/{hash}` | Uploaded media served from Postgres at an immutable content-hashed URL, long-TTL cached (§5); `Content-Type` comes from the validated stored type, never from the upload (§13) |
 
 Pincode → ward shortlist is a static JSON lookup table — no API call.
 
-Sessions are signed cookies with `HttpOnly; Secure; SameSite=Lax` and a sliding **1-hour idle timeout for all roles**; re-auth is the normal OTP flow. One middleware enforces roles and curator ward scope (PRD §7); the same middleware rejects unsafe methods that fail an `Origin`/`Sec-Fetch-Site` same-origin check, and server-rendered forms carry a synchronizer CSRF token for the no-JS paths (§13). Rate limiting is layered: nginx `limit_req` per IP on `/api/*`, plus per-account app limits on OTP requests, flags, and votes, plus the per-destination OTP cooldowns above.
+Webhook endpoints are `no-store`, carry no session, and reject anything that fails signature verification. They get their **own generous `limit_req` zone**, deliberately not the general `/api/*` one: a campaign to 25,000 recipients returns bounce and delivery events from a handful of vendor IPs within minutes, and throttling that burst would silently drop suppression and STOP events. As a safety net, `jobs` periodically reconciles the local table against SendGrid's own suppression list (§10). That net is SendGrid-only, deliberately: Twilio exposes no equivalent queryable opt-out list for WhatsApp, so an inbound STOP lost to webhook failure has no second chance — accepted, with the generous webhook zone and logged signature failures keeping that window small. The `suppressions` the webhooks write are honoured by `jobs` before every send (§10) — the mechanism behind dependency register §3.15/§3.16.
+
+**Curator uploads** (affidavit PDF, candidate photo) are curator-only and per-account rate-limited, with size caps enforced twice — nginx `client_max_body_size` on the upload routes, re-checked app-side: **photos ≤ 2 MB, affidavit PDFs ≤ 20 MB**. Allowed types are an enumerated allowlist validated by magic bytes (§13); the file extension and client-supplied MIME type are ignored.
+
+**The EC-link fetch** (PRD §5.2 — a curator pastes an affidavit URL and the platform fetches it) is the one server-side fetch of a user-supplied URL, and it is treated as an SSRF vector, not a convenience: `https` only; the target host must match an allowlist of official EC/CEO Karnataka domains; the resolved address is rejected if private, loopback, link-local, or the cloud metadata range (re-checked after each redirect, redirects capped); and the fetched bytes pass the same magic-byte and size validation as a direct upload before storage.
+
+**Erasure (DPDP data-principal rights):** deletion requests arrive via the grievance contact (PRD §5.16) and run an admin-triggered, audit-logged routine that deletes the OTP/session/contact data and consent records, and severs identity from what remains: the `users` row becomes an opaque tombstone, so `issue_votes`, `flags`, and `audit_log` rows keep their aggregate and provenance value with no path back to a person. Audit *facts* survive; audit *identity* does not. Erased data persists in the encrypted nightly backups until they age out under the retention policy (PRD §17) — stated in `/privacy`.
+
+Sessions are signed cookies with `HttpOnly; Secure; SameSite=Lax` and a sliding **1-hour idle timeout for all roles**; re-auth is the normal OTP flow. One middleware enforces roles and curator ward scope (PRD §7); the same middleware rejects unsafe methods that fail an `Origin`/`Sec-Fetch-Site` same-origin check, and server-rendered forms carry a synchronizer CSRF token for the no-JS paths (§13). Rate limiting is layered: nginx `limit_req` per IP on `/api/*` — **per-endpoint zones with high bursts, sized for carrier-grade NAT**, because much of Bengaluru's mobile traffic shares egress IPs (Jio/Airtel CGNAT) and a limit tight enough to stop abuse would 429 legitimate ward lookups on election day. Per-IP limits are therefore a coarse flood backstop only; the per-account app limits (OTP requests, flags, votes, media uploads) and the per-destination OTP cooldowns above carry the real abuse weight. The k6 test (§12) asserts legitimate-shaped traffic sees no 429s at election-day volume.
+
+**Audit rollback** (PRD §11): the `/admin/audit` viewer carries a per-entry *restore this value* action — admin-only, per the PRD §7 matrix. Restore writes the prior value back as a **new publish**: same transaction, new audit entry, machine translation re-triggered (§9). Rollback is always a forward write; audit history is never edited.
 
 ## 8. SEO / AEO
 
@@ -120,8 +139,12 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 
 ## 10. Jobs, ops, backups
 
-- `jobs` runs the fixed campaign calendar (`docs/gtm-plan.md`) against SendGrid/Twilio, honouring ward readiness (PRD §9.1), the language preference, and channel toggles; plus translation retries and sitemap regeneration.
-- Structured logs to stdout via Compose logging; a healthcheck endpoint.
+- `jobs` runs the fixed campaign calendar (`docs/gtm-plan.md`) against SendGrid/Twilio, honouring ward readiness (PRD §9.1), the language preference, channel toggles, and the `suppressions` table (§7); plus translation retries, sitemap regeneration, and a periodic reconciliation of `suppressions` against SendGrid's own suppression list — the safety net if a webhook event is ever lost (§7).
+- Structured logs to stdout via Compose logging, with `logging` options capping size and rotating files (Docker's default driver never rotates — an unbounded disk consumer otherwise); a healthcheck endpoint.
+- **Monitoring is external and minimal** (decided 2026-07-19). DigitalOcean Uptime checks probe the healthcheck and one public page per language from outside the box, alerting ops by email — including an **SSL-expiry alert** on the production hostname (§14.5). A **disk-utilization alert** via the stock DO metrics agent is the one deliberate exception to "nothing on the VM" (see the disk bullet below). **Sentry (free tier), server-side only** — `app` and `jobs` report errors; there is no client-side Sentry, so no added JS and no CSP change; event content is scrubbed per §13. The OTP-send and geocode budget alarms (§13) are SendGrid emails to the same ops address. Compose logs remain the forensic layer, within the §13 content rules.
+- **Backup success is verified, not assumed.** After each nightly run the backup script checks `restic snapshots` actually gained one, then pings a dead-man's-switch (healthchecks.io, free tier); a missed ping emails ops. Without this, a wedged cron or expired Spaces credential silently converts the accepted 24-hour RPO into unbounded loss.
+- **Disk has an owner.** One ~80 GB disk carries two Postgres instances (media as bytea — bounded: ≤20 MB per affidavit, ≤2 MB per photo, across 369 wards' candidates), the dump staging file (removed after restic ships it), the nginx cache, rotated logs (above), and pulled images — the deploy workflow prunes superseded images. The DO disk alert (above) fires at 80% so exhaustion never takes Postgres down mid-spike.
+- **Recovery targets, stated plainly.** RPO 24 hours: losing the Droplet's disk loses up to a day of registrations, issue votes, flags, and audit entries — an accepted limitation (§13). RTO is hours, not minutes: restore the weekly snapshot, or rebuild from the §14.6 runbook plus a restic restore. Nothing shortens the data-loss window but the nightly dump's age.
 - Nightly `pg_dump` shipped off-box with **restic** — chosen over rclone because it encrypts at rest by default; the dump contains DPDP-regulated personal data (contacts, home wards, consent records, identity-linked issue votes). The restic repository is a **DO Spaces bucket in BLR1** — India-resident by choice (§14); the same-region trade is recorded in §13. Repository key held off-box, admin-only. Rehearsed restore (dependency register §6.9).
 
 ## 11. Error handling
@@ -136,8 +159,9 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 
 - Vitest for unit and route tests.
 - Playwright smoke suite over the critical paths: lookup → ward page; OTP → vote; flag → curator accept → live; language toggle → `/kn/` equivalence.
-- One k6 load test proving the nginx micro-cache holds election-day read volume on the actual VM size.
+- One k6 load test proving the nginx micro-cache holds election-day read volume on the actual VM size — asserting, too, that legitimate-shaped traffic through the CGNAT-sized rate limits (§7) sees no 429s.
 - A route test asserting public GETs set no cookies and contain no session-dependent bytes — the guard on the §5 cache invariant.
+- Route tests for the §7 webhook endpoints (invalid signatures rejected; a bounce event lands in `suppressions`) and for media ingest (over-size and off-allowlist uploads rejected).
 - The translation staleness check (`npm run translate -- --check`, §9) runs in CI on every PR and on `main` — the guard on bilingual completeness.
 
 ## 13. Security
@@ -145,17 +169,22 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 Decided 2026-07-17 after a security review of this design. The per-mechanism details live in the sections above where they apply (§5 cache enforcement, §7 sessions/OTP/geocode, §10 backups, §12 tests); this section carries the cross-cutting rules and the limitations accepted deliberately.
 
 - **CSRF:** `SameSite=Lax` cookies; middleware `Origin`/`Sec-Fetch-Site` check on all unsafe methods; synchronizer tokens on server-rendered forms (§7). Forged curator publishes are the worst outcome this design can produce, so this is not optional hardening.
-- **OTP:** 5 verify attempts per code, then the code is invalidated. Per-destination request cooldowns — per email/phone: 1/minute, 5/hour, and a daily cap — because botnets defeat per-IP limits and per-destination limits are what stop SMS/WhatsApp pumping. A global daily send budget with an ops alarm bounds what an attack can cost.
+- **OTP:** 5 verify attempts per code, then the code is invalidated. Per-destination request cooldowns — per email/phone: 1/minute, 5/hour, and a daily cap — because botnets defeat per-IP limits and per-destination limits are what stop SMS/WhatsApp pumping. A global daily send budget with an ops alarm bounds what an attack can cost. The cooldowns are themselves a targeted-DoS vector against named staff (anyone can burn a known curator or admin address's send budget), so they deny fresh *sends*, never login: a request during cooldown returns "a code was already sent", the earlier code stays valid — and it sits in the victim's own inbox, wherever the request came from — and an admin runbook step clears a destination's cooldown state. A sustained attacker can still burn each fresh code with five bad verifies until the daily send cap locks the destination for the day — the runbook step and the bounded window are the accepted answer; binding verify attempts to the requesting session was judged not worth the machinery yet.
 - **Cost amplification:** the geocode cache stores normalized address → ward ID only — the platform's own derived conclusion, never Google's coordinates or response content (ToS stance: dependency register §6.4). A daily geocode budget degrades to pincode lookup when exhausted. The Anthropic API needs no equivalent guard: only authenticated curator publishes trigger it, never public traffic.
-- **Headers:** nginx sets HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a CSP with `frame-ancestors 'none'` and per-request nonces for the two inline scripts (`?src` writer, GA). No `unsafe-inline`.
-- **Content rules:** flag text renders as text, always (citizen flag text shown in curator screens is a citizen→curator escalation path otherwise); `source_url` validated to `http(s)` schemes at write time (kills `javascript:` links); JSON-LD serialized with `<` escaped so curator data cannot close the script tag; MT output stored and rendered as plain text through normal escaping.
-- **Affidavit PDFs:** PDF magic-byte check at ingest; served as `application/pdf` with `Content-Disposition` and `nosniff`, so the affidavit store cannot host other content types.
+- **Headers:** nginx sets HSTS, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a CSP with `frame-ancestors 'none'` and per-request nonces for the two inline scripts (`?src` writer, GA). No `unsafe-inline`. On `/partner-with-us` only, the CSP additionally allows the reCAPTCHA script and frame hosts (`www.google.com`, `www.gstatic.com`) — §7.
+- **Content rules:** flag text renders as text, always (citizen flag text shown in curator screens is a citizen→curator escalation path otherwise); every curator-supplied URL — `source_url`, news links, the EC affidavit link — validated to `http(s)` schemes at write time (kills `javascript:` links); JSON-LD serialized with `<` escaped so curator data cannot close the script tag; MT output stored and rendered as plain text through normal escaping.
+- **Logs & telemetry carry IDs, not identities:** application logs never contain lookup addresses, OTP destinations, or message recipients — opaque user/request IDs only; Sentry runs with default PII capture off and server-side scrubbing of contact and address fields (the requests most likely to error are exactly the ones carrying them). Log retention is bounded by the same retention decision as the rest of personal data (PRD §17). The same rigor already applied to the geocode cache, applied to the exhaust.
+- **Cross-border processing, stated once:** Twilio, SendGrid, Google, Anthropic, and Sentry process personal data substantially outside India. DPDP §16 permits transfers absent a government restriction list, data-processing terms are executed with each vendor (dependency register §2.8), and the flows are enumerated in `/privacy` (PRD §5.16). The India-resident backup bucket (§10) is defense-in-depth for the copy at rest, not a claim the platform is India-resident end to end.
+- **Breach response is an obligation, not an option:** the DPDP Act requires notifying the Data Protection Board and affected data principals of a personal data breach. The procedure — decision timeline, Board notification, bilingual affected-user notice via the existing send infrastructure — is a runbook with a named owner (dependency register §2.9).
+- **Uploaded media:** an enumerated type allowlist validated by magic bytes at ingest — PDF for affidavits; JPEG/PNG/WebP for photos, **no SVG** (a script container, and these files serve from the site's origin). Served with `Content-Type` from the validated stored type, `nosniff`, and `Content-Disposition` for PDFs, so the media store cannot host other content types. Size caps and upload rate limits: §7.
 - **Secrets:** one `.env` outside the repo, mode 600, referenced by Compose; holds the vendor keys, session-signing key, and restic key reference. Rotation is a runbook step (custody: dependency register §6.10).
 - **Accepted limitations, recorded deliberately:**
   - The audit log is append-only at the application level only — database compromise defeats it; "immutable" (PRD §6) holds against application bugs and curator action, not against DB compromise. The nightly encrypted backups are the only historical copies. Hash chains and off-box audit streaming were considered and rejected as infrastructure the threat model doesn't yet justify.
   - Prompt injection into the MT/extraction calls (affidavit PDFs and curator text are adversarial inputs, and Kannada MT publishes unreviewed — locked decision, PRD §8) is mitigated by escaping, a fixed extraction schema, visible provenance markers, and the citizen-flag correction path. No further machinery.
   - Sessions have a uniform 1-hour idle timeout instead of per-role lifetimes; no session revocation on role change, no login notifications for privileged accounts — the short timeout carries the weight.
   - Backups share a region with the VM: the restic Spaces bucket sits in BLR1 alongside the Droplet, so a region-wide DigitalOcean failure loses the site and its backups together. India residency for the DPDP-regulated dump won over disaster isolation (decided 2026-07-19); weekly Droplet snapshots are the second layer, and they share the region too.
+  - Backups are nightly only: up to 24 hours of registrations, issue votes, flags, and audit entries are lost if the Droplet's disk dies (decided 2026-07-19). WAL archiving would shrink the window to minutes and was rejected as a second backup mechanism to operate and rehearse — even election-week write volume was judged worth less than that operational load. Recovery targets: §10.
+  - CI holds the keys to the box: the `deploy` user's `docker` group membership is root-equivalent on the host, and the staging key fires on every push to `main` with no approval gate — so a compromised Actions workflow or a malicious merge is full compromise of both stacks, production included (§14.2 shares the host). Accepted for a single-VM project; the mitigations are environment-scoped secrets, key-only SSH, enabling the §14.4 production reviewer gate before election week, and a planned forced-command wrapper restricting the deploy key to pull-migrate-restart.
 
 ## 14. Deployment (DigitalOcean)
 
@@ -170,10 +199,10 @@ One Premium AMD Droplet, **2 vCPU / 4 GB** (~$28/mo), in **BLR1 (Bengaluru)** �
 Production and staging run as **two Compose projects** side by side:
 
 - **One shared nginx container** (owned by the production stack; staging joins its network) terminates TLS for `bangalore-votes.opencity.in` and `staging.bangalore-votes.opencity.in` and proxies to the per-environment `app` containers.
-- Staging has its **own `app`, `postgres`, and `jobs`** — nothing shared below nginx. Staging Postgres is disposable: not backed up, safe to reset.
+- Staging has its **own `app`, `postgres`, and `jobs`** — nothing shared below nginx. Staging containers join only nginx's front network: **no route from any staging container to production Postgres**, so less-tested staging code cannot reach production data laterally. Staging Postgres is disposable: not backed up, safe to reset.
 - **Staging `jobs` cannot message real people.** Its `.env` carries no production Twilio/SendGrid keys, and a `SENDS_DISABLED` flag makes the campaign runner log instead of send. Both guards, deliberately.
 - **Staging is invisible to the public:** its server block sends `X-Robots-Tag: noindex` and requires basic auth.
-- Accepted trade (chosen over a second Droplet): staging shares CPU and disk with production. Mitigation: images build in CI, never on the Droplet, so the heaviest work never lands on the box.
+- Accepted trade (chosen over a second Droplet): staging shares CPU and disk with production — and the kernel, Docker daemon, and deploy user, which is the blast-radius limitation recorded in §13. Mitigation: images build in CI, never on the Droplet, so the heaviest work never lands on the box.
 
 ### 14.3 Images & registry
 
@@ -181,15 +210,15 @@ CI builds the `app` and `jobs` images; the Droplet only ever pulls. Images are *
 
 ### 14.4 Release flow
 
-- **Staging — every merge.** Push to `main` → Actions runs tests, builds and pushes images, then SSHes to the Droplet and runs `docker compose pull && docker compose up -d` on the staging stack.
-- **Production — on release.** Publishing a **GitHub Release** triggers the production workflow: build the images fresh from the release tag's commit, push, SSH in, pull and restart the production stack. Release notes live on the Release page (`Generate release notes` compiles merged PRs); `gh release create v2026.07.19 --generate-notes` does the same from a terminal.
+- **Staging — every merge.** Push to `main` → Actions runs tests, builds and pushes images, then SSHes to the Droplet and, on the staging stack, runs `docker compose pull`, the migration step (§14.7), and `docker compose up -d`.
+- **Production — on release.** Publishing a **GitHub Release** triggers the production workflow: build the images fresh from the release tag's commit, push, SSH in, then pull, migrate (§14.7), and restart the production stack. Release notes live on the Release page (`Generate release notes` compiles merged PRs); `gh release create v2026.07.19 --generate-notes` does the same from a terminal.
 - **Versioning is date-based:** `vYYYY.MM.DD`, with `.2` appended for a second same-day release. Semver encodes API-compatibility promises this site doesn't make; a date tag states the fact operators actually ask for — how old is what's live.
-- **Rollback:** re-run the production deploy workflow (`workflow_dispatch`) with the previous release tag. Images are immutable in GHCR, so rollback is a pull and restart, not a rebuild.
+- **Rollback:** re-run the production deploy workflow (`workflow_dispatch`) with the previous release tag. Images are immutable in GHCR, so rollback is a pull and restart, not a rebuild — and never a schema step, because migrations are backward-compatible (§14.7).
 - **SSH from CI:** a dedicated `deploy` user (key-only, `docker` group). Keys live in GitHub **Environment** secrets — separate `staging` and `production` environments; the `production` environment can require reviewer approval before deploying (off at first, enable if wanted).
 
 ### 14.5 Network & TLS
 
-A **DO Cloud Firewall** allows inbound 22, 80, 443 only. SSH is key-only; passwords and root login disabled. TLS is Let's Encrypt via a **certbot container** in the production stack: HTTP-01 for both hostnames, certificates on a volume shared with nginx, nginx reload on renewal. "nginx terminates TLS" (§3) is unchanged.
+A **DO Cloud Firewall** allows inbound 22, 80, 443 only. SSH is key-only; passwords and root login disabled. TLS is Let's Encrypt via a **certbot container** in the production stack: HTTP-01 for both hostnames (nginx routes `/.well-known/acme-challenge/` to the shared webroot volume), certificates on a volume shared with nginx. The reload mechanism is chosen, not hand-waved: the nginx container runs a **daily `nginx -s reload` timer** — a no-op when nothing changed — so renewed certificates take effect without giving certbot a docker-socket mount. Silent renewal failure is caught weeks early by the DO Uptime SSL-expiry alert (§10). "nginx terminates TLS" (§3) is unchanged.
 
 ### 14.6 Provisioning runbook
 
@@ -201,7 +230,17 @@ No Terraform — one Droplet doesn't justify it. Provisioning is this runbook:
 4. Clone the repo; write the two `.env` files (mode 600, outside the repo — §13).
 5. Run certbot once for both hostnames; start the production stack, then staging.
 6. Initialize the restic repository against the Spaces bucket; rehearse a restore (dependency register §6.9).
+7. **Seed the first admin:** a one-time CLI (`docker compose run --rm app npm run seed:admin -- <address>`) inserts the named admin identity — the root of the authorization chain, since OTP-only auth means role is nothing but a DB field. Every later role grant is an admin action in `/admin`, audit-logged; role is never inferred from the authenticating address.
 
-### 14.7 Running cost
+### 14.7 Database migrations
 
-Droplet ~$28 + Spaces ~$5 + snapshots ~$1–2 + GHCR $0 ≈ **$34–35/mo** before messaging, geocoding, and Anthropic spend — a concrete input to the open total-budget question (dependency register §6.11).
+Decided 2026-07-19.
+
+- **Drizzle Kit generates SQL migration files**, committed and reviewed like any other code.
+- Both deploy workflows (§14.4) run migrations as an explicit step between image pull and restart: `docker compose run --rm app npm run migrate`, using the just-pulled image. Staging therefore exercises every migration before production by construction.
+- **Migrations are forward-only and backward-compatible** — expand, backfill, contract in a later release. The previous app image must run correctly against the new schema, so §14.4 rollback stays a pull-and-restart, never a schema downgrade.
+- A failed migration aborts the deploy before any container restarts; the running version continues against the unchanged schema.
+
+### 14.8 Running cost
+
+Droplet ~$28 + Spaces ~$5 + snapshots ~$1–2 + GHCR $0 + monitoring & CAPTCHA $0 (DO Uptime, Sentry free tier, reCAPTCHA) ≈ **$34–35/mo** before messaging, geocoding, and Anthropic spend — a concrete input to the open total-budget question (dependency register §6.11).

@@ -37,11 +37,13 @@ Every arrow is someone else's queue. The chain is measured in months, and it sta
 |---|---|---|---|
 | 2.1 | **Retention period decision** — how long citizen contact data is kept; a period or a deletion trigger | `/privacy`, therefore all of Path A | unassigned |
 | 2.2 | **Legal counsel engaged** — to draft `/terms` and `/privacy` | Path A | unassigned |
-| 2.3 | **DPDP Act 2023 compliance review** — consent notice, purpose limitation, data-principal rights | `/privacy` | unassigned |
+| 2.3 | **DPDP Act 2023 compliance review** — consent notice, purpose limitation, data-principal rights incl. erasure mechanics (`docs/architecture.md` §7), children's-data position (the 18+ assertion at registration, PRD §10), cross-border transfer position (`docs/architecture.md` §13) | `/privacy` | unassigned |
 | 2.4 | **Named grievance officer** — a real person, contactable, published | `/privacy` (DPDP requirement) | unassigned |
 | 2.5 | **Contribution licensing** — terms under which citizen flags and issue votes are used | `/terms` | unassigned |
 | 2.6 | **Future-use consent decision** — whether registration carries an optional "tell me about future civic tools" opt-in | Registration UI; the next phase's list | unassigned |
 | 2.7 | **Oorvani Foundation entity details** — trust registration, signing authority, registered address for legal pages and Meta verification | `/privacy`, `/about`, Meta verification | unassigned |
+| 2.8 | **Data-processing terms with every processor** — Twilio/SendGrid DPAs, Google Cloud terms (Geocoding), Anthropic commercial terms, Sentry DPA; the contractual cover behind the `/privacy` processor inventory (PRD §5.16) and the cross-border position (`docs/architecture.md` §13) | `/privacy` accuracy; the amended "shares only with service providers under contract" commitment | unassigned |
+| 2.9 | **DPDP breach-notification readiness** — Data Protection Board notification procedure, bilingual affected-user notice template, decision timeline, named owner (`docs/architecture.md` §13) | Launch responsibly; the Act has no materiality threshold | unassigned |
 
 **2.1 is the first domino.** It is a trust decision before it is a legal one, and it is currently unowned.
 
@@ -159,6 +161,8 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
 | 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
 | 6.12 | **Google Analytics property** — created, access shared, and the tracker disclosed in `/privacy` before it ships | The 300,000-unique-visitor target and funnel/attribution measurement (GTM §8) | unassigned |
+| 6.13 | **reCAPTCHA v3 keys** — site key + secret for the anonymous EOI form (`docs/architecture.md` §7); disclosed in `/privacy` alongside GA | `/partner-with-us` | unassigned |
+| 6.14 | **Monitoring accounts** — DigitalOcean Uptime checks (incl. the SSL-expiry alert) wired to an ops alert email; a Sentry project (free tier, server-side only); a healthchecks.io check for the backup dead-man's-switch (`docs/architecture.md` §10) | Knowing the site is down; budget alarms landing somewhere; backup failure being loud | unassigned |
 
 **6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 

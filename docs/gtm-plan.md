@@ -21,7 +21,7 @@ Distribution is **partner-led and earned**: RWA and community networks, civic or
 | Area | Choice | Why |
 |---|---|---|
 | Operator | The **Oorvani Foundation**, the trust behind `opencity.in` | Named on `/about` and `/privacy`. An election platform whose operator is unclear has no neutrality claim to make. |
-| Citizen data use | No sale or sharing with third parties. Contacts used for ward election updates and **critical product updates** only | Oorvani's commitment. "Critical product updates" must be drafted narrowly — service-affecting notices, not feature marketing — or it becomes the loophole the DPDP purpose limitation exists to close. |
+| Citizen data use | No sale; shared only with the service providers operating the platform (PRD §5.16). Contacts used for ward election updates and **critical product updates** only | Oorvani's commitment. "Critical product updates" must be drafted narrowly — service-affecting notices, not feature marketing — or it becomes the loophole the DPDP purpose limitation exists to close. |
 | Primary metric | Registered citizens with home ward set | Measurable and re-contactable. Ward breadth tracked as a guardrail against central-Bengaluru skew. |
 | Phase 1 target | **300,000 unique visitors; ~25,000 registrations, with ≥50 in ≥300 of 369 wards** | Registrations built bottom-up from what a partner cascade can deliver unpaid, not down from a quotable share of the electorate. Ward breadth guards the registration total because a total alone is satisfiable entirely from central Bengaluru. The visitor target sizes the anonymous read audience the registrations convert from. |
 | Analytics | **Google Analytics** tracks visitor and event data | Unique-visitor and on-page event measurement needs a client-side tracker; server-side application events remain the source of truth for registrations. Disclosed in `/privacy` (PRD §5.16). |
@@ -138,7 +138,7 @@ The honest caveat: this page reads "14 of 369 wards" in Phase 1, and the roll-up
 
 **`/about`** — extended rather than duplicated; the existing page (IA §3.13) already covers who runs the platform. It now names the operator — the **Oorvani Foundation**, the trust behind `opencity.in` — and gains an explicit **funding disclosure**. For a platform whose whole value is neutrality, who runs and pays for it is the first question a skeptical journalist asks, and the answer should not have to be requested.
 
-It also carries Oorvani's **data commitments** in citizen-readable terms: the data is not sold or shared with third parties, and contact details are used for ward election updates and critical product notices only. These are the same commitments `/privacy` makes in legal language. Saying them in plain words on the page citizens actually read is what converts a compliance document into a reason to trust the platform enough to hand over a phone number — which is the entire funnel.
+It also carries Oorvani's **data commitments** in citizen-readable terms: the data is never sold, is shared only with the service providers that deliver the platform's own messages, and contact details are used for ward election updates and critical product notices only. These are the same commitments `/privacy` makes in legal language. Saying them in plain words on the page citizens actually read is what converts a compliance document into a reason to trust the platform enough to hand over a phone number — which is the entire funnel.
 
 ---
 
