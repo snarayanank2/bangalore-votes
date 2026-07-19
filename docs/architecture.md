@@ -103,12 +103,16 @@ Sessions are signed cookies with `HttpOnly; Secure; SameSite=Lax` and a sliding 
 
 No layer translates at request time; every render is from stored text.
 
-**Dev-time script** (`npm run translate`): finds missing or stale Kannada files/keys (staleness = hash of the English source stored in the KN file's frontmatter), drafts them via the Anthropic API, writes ordinary files. Output is committed, diffable, and hand-fixable in a PR; hand-fixed files can be marked to skip regeneration.
+**Dev-time script** (`npm run translate`): finds missing or stale Kannada files/keys (staleness = hash of the English source stored in the KN file's frontmatter), drafts them via the Anthropic API, writes ordinary files. Output is committed and diffable. **Regeneration is unconditional:** every English change regenerates its Kannada — there is no skip mark, and hand-edits to generated output are overwritten on the next source change, so they are not the correction path. Corrections live in **translation hints**: editable instructions in the English file's frontmatter (or, for UI strings, a hints entry beside the key) naming the specific sentence or word and how to render it — e.g. *"render 'report card' as ವರದಿ ಪತ್ರ, not a literal translation"*. Hints are included in the prompt on every regeneration, so a fix survives all future English edits. A fix that should apply site-wide belongs in the shared glossary instead (below).
+
+**Glossary:** one repo file of canonical Kannada renderings for recurring terms — party names, corporation names, "corporator", "ward", "affidavit" — included in the prompt by **both** the dev-time script and the runtime curator-data path, so the same term never renders two ways in different parts of the site. Effectively the site-wide layer of the hints mechanism.
+
+**CI staleness check** (`npm run translate -- --check`): CI fails when any `kn/` file or key is missing, or its stored English-source hash no longer matches — an English-only or out-of-date `/kn/` page cannot merge. The check only compares hashes; it makes no API calls, so CI needs no Anthropic key.
 
 **Runtime path (curator data), per field:**
 
 1. Curator publishes a field. One transaction writes the authored value, `authored_lang`, `translation_status = pending`, and the audit entry. The authored-language page is live immediately — publish never blocks on translation.
-2. In-request (≈5 s timeout), the app calls the Anthropic API to translate the changed field(s) only, with context: field name, candidate/ward, and a fixed glossary (party names, corporation names, "corporator"). Success writes the other language's value, `translation_status = done`, plus model + timestamp.
+2. In-request (≈5 s timeout), the app calls the Anthropic API to translate the changed field(s) only, with context: field name, candidate/ward, and the shared glossary (above). Success writes the other language's value, `translation_status = done`, plus model + timestamp.
 3. On failure the field stays `pending` — rendered in the authored language with the PRD §8 indicator — and `jobs` retries every few minutes.
 4. A curator may edit the Kannada value directly (e.g. resolving a translation flag): that sets `translation_status = manual`, excluding the field from MT until the source value changes again, which regenerates it (the manual fix described the old source text). MT regeneration is audit-logged as a system entry.
 
@@ -134,6 +138,7 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 - Playwright smoke suite over the critical paths: lookup → ward page; OTP → vote; flag → curator accept → live; language toggle → `/kn/` equivalence.
 - One k6 load test proving the nginx micro-cache holds election-day read volume on the actual VM size.
 - A route test asserting public GETs set no cookies and contain no session-dependent bytes — the guard on the §5 cache invariant.
+- The translation staleness check (`npm run translate -- --check`, §9) runs in CI on every PR and on `main` — the guard on bilingual completeness.
 
 ## 13. Security
 
