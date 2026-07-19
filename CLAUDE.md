@@ -36,5 +36,6 @@ These four ideas recur across all features — internalize them before implement
 - **Curator publish:** trusted; edits publish immediately with no approval gate.
 - **Bilingual:** EN / Kannada throughout — each language has its own URL (EN at root, KN under `/kn/`, hreflang-linked); the app-bar toggle navigates between them. Registered users' saved preference governs their notification language.
 - **Scale target:** 369 wards, city-wide read traffic that spikes near election day; rate-limiting on all contribution actions.
+- **Deployment:** DigitalOcean — one BLR1 Droplet hosting staging + production Compose stacks; CI-built public GHCR images; push-to-main deploys staging, GitHub Release (date tags `vYYYY.MM.DD`) deploys production. See `docs/architecture.md` §14.
 
 The full "Locked decisions" tables live in `docs/prd.md` §14 and `docs/overview.md` §7. Open questions (still undecided) are tracked in one place — `docs/prd.md` §17 — check there before inventing an answer.

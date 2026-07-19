@@ -147,7 +147,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
-| 6.1 | **Cloud hosting account + billing** — a single VM running Docker Compose, the decided hosting shape | Any deployment | unassigned |
+| 6.1 | **Cloud hosting account + billing** — decided: a DigitalOcean Droplet in BLR1 running Docker Compose, staging and production on the one box (`docs/architecture.md` §14) | Any deployment | unassigned |
 | 6.2 | **Google Cloud project + billing account** (card on file) | 6.3, 6.4 | unassigned |
 | 6.3 | **Geocoding API enabled + key**, restricted to the server | Address→ward lookup | unassigned |
 | 6.4 | **Google Maps Platform terms review** — see below | Whether the geocoding architecture is licensed at all | unassigned |
@@ -155,7 +155,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.6 | **Anthropic API key + billing** | Kannada auto-translation (fully automatic — PRD §8); affidavit field extraction (PRD §5.2) | unassigned |
 | 6.7 | **CDN account** — added in front of the VM post-launch for extra headroom; launch itself runs on the nginx micro-cache on the VM (`docs/architecture.md` §5) | Nothing at launch; election-day headroom | unassigned |
 | 6.8 | **DNS for `bangalore-votes.opencity.in`** — delegated under Oorvani's `opencity.in` | Everything public | unassigned |
-| 6.9 | **Off-box backup storage** — encrypted at rest via restic (the dump holds DPDP-regulated personal data; `docs/architecture.md` §10) + a rehearsed restore | Launch readiness | unassigned |
+| 6.9 | **Off-box backup storage** — decided: a DO Spaces bucket in BLR1 (India-resident; same-region trade recorded in `docs/architecture.md` §13), encrypted at rest via restic (the dump holds DPDP-regulated personal data; §10) + a rehearsed restore | Launch readiness | unassigned |
 | 6.10 | **Secrets custody** — who holds the API keys, session signing key, Twilio credentials | Deployment; continuity | unassigned |
 | 6.11 | **Total running budget** — 6.1–6.7 plus messaging (§3.9) | Whether any of this is affordable | unassigned |
 | 6.12 | **Google Analytics property** — created, access shared, and the tracker disclosed in `/privacy` before it ships | The 300,000-unique-visitor target and funnel/attribution measurement (GTM §8) | unassigned |

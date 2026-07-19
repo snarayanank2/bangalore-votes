@@ -6,7 +6,7 @@ This document records the production architecture for the platform defined in `d
 
 ## 1. Context & constraints
 
-- **Hosting shape is decided:** a single VM running Docker Compose (`docs/project-dependencies.md` §6.1). No CDN at launch; one may be added later.
+- **Hosting shape is decided:** a single VM running Docker Compose (`docs/project-dependencies.md` §6.1) — a DigitalOcean Droplet in BLR1; the full deployment design is §14. No CDN at launch; one may be added later.
 - **Traffic shape:** overwhelmingly anonymous, read-only, spiking near election day. Content changes only when a curator publishes — not per request. Anonymous reads must stay fast with no login wall (PRD §12).
 - **Team:** TypeScript/Node.
 - **SEO/AEO is a requirement:** ward, candidate, and guide pages must be indexable by search engines and quotable by answer engines, in both English and Kannada.
@@ -24,6 +24,7 @@ This document records the production architecture for the platform defined in `d
 | Spike strategy | nginx micro-cache (~60 s TTL on pages) — no purge machinery; CDN slots in front later unchanged |
 | Geo | Ward polygons as static GeoJSON (MapLibre reads them directly) + in-memory point-in-polygon (Turf.js); **no PostGIS** |
 | Client JS | Zero by default; islands only for modals, maps, and lookup forms |
+| Deployment | **DigitalOcean Droplet (BLR1)**; staging + production on one box; CI-built public GHCR images; push-to-main → staging, GitHub Release → production (§14) |
 
 Alternatives considered: a Next.js monolith with ISR (heavier runtime, React hydration on every page, more framework than 19 mostly-read routes need) and a fully static build plus separate API service (spike-proof reads, but "publish immediately" becomes a rebuild pipeline and one deployable becomes two). Both were rejected in favour of the lighter shape above.
 
@@ -38,7 +39,7 @@ Four Compose services on the single VM:
 | `postgres` | Single database |
 | `jobs` | Cron-driven Node scripts: campaign sends, translation retries, sitemap regeneration, nightly `pg_dump` shipped off-box |
 
-No Redis, no queue, no separate API service. Deploys are `git pull && docker compose up -d --build`.
+No Redis, no queue, no separate API service. Deploys pull CI-built images from GHCR and restart — nothing builds on the VM (§14).
 
 ## 4. Routing & rendering
 
@@ -117,7 +118,7 @@ Never machine-translated: official bilingual data (ward names arrive with Kannad
 
 - `jobs` runs the fixed campaign calendar (`docs/gtm-plan.md`) against SendGrid/Twilio, honouring ward readiness (PRD §9.1), the language preference, and channel toggles; plus translation retries and sitemap regeneration.
 - Structured logs to stdout via Compose logging; a healthcheck endpoint.
-- Nightly `pg_dump` shipped off-box with **restic** — chosen over rclone because it encrypts at rest by default; the dump contains DPDP-regulated personal data (contacts, home wards, consent records, identity-linked issue votes). Repository key held off-box, admin-only. Rehearsed restore (dependency register §6.9).
+- Nightly `pg_dump` shipped off-box with **restic** — chosen over rclone because it encrypts at rest by default; the dump contains DPDP-regulated personal data (contacts, home wards, consent records, identity-linked issue votes). The restic repository is a **DO Spaces bucket in BLR1** — India-resident by choice (§14); the same-region trade is recorded in §13. Repository key held off-box, admin-only. Rehearsed restore (dependency register §6.9).
 
 ## 11. Error handling
 
@@ -149,3 +150,53 @@ Decided 2026-07-17 after a security review of this design. The per-mechanism det
   - The audit log is append-only at the application level only — database compromise defeats it; "immutable" (PRD §6) holds against application bugs and curator action, not against DB compromise. The nightly encrypted backups are the only historical copies. Hash chains and off-box audit streaming were considered and rejected as infrastructure the threat model doesn't yet justify.
   - Prompt injection into the MT/extraction calls (affidavit PDFs and curator text are adversarial inputs, and Kannada MT publishes unreviewed — locked decision, PRD §8) is mitigated by escaping, a fixed extraction schema, visible provenance markers, and the citizen-flag correction path. No further machinery.
   - Sessions have a uniform 1-hour idle timeout instead of per-role lifetimes; no session revocation on role change, no login notifications for privileged accounts — the short timeout carries the weight.
+  - Backups share a region with the VM: the restic Spaces bucket sits in BLR1 alongside the Droplet, so a region-wide DigitalOcean failure loses the site and its backups together. India residency for the DPDP-regulated dump won over disaster isolation (decided 2026-07-19); weekly Droplet snapshots are the second layer, and they share the region too.
+
+## 14. Deployment (DigitalOcean)
+
+Decided 2026-07-19. The single VM of §3 is a **DigitalOcean Droplet**; this section records the exact deployment shape. Design history: `docs/superpowers/specs/2026-07-19-digitalocean-deployment-design.md`.
+
+### 14.1 Region & compute
+
+One Premium AMD Droplet, **2 vCPU / 4 GB** (~$28/mo), in **BLR1 (Bengaluru)** — the audience is Bengaluru. A **Reserved IP** fronts the Droplet; DNS for both hostnames (below) points at it, so the box can be rebuilt without a DNS change. The k6 test (§12) validates the size against election-day volume; if it falls short, the plan is a vertical resize before election week — minutes of work — not year-round spike capacity.
+
+### 14.2 Two environments, one Droplet
+
+Production and staging run as **two Compose projects** side by side:
+
+- **One shared nginx container** (owned by the production stack; staging joins its network) terminates TLS for `bangalore-votes.opencity.in` and `staging.bangalore-votes.opencity.in` and proxies to the per-environment `app` containers.
+- Staging has its **own `app`, `postgres`, and `jobs`** — nothing shared below nginx. Staging Postgres is disposable: not backed up, safe to reset.
+- **Staging `jobs` cannot message real people.** Its `.env` carries no production Twilio/SendGrid keys, and a `SENDS_DISABLED` flag makes the campaign runner log instead of send. Both guards, deliberately.
+- **Staging is invisible to the public:** its server block sends `X-Robots-Tag: noindex` and requires basic auth.
+- Accepted trade (chosen over a second Droplet): staging shares CPU and disk with production. Mitigation: images build in CI, never on the Droplet, so the heaviest work never lands on the box.
+
+### 14.3 Images & registry
+
+CI builds the `app` and `jobs` images; the Droplet only ever pulls. Images are **public packages on GHCR** next to the repo — free for public images, pushed with the workflow's built-in `GITHUB_TOKEN`, and anyone can pull the exact image a release ran, which suits an open-source civic project. The Droplet pulls anonymously. Tags: every build gets `:sha-<short-sha>`; `main` builds add `:edge`; release builds add the release tag and `:latest`.
+
+### 14.4 Release flow
+
+- **Staging — every merge.** Push to `main` → Actions runs tests, builds and pushes images, then SSHes to the Droplet and runs `docker compose pull && docker compose up -d` on the staging stack.
+- **Production — on release.** Publishing a **GitHub Release** triggers the production workflow: build the images fresh from the release tag's commit, push, SSH in, pull and restart the production stack. Release notes live on the Release page (`Generate release notes` compiles merged PRs); `gh release create v2026.07.19 --generate-notes` does the same from a terminal.
+- **Versioning is date-based:** `vYYYY.MM.DD`, with `.2` appended for a second same-day release. Semver encodes API-compatibility promises this site doesn't make; a date tag states the fact operators actually ask for — how old is what's live.
+- **Rollback:** re-run the production deploy workflow (`workflow_dispatch`) with the previous release tag. Images are immutable in GHCR, so rollback is a pull and restart, not a rebuild.
+- **SSH from CI:** a dedicated `deploy` user (key-only, `docker` group). Keys live in GitHub **Environment** secrets — separate `staging` and `production` environments; the `production` environment can require reviewer approval before deploying (off at first, enable if wanted).
+
+### 14.5 Network & TLS
+
+A **DO Cloud Firewall** allows inbound 22, 80, 443 only. SSH is key-only; passwords and root login disabled. TLS is Let's Encrypt via a **certbot container** in the production stack: HTTP-01 for both hostnames, certificates on a volume shared with nginx, nginx reload on renewal. "nginx terminates TLS" (§3) is unchanged.
+
+### 14.6 Provisioning runbook
+
+No Terraform — one Droplet doesn't justify it. Provisioning is this runbook:
+
+1. Create the BLR1 Droplet (Premium AMD 2 vCPU / 4 GB); attach the Cloud Firewall and Reserved IP.
+2. Point DNS for both hostnames at the Reserved IP (under Oorvani's `opencity.in`, dependency register §6.8).
+3. Install Docker Engine + Compose; create the `deploy` user (key-only, `docker` group).
+4. Clone the repo; write the two `.env` files (mode 600, outside the repo — §13).
+5. Run certbot once for both hostnames; start the production stack, then staging.
+6. Initialize the restic repository against the Spaces bucket; rehearse a restore (dependency register §6.9).
+
+### 14.7 Running cost
+
+Droplet ~$28 + Spaces ~$5 + snapshots ~$1–2 + GHCR $0 ≈ **$34–35/mo** before messaging, geocoding, and Anthropic spend — a concrete input to the open total-budget question (dependency register §6.11).
