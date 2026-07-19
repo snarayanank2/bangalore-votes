@@ -12,7 +12,7 @@ This document defines every page and modal in the pre-election MVP. Each URL is 
 - **Language in the URL:** every public path exists in both languages — English at the path shown, Kannada under a `/kn/` prefix (`/ward/57` ↔ `/kn/ward/57`), cross-linked with `hreflang`. The app-bar toggle navigates to the other language's URL. Each language variant is its own URL and its own screen, so "one URL → one screen" holds per language. (PRD §8; `docs/architecture.md` §4.)
 - **Global elements (present on every page):** app bar with logo, **language toggle (EN | ಕನ್ನಡ)**, and a **Sign in / Account** control; footer with links to About, the voting guide, Data, Partner with us, Press, Terms, and Privacy. The footer is the only route to the trust and legal pages — none of them earn app-bar space, but all of them must be one click from anywhere, because the moment a citizen doubts the platform is the moment they need them.
 - **Pages vs modals:** a *page* has its own URL and can be deep-linked and shared. A *modal* is a popup that overlays whatever page the user is on, so the user never loses context and the URL does not change.
-- **Access levels:** Anonymous (no account) · Registered (OTP account) · Curator (OTP, ward/zone-scoped) · Admin (OTP). Curators and admins use the **same OTP login** as citizens — no separate password or 2FA.
+- **Access levels:** Anonymous (no account) · Registered (OTP account) · Curator (OTP, scoped to assigned wards — PRD §10) · Admin (OTP). Curators and admins use the **same OTP login** as citizens — no separate password or 2FA.
 - **Contribution rule:** flag and issue-vote actions are visible to everyone but gated at submit — an anonymous user is shown the Register/Login popup first, then the action resumes.
 
 ---
@@ -77,7 +77,7 @@ bangalore-votes.opencity.in
 - **URL:** `/`
 - **Access:** Anonymous
 - **Purpose:** Entry point; get the citizen to their ward and orient them to the election.
-- **Key elements:** ward search (address or pincode — a pincode returns a shortlist of wards to pick from); election status + date countdown; the **roll deadline** until the roll closes (PRD §5.7); shortcuts to Check registration and the voting guide; **Sign in** in app bar.
+- **Key elements:** ward search (address or pincode — a pincode returns a shortlist of wards to pick from; an out-of-GBA address or pincode gets an explicit "not in the GBA area" answer, PRD §5.1); election status + date countdown (the same element reads "notification awaited" before N — one Home page, no distinct pre-notification variant); the **roll deadline** until the roll closes (PRD §5.7); shortcuts to Check registration and the voting guide; **Sign in** in app bar.
 - **Links to:** Ward result, Check registration, Voting guide, About-election; Register/Login modal.
 
 ### 3.2 Ward result
@@ -91,28 +91,28 @@ bangalore-votes.opencity.in
 - **URL:** `/ward/{ward-id}/candidates`
 - **Access:** Anonymous
 - **Purpose:** List all candidates standing in the ward.
-- **Key elements:** candidate rows (photo, name, party/independent); Compare entry point; empty-state before nomination window; **register-for-updates slot** (same as §3.2).
+- **Key elements:** candidate rows (photo, name, party/independent, lifecycle status — *provisional* marker until withdrawals close; withdrawn and scrutiny-rejected candidates shown with their status, PRD §5.2); Compare entry point; empty-state before nomination window; **register-for-updates slot** (same as §3.2).
 - **Links to:** Candidate report card, Compare candidates; opens Register/Login modal (register-for-updates slot).
 
 ### 3.4 Candidate report card
-- **URL:** `/candidate/{candidate-slug}`
+- **URL:** `/candidate/{candidate-slug}` (slugs are unique city-wide — the ward is part of the slug so same-name candidates in different wards cannot collide)
 - **Access:** Anonymous
 - **Purpose:** A structured, neutral, sourced profile of a single candidate — the most-requested feature.
-- **Key elements:** name/photo/party; ward track record; criminal record / pending cases; declared assets; education; approachability; **links to news articles about the candidate**; source shown on every field (affidavit vs curator-compiled distinguished) — affidavit-sourced fields link to the stored affidavit PDF, and carry an *AI-extracted* marker until curator-confirmed (PRD §5.2); **Flag an error** action.
+- **Key elements:** name/photo/party; a prominent **status banner** when the candidate is withdrawn or rejected at scrutiny — the URL stays live because the links have been shared (PRD §5.2); ward track record; criminal record / pending cases; declared assets; education; approachability; **links to news articles about the candidate**; source shown on every field (affidavit vs curator-compiled distinguished) — affidavit-sourced fields link to the stored affidavit PDF, and carry an *AI-extracted* marker until curator-confirmed (PRD §5.2); **Flag an error** action.
 - **Links to:** Compare candidates, Ward issues; opens Flag modal.
 
 ### 3.5 Compare candidates
 - **URL:** `/ward/{ward-id}/compare`
 - **Access:** Anonymous
 - **Purpose:** Compare candidates side by side.
-- **Key elements:** column layout (not a feed); same field rows as the report card so they line up; 2-up / horizontal scroll on mobile; **register-for-updates slot** (same as §3.2).
+- **Key elements:** column layout (not a feed); same field rows as the report card so they line up; only filed/contesting candidates — withdrawn and scrutiny-rejected candidates are excluded (PRD §5.2); 2-up on mobile with horizontal scroll through **all** candidates (no hard cap) and the field-label column pinned; more columns on wider screens; **register-for-updates slot** (same as §3.2).
 - **Links to:** Candidate report card; opens Register/Login modal (register-for-updates slot).
 
 ### 3.6 Ward issues & voting
 - **URL:** `/ward/{ward-id}/issues`
 - **Access:** Anonymous (view results) · Registered (vote, home ward only)
 - **Purpose:** Show the ward’s key issues, candidate stances, and citizen issue-voting results.
-- **Key elements:** curator-defined issue list; candidate stance per issue (where available); **public ranked results** of citizen votes; “Vote your top 3” action; **register-for-updates slot** (same as §3.2).
+- **Key elements:** curator-defined issue list; candidate stance per issue (where available); **public results — ranked order with percentage shares** (no raw counts on this page; the total-votes figure lives on `/data`, PRD §5.5); “Vote your top 3” action; **register-for-updates slot** (same as §3.2).
 - **Links to:** Candidate report card; opens Cast issue vote modal (and Register/Login modal if anonymous); opens Register/Login modal (register-for-updates slot).
 - **Notes:** voting is limited to the user’s **registered home ward**. Ships in **Phase 1** (PRD §13.1) — issues and voting precede candidate data; a ward with no curator-defined issues yet shows an empty state, and candidate-stance rows appear once candidates exist.
 
@@ -153,7 +153,7 @@ bangalore-votes.opencity.in
 - **URL:** `/voting-guide/find-booth`
 - **Access:** Anonymous
 - **Purpose:** Return the citizen’s correct, address-accurate polling booth.
-- **Key elements:** lookup by address/voter ID; booth location + map (not just a name).
+- **Key elements:** lookup by **address** (no voter-ID entry — no voter details are entered or stored on the platform, PRD §5.10); booth location + map (not just a name); until booth-level data lands, the page says so and links out to the official EC booth lookup (PRD §5.10).
 
 ### 3.13 About us, funding & how we source data
 - **URL:** `/about`
@@ -167,7 +167,7 @@ bangalore-votes.opencity.in
 - **Access:** Anonymous
 - **Purpose:** Hold the platform to its own standard, and show what Bengaluru cares about.
 - **Key elements:**
-  - **Coverage:** wards with published candidate data (against 369); report cards complete; active curators; sources cited.
+  - **Coverage:** wards with published candidate data (against 369) — counting published data even where a ward is comms-held, with a separate **wards signed off for candidate comms** figure (PRD §5.14); report cards complete; active curators; sources cited.
   - **Integrity:** flags raised; flags resolved; median time to resolve.
   - **Citizen signal:** city-wide issue roll-up aggregated across all wards; total issue votes cast; registered citizens.
   - An **"as of" timestamp** on every figure.
@@ -185,7 +185,7 @@ bangalore-votes.opencity.in
 - **Access:** Anonymous
 - **Purpose:** Let a journalist file an accurate story without needing to reach anyone.
 - **Key elements:** boilerplate at three lengths (50/100/200 words); current key stats (drawn from `/data`); logos and screenshots for download; spokesperson bios and quotes; contact with a stated response time; the neutrality statement; link to sourcing methodology on `/about`.
-- **Notes:** *Added by the GTM plan. Ships in **Phase 1** even though it is a Phase 2 asset — journalists arrive at the notification, and a press kit assembled then is assembled too late.*
+- **Notes:** *Added by the GTM plan. Ships in **Phase 1** even though it is a Phase 2 asset — journalists arrive at the notification, and a press kit assembled then is assembled too late. The launch press push goes out at N, with a second beat at E−2w (PRD §5.15).*
 
 ### 3.17 Terms & conditions
 - **URL:** `/terms`
@@ -203,7 +203,7 @@ bangalore-votes.opencity.in
 
 ### 3.19 Partner kit
 - **URL:** `/partner/{partner-slug}`
-- **Access:** Anonymous, **unlisted** (not indexed, not linked from navigation; no login wall — it holds nothing sensitive, and gating it would defeat its purpose)
+- **Access:** Anonymous, **unlisted** (not indexed, not linked from navigation; no login wall — it holds nothing sensitive, and gating it would defeat its purpose). Bilingual like every public path (EN and `/kn/`), as are `/press` and `/partner-with-us` (PRD §5.12).
 - **Purpose:** Give a distribution partner — an RWA, a civic org — everything needed to forward the platform to their network, and an answer ready when someone accuses them of campaigning.
 - **Key elements:** the partner's tagged link (`/?src={partner-slug}`); ready-to-paste WhatsApp forward text in English and Kannada — a general message and a first-time voter variant linking the `/voting-guide` checklist (§3.9); a poster image sized for WhatsApp; a short neutrality statement.
 - **Notes:** *Added from the GTM plan (PRD §5.12). Partners are **not a role** — this is a public page, and partner records are managed at `/admin/partners`. The unit of distribution is a message pasted into an apartment WhatsApp group, so the copy blocks matter more than the page design. Distinct from `/partner-with-us` (§3.15): that page recruits partners, this one equips an existing one.*
@@ -216,7 +216,7 @@ bangalore-votes.opencity.in
 - **URL:** `/account`
 - **Access:** Registered
 - **Purpose:** Manage identity and language.
-- **Key elements:** **saved language preference** (persists across sessions and sets the language of updates); home ward — changeable, and changing it retires any issue votes cast in the previous ward (PRD §5.5); basic profile.
+- **Key elements:** **saved language preference** (persists across sessions and sets the language of updates); home ward — changeable, and changing it retires any issue votes cast in the previous ward (PRD §5.5); contact details — email and/or WhatsApp number, where adding or changing one is verified by an OTP sent to the new contact (PRD §10); **sign out**.
 - **Links to:** Notification settings, My submissions.
 
 ### 4.2 Notification settings
@@ -236,7 +236,7 @@ bangalore-votes.opencity.in
 
 ## 5. Curator pages
 
-*All curator pages are scoped to the curator’s assigned wards/zone.*
+*All curator pages are scoped to the curator’s assigned wards. The ward is the permission unit; “assign a zone” is an admin shortcut that expands to that zone’s wards (PRD §10).*
 
 ### 5.1 Curator dashboard
 - **URL:** `/curator`
@@ -250,7 +250,7 @@ bangalore-votes.opencity.in
 - **URL:** `/curator/queue`
 - **Access:** Curator
 - **Purpose:** Work through citizen-submitted flags.
-- **Key elements:** queue items (deduped, with counts) for the curator’s wards; filter/sort.
+- **Key elements:** queue items (deduped, with counts) for the curator’s wards; filter/sort. Queues are per-ward: where curator scopes overlap, the same item appears to every covering curator, and whoever acts first resolves it (PRD §6.1).
 - **Links to:** Submission review.
 
 ### 5.3 Submission review
@@ -264,7 +264,7 @@ bangalore-votes.opencity.in
 - **URL:** `/curator/candidate/{id}`
 - **Access:** Curator
 - **Purpose:** Create/correct a candidate record.
-- **Key elements:** all report-card fields; **affidavit upload** — the EC affidavit PDF, or its EC link fetched and stored; AI extraction populates the affidavit fields (cases, assets, education, including *not declared*), which publish immediately marked *AI-extracted* until confirmed or edited here, with the stored PDF attached as their source (PRD §5.2); **manage news-article links**; **source required per field**; edits publish immediately.
+- **Key elements:** all report-card fields; **affidavit upload** — the EC affidavit PDF, or its EC link fetched and stored; AI extraction populates the affidavit fields (cases, assets, education, including *not declared*), which publish immediately marked *AI-extracted* until confirmed or edited here, with the stored PDF attached as their source (PRD §5.2); **news-article links** — review and approve the platform's auto-suggested links (visible only here until approved) or add links directly (PRD §5.2); **candidate lifecycle status** (filed / contesting / rejected / withdrawn, PRD §5.2); **source required per field**; edits publish immediately.
 
 ### 5.5 Edit ward
 - **URL:** `/curator/ward/{id}`
@@ -278,7 +278,7 @@ bangalore-votes.opencity.in
 - **URL:** `/curator/ward/{id}/issues`
 - **Access:** Curator
 - **Purpose:** Set the list of issues that citizens vote on for this ward.
-- **Key elements:** add/edit/remove issues; this list powers the public Ward issues & voting page.
+- **Key elements:** add/edit/remove issues; this list powers the public Ward issues & voting page. Renaming an issue keeps existing votes attached; deleting one removes it from every vote-set that included it (PRD §5.5).
 
 ---
 
@@ -294,7 +294,7 @@ bangalore-votes.opencity.in
 - **URL:** `/admin/roles`
 - **Access:** Admin
 - **Purpose:** Manage the curator/admin roster and scope.
-- **Key elements:** invite/vet curators; grant/revoke roles; assign/adjust curator ward scope.
+- **Key elements:** invite/vet curators; grant/revoke roles; assign/adjust curator ward scope — per-ward, with a zone shortcut that expands to the zone’s wards (PRD §10).
 
 ### 6.3 Manage users
 - **URL:** `/admin/users`
@@ -324,19 +324,19 @@ Modals overlay the current page and never change the URL, so the citizen never l
 
 ### 7.1 Register / Login
 - **Trigger:** the **Sign in** control (available to any unregistered visitor), any gated action (flag / vote), or the **register-for-updates slot** on a ward page (§3.2/3.3/3.5/3.6).
-- **Fallback page:** `/login` (for deep links / no-JS).
+- **Fallback page:** `/login` (for deep links / no-JS); on success it returns the user to the page they came from, or `/` when there is none.
 - **Key elements:** email or WhatsApp entry → **OTP** → confirm ward + language. No passwords, no 2FA. WhatsApp-first users are nudged to also add an email address — email is the baseline delivery channel (PRD §9).
-- **Consent:** the confirm step carries links to `/terms` and `/privacy` plus one plain sentence stating what registering signs you up for (ward election updates by the chosen channels). Completing registration is the affirmative act; the system stores the event — timestamp plus the wording version shown — as the opt-in evidence WhatsApp policy requires (PRD §10; `docs/project-dependencies.md` §3.10). The exact wording is legal-review input.
+- **Consent:** the confirm step carries links to `/terms` and `/privacy` plus one plain sentence stating what registering signs you up for (ward election updates by the chosen channels), and one optional, unchecked **"tell me about future civic tools"** checkbox recorded with the same event (PRD §10). Completing registration is the affirmative act; the system stores the event — timestamp plus the wording version shown — as the opt-in evidence WhatsApp policy requires (PRD §10; `docs/project-dependencies.md` §3.10). The exact wording is legal-review input.
 - **Behaviour:** on success, **resumes the exact action** the user attempted, in place. When opened from a ward page's register-for-updates slot, the confirm step shows that ward pre-filled and read-only instead of asking the visitor to pick one — language selection is unchanged.
 
 ### 7.2 Flag misinformation
-- **Trigger:** the Flag action on a candidate report card or a ward page — **on any ward** (not just the home ward).
+- **Trigger:** the Flag action, present wherever curator-maintained data is shown — the candidate report card, the ward result page, and the ward issues page — **on any ward** (not just the home ward) (PRD §6.1).
 - **Key elements:** pick the field/claim that’s wrong; free-text detail + optional source; submit.
-- **Behaviour:** if anonymous, the Register/Login modal shows first, then this reopens; on submit the flag routes to the curator whose scope covers that ward and is audit-logged.
+- **Behaviour:** if anonymous, the Register/Login modal shows first, then this reopens; on submit the flag lands in that ward's review queue — visible to every curator whose scope covers the ward, and to admins — and is audit-logged (PRD §6.1).
 
 ### 7.3 Cast issue vote (top 3)
 - **Trigger:** the “Vote your top 3” action on the Ward issues page.
-- **Key elements:** select up to three issues from the curator-defined list; submit; changeable later.
+- **Key elements:** select one to three issues from the curator-defined list; submit — submitting replaces any previous set (PRD §5.5); changeable later.
 - **Behaviour:** if anonymous, Register/Login modal shows first; voting is restricted to the user’s **registered home ward**; one active vote-set per user — changing home ward retires the previous ward’s votes (PRD §5.5).
 
 ---
@@ -384,4 +384,4 @@ Confirms every PRD capability maps to a page/modal, and highlights the four page
 
 ## 9. Open questions
 
-Open questions are tracked in one place: **`docs/prd.md` §17**. The IA-raised subset — issue-vote display format, curator scoping unit, the mobile compare limit, news-link sourcing, the `/login` fallback, kit/press/partner-with-us localisation, the home page's pre-notification state, and the readiness panel's placement — lives there alongside everything else.
+Open questions are tracked in one place: **`docs/prd.md` §17**. The IA-raised subset — issue-vote display format, curator scoping unit, the mobile compare limit, news-link sourcing, the `/login` fallback, kit/press/partner-with-us localisation, the home page's pre-notification state, and the readiness panel's placement — was **resolved on 2026-07-19**; the resolutions are recorded in the PRD (§14 and the sections §17 points to) and reflected on the pages above. What remains open is listed in PRD §17.

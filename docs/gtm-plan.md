@@ -206,4 +206,4 @@ Paid acquisition. Candidate outreach or engagement of any kind. Post-election co
 
 ## 12. Open questions
 
-Open questions are tracked in one place: **`docs/prd.md` §17**. The GTM-raised subset — partner kit / press localisation, press timing (N vs E−2w), the retention period, re-consent for the next phase, whether Citizen Matters is an owned channel, `/data` counting of held wards, and funding disclosure detail — lives there alongside everything else. The blocking subset also appears in `docs/project-dependencies.md` §7 with owners.
+Open questions are tracked in one place: **`docs/prd.md` §17**. Most of the GTM-raised subset was **resolved on 2026-07-19** — partner surfaces bilingual, press push at N with an E−2w second beat, retention proposed at 3 months post-results (pending legal confirmation), the future-tools re-consent checkbox added, `/data` counting published data with a separate signed-off figure, funders named — with resolutions recorded in the PRD (§14). Still open there: legal confirmation of the retention period, and whether Citizen Matters is an owned channel. The blocking subset also appears in `docs/project-dependencies.md` §7 with owners.

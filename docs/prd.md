@@ -53,7 +53,7 @@ Four roles: a large, mostly read-only public, and a small, trusted group that ma
 |---|---|---|
 | **Anonymous citizen** | Any visitor, no account | Find & read information; see (but not cast) flags and issue votes |
 | **Registered citizen** | Signs up: email/WhatsApp + ward + language | Get updates; flag misinformation (any ward); vote on issues (home ward) |
-| **Data curator** | Trusted, vetted individual (ward/zone-scoped) | Upload & correct ward and candidate data; define ward issue list; review flags |
+| **Data curator** | Trusted, vetted individual (scoped to assigned wards, §10) | Upload & correct ward and candidate data; define ward issue list; review flags |
 | **Admin** | Small internal team | Manage roles, access, scope, users, and oversight |
 
 **Contribution principle.** Both citizen actions — flagging an error and voting on issues — are **visible to everyone but gated at the point of submission by registration**. Anonymous users see the buttons; tapping to act opens the Register/Login popup, after which the action resumes in place.
@@ -69,6 +69,7 @@ Each feature notes its primary page(s); full page-level detail is in the IA docu
 
 - Look up ward by **address or pincode** (no voter-ID lookup); return new GBA ward name + number and corporation (N/S/E/W/Central).
 - A pincode spans multiple wards, so pincode lookup returns a shortlist to pick from; address lookup returns a single ward. Pincode lookup needs no boundary data, so it ships even if delimitation boundaries slip (the Path B hedge in `docs/project-dependencies.md`).
+- **Out-of-coverage is an answer, not an error.** An address that resolves outside GBA limits, or a pincode with no GBA wards, returns an explicit "this doesn't appear to be in the GBA area" result. Geocoding failure or an ambiguous address degrades to the pincode path with a clear message (`docs/architecture.md` §11).
 - Show the ward boundary on a map. (Old-ward → new-ward mapping was considered and dropped — the finder answers the question that matters, "what is my ward *now*", without needing pre-delimitation boundary data.)
 - The ward result is the anchor for candidate, issue, and logistics views, and is reused to set a registered user's home ward.
 - **Register-for-updates prompt.** The ward result page and its candidates/compare/issues subpages carry a state-dependent slot: an anonymous visitor sees a **"Register for updates"** control that opens the Register/Login popup (§10) with this ward pre-filled as home ward; a registered visitor viewing their own home ward sees a plain **"Receiving updates"** status; a registered visitor viewing any other ward sees nothing there — switching home ward remains an `/account` action only.
@@ -94,6 +95,8 @@ A structured, neutral, sourced profile for each candidate in a ward — the sing
 - **Affidavit ingestion is AI-assisted, not manual transcription.** As affidavits arrive during the nomination window, the curator uploads the candidate's EC affidavit (Form 26) PDF — or pastes its EC link, which the platform fetches and stores. AI extraction (the same Anthropic API dependency as machine translation — `docs/project-dependencies.md` §6.6) populates the affidavit-sourced fields above — cases, assets, education — including marking a field *not declared* where the affidavit says so (a valid, complete answer per §9.1).
 - **Extracted fields publish immediately, mirroring the machine-translation trade (§8).** Each carries a visible *AI-extracted* marker until the curator confirms or edits it, which clears the marker. The citizen flag flow (§6) is the correction net, and extraction is audit-logged as a system entry.
 - **The stored affidavit is the public source.** Affidavit-sourced fields link to the platform's hosted copy of the PDF, so provenance is a clickable original rather than an EC URL that can move or rot.
+- **News links are auto-suggested, curator-approved.** The platform surfaces candidate news links as suggestions in the curator UI (the suggestion mechanism is an implementation choice — e.g. a periodic news search by candidate name); suggestions are visible **only to curators**, and nothing publishes until a curator approves it, so accountability for what appears stays with the curator. Approved links publish like any curator edit — live immediately, audit-logged. Curators can also add links directly.
+- **Candidate status tracks the nomination lifecycle.** Every candidate record is **filed** (provisional — from nomination until scrutiny and withdrawals resolve), **contesting** (on the final list), **rejected** (failed scrutiny), or **withdrawn**; the curator sets it, like any other field. Rejected and withdrawn candidates keep their report-card URL — the links have already been shared — with a prominent status banner, and are excluded from the comparison view (§5.3), from issue-stance rows (§5.4), and from the §9.1 completeness check. Until withdrawals close, candidate lists and report cards carry a *provisional* marker, matching the L1 send's framing (§9.3).
 - Clearly distinguish official/affidavit data from curator-compiled context.
 - Carries the **Flag an error** action (opens the flag popup; see §6).
 
@@ -102,13 +105,13 @@ A structured, neutral, sourced profile for each candidate in a ward — the sing
 
 - Compare all candidates in a ward side by side in a column layout (not a scrolling feed).
 - Comparison spans the same fields as the report card so rows line up cleanly.
-- 2-up / horizontal scroll on mobile; more columns on wider screens.
+- 2-up on mobile, with horizontal scroll through **all** candidates — no hard cap on how many can be compared — and the field-label column pinned so rows stay readable mid-scroll; more columns on wider screens.
 
 ### 5.4 Ward issues & candidate stance
 *Page: `/ward/{ward-id}/issues`*
 
 - The curator maintains a list of key issues per ward (roads, water, waste, safety, etc.).
-- Where available, map each issue to what each candidate says they will do about it.
+- Where available, map each issue to what each candidate says they will do about it. Stances are curator-compiled and carry a source like any other field (§11); withdrawn and rejected candidates drop out of the stance rows (§5.2).
 - Showing candidate stated positions is in scope; tracking delivery after election is deferred.
 
 ### 5.5 Citizen issue voting
@@ -117,11 +120,12 @@ A structured, neutral, sourced profile for each candidate in a ward — the sing
 Let citizens signal which local issues matter most, and show that signal publicly per ward.
 
 - The **curator defines** the list of votable issues in each ward (same source as 5.4).
-- **Registered citizens vote for their top 3 issues**, and only in their **registered home ward**.
-- Aggregated results are **public** — anonymous citizens can see the ranked top issues for a ward.
+- **Registered citizens vote for up to three issues** (their top 3 — one, two, or three selections), and only in their **registered home ward**.
+- Aggregated results are **public** — anonymous citizens can see the ranked top issues for a ward. Results display as **ranked order with percentage shares**; no raw counts on the ward page — early counts are thin and quotable against the platform. The total-votes figure is published on `/data` only (§5.14).
 - The vote action opens as a **popup**; anonymous users are shown the Register/Login popup first.
-- **One active vote-set per registered user** — in their current home ward; changeable at any time; de-duplicated by account.
-- **Changing home ward is allowed** (people move; lookups mis-assign) **and retires the previous ward's vote-set.** A citizen's voice counts where they live, once — so ward-hopping gains nothing and no change limit is needed.
+- **One active vote-set per registered user** — in their current home ward; changeable at any time, and **re-casting replaces the whole set** (there is no per-issue toggle); de-duplicated by account.
+- **Curator edits to the issue list never discard a citizen's vote wholesale.** Renaming or rewording an issue keeps its votes attached; **deleting an issue removes it from every vote-set that included it** — the citizen's remaining selections stand, and they can re-vote at any time. Results are always computed against the current list.
+- **Changing home ward is allowed** (people move; lookups mis-assign) **and retires the previous ward's vote-set** — retired sets are excluded from the public aggregates. A citizen's voice counts where they live, once — so ward-hopping gains nothing and no change limit is needed.
 
 ### 5.6 Check registration / eligibility
 *Page: `/check-registration`*
@@ -152,20 +156,22 @@ Let citizens signal which local issues matter most, and show that signal publicl
 
 - Simple step-by-step guide to the voting-day process, in both languages.
 - Primary value is first-time voters and the less-digital / Kannada-first audience.
-- **A first-timer FAQ beyond the steps:** which documents are accepted at the booth when the EPIC card hasn't arrived (the EC alternative-document list), what a voter slip is, NOTA, what the ballot or machine looks like (EVM vs paper is an open question, §17), and what can't be taken inside (phones).
+- **A first-timer FAQ beyond the steps:** which documents are accepted at the booth when the EPIC card hasn't arrived (the EC alternative-document list), what a voter slip is, NOTA, what the ballot or machine looks like (drafted for **EVMs** — Karnataka's urban local-body practice — to be confirmed with the State Election Commission before this content publishes, §17), and what can't be taken inside (phones).
 - **What's different about a ward election:** one corporator per ward, the new five-corporation GBA structure, and a ward that may not match the citizen's assembly constituency. Every voter is a first-timer for this format — the last ward election was roughly a decade ago.
 
 ### 5.10 Polling-booth locator
 *Page: `/voting-guide/find-booth`*
 
 - Return an address-accurate booth location with a map, not just a booth name.
+- **Lookup is by address** — the same address mechanism as the ward finder (§5.1), with the same out-of-coverage handling. No voter-ID entry: §5.6's rule that no voter details are entered or stored on the platform applies here too.
+- **Until booth-level data lands** (a tracked dependency, §15), the page says so plainly and hands off to the official EC booth lookup — the same guided link-out pattern as §5.6 — rather than guessing or 404ing.
 
 ### 5.11 About us, funding & data sourcing (trust page)
 *Page: `/about`*
 
 - **Name the operator.** The platform is run in production by the **Oorvani Foundation**, the trust that operates `opencity.in`. This is stated plainly, not buried.
 - Explain how data is sourced and verified, and the neutrality stance.
-- **Disclose funding.** For a platform whose value rests entirely on neutrality, who pays for it is the first question a skeptical reader asks; the answer should not have to be requested. Disclosure detail is an open question (§17).
+- **Disclose funding.** For a platform whose value rests entirely on neutrality, who pays for it is the first question a skeptical reader asks; the answer should not have to be requested. **Funders are named** (amounts optional) — categories alone invite exactly the question the disclosure exists to close.
 - **State the data commitments** in citizen-readable terms, mirroring `/privacy` (§5.16): Oorvani does not sell citizen data, shares it only with the service providers that run the platform, and uses contact details for ward election updates and critical product updates only.
 - Supports the trust requirement in §11; links to primary sources.
 - This is also the "about us" page — team and mission live here rather than on a separate URL, because a citizen who doubts the platform wants who-runs-it and how-it-sources-data in one place.
@@ -176,7 +182,7 @@ Let citizens signal which local issues matter most, and show that signal publicl
 Distribution is partner-led and unpaid (§14), so the platform must equip partners to forward links and must measure what that forwarding achieves.
 
 - **Attribution.** Any page accepts a `?src={partner-slug}` parameter. The value survives the visit and is **persisted onto the user record at registration**, so a signup can be attributed to the partner who sent it. Attribution is for measurement only — it grants no permissions and changes nothing the citizen sees.
-- **Partner kit page.** An unlisted, anonymous-access page per partner carrying: their tagged link; ready-to-paste WhatsApp forward text in English and Kannada — a general message and a **first-time voter variant** linking the `/voting-guide` checklist (§5.17); a poster image sized for WhatsApp; and a short neutrality statement. Unlisted means not indexed and not linked from navigation — but not access-controlled, since it holds nothing sensitive and a login wall would defeat its purpose.
+- **Partner kit page.** An unlisted, anonymous-access page per partner carrying: their tagged link; ready-to-paste WhatsApp forward text in English and Kannada — a general message and a **first-time voter variant** linking the `/voting-guide` checklist (§5.17); a poster image sized for WhatsApp; and a short neutrality statement. Unlisted means not indexed and not linked from navigation — but not access-controlled, since it holds nothing sensitive and a login wall would defeat its purpose. The kit page itself is **bilingual** like every public path (EN and `/kn/`), as are `/press` and `/partner-with-us` — the forward texts inside were always in both languages.
 - **No new role.** Partners are not a role. The kit is a public page; partner records are managed by admins (§7).
 - **Why the neutrality statement.** An RWA secretary forwarding an election link *will* be accused of campaigning. A partner who cannot answer that stops forwarding — so the answer ships with the kit.
 - **Coverage view.** Admins can see partner → ward coverage against all 369 wards. The uncovered set is a work queue and the early warning for reach skewing to central Bengaluru.
@@ -199,7 +205,7 @@ Recruiting partners and curators is otherwise an offline motion (§15), which do
 
 A platform that publishes other people's records should publish its own.
 
-- **Coverage:** wards with published candidate data (against 369); report cards complete; active curators; sources cited.
+- **Coverage:** wards with published candidate data (against 369); report cards complete; active curators; sources cited. Coverage counts **published data** — a ward held from comms by the §9.1 readiness check still counts, because published data and comms readiness are different facts; a separate **"wards signed off for candidate comms"** figure keeps that distinction visible rather than hidden.
 - **Integrity:** flags raised; flags resolved; median time to resolve.
 - **Citizen signal:** the city-wide issue roll-up aggregated across all wards; total issue votes cast; registered citizens.
 - Every figure carries an **"as of" timestamp**.
@@ -213,16 +219,18 @@ Press is an amplifier for the partner-led distribution model (§14), and journal
 
 - Boilerplate at three lengths (50 / 100 / 200 words); current key stats drawn from §5.14; logos and screenshots for download; spokesperson bios and quotes; contact with a **stated response time**; the neutrality statement; a link to sourcing methodology (§5.11).
 - **Ships in Phase 1**, though it is a Phase 2 asset — a press kit assembled at the notification is assembled too late.
+- **The launch press push goes out at N** — journalists arrive at the notification whether or not they are invited — with a planned **second beat at E−2w**, when the final candidate list and complete report cards give the stronger story.
 
 ### 5.16 Legal pages
 *Pages: `/terms`, `/privacy`*
 
 - **`/terms`** — acceptable use; contribution licensing (flags, issue votes); accuracy and liability disclaimers; account termination grounds, consistent with the admin ban capability (§7).
-- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution, standard server logs, and **Google Analytics** usage data and cookies) and why; that visitor and event measurement uses **Google Analytics**, alongside server-side application events; that the `/partner-with-us` form is protected by **Google reCAPTCHA v3**, which sets its own cookies and sends usage data to Google (`docs/architecture.md` §7); the **processor inventory** — every service provider that touches personal data, what it receives, and why: **SendGrid and Twilio** (contact details, to deliver OTPs and the updates consented to; choosing WhatsApp additionally involves **Meta's** WhatsApp Business terms), **Google Geocoding** (ward-lookup addresses, sent server-side; cached only as normalized address → ward, never linked to an account), **Anthropic** (candidate report-card text for translation and affidavit extraction — candidate data, not citizen contacts), and **Sentry** (server-side error reports, scrubbed of contacts and addresses — `docs/architecture.md` §13), each under executed data-processing terms (`docs/project-dependencies.md` §2.8); email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights — including the **erasure mechanism** (`docs/architecture.md` §7) and the fact that erased data persists in encrypted backups until retention expiry; a named **grievance officer**; retention policy; the fact that issue votes are published in aggregate.
+- **`/privacy`** — the operator is the **Oorvani Foundation**; what personal data is collected (email, phone, address→ward, language, `src` attribution, standard server logs, and **Google Analytics** usage data and cookies) and why; that visitor and event measurement uses **Google Analytics**, alongside server-side application events; that the `/partner-with-us` form is protected by **Google reCAPTCHA v3**, which sets its own cookies and sends usage data to Google (`docs/architecture.md` §7); the **processor inventory** — every service provider that touches personal data, what it receives, and why: **SendGrid and Twilio** (contact details, to deliver OTPs and the updates consented to; choosing WhatsApp additionally involves **Meta's** WhatsApp Business terms), **Google Geocoding** (ward-lookup addresses, sent server-side; cached only as normalized address → ward, never linked to an account), **Anthropic** (candidate report-card text for translation and affidavit extraction — candidate data, not citizen contacts), and **Sentry** (server-side error reports, scrubbed of contacts and addresses — `docs/architecture.md` §13), each under executed data-processing terms (`docs/project-dependencies.md` §2.8); email/WhatsApp consent and withdrawal; **DPDP Act 2023** notice, data-principal rights — including the **erasure mechanism** (`docs/architecture.md` §7) and the fact that erased data persists in encrypted backups until retention expiry; a named **grievance officer**; retention policy (proposed: citizen contact data deleted or anonymized within **3 months of results being declared**, with backups aging out on rotation — pending legal confirmation, §17); the fact that issue votes are published in aggregate.
 - **Data commitments (locked, §14).** Oorvani **does not sell citizen data, and shares it with no one except the service providers that operate the platform** — under contract, on Oorvani's behalf, never for their own purposes, enumerated in the processor inventory above. (Reworded 2026-07-19: the earlier unqualified "does not share with third parties" was a claim the design itself cannot keep — contacts necessarily transit Twilio/SendGrid and Meta to deliver the very updates consented to, and an absolute statement that is technically false is what an opposing campaign screenshots.) Contact details are used for two purposes only: ward-scoped election updates (§9), and **critical product updates**.
-- **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause.
+- **"Critical product updates" is a narrow purpose, and must be written narrowly.** It means service-affecting notices — a breach, a material change to these terms, the platform shutting down. It is not a channel for announcing new features. This matters because the DPDP Act limits use to the purpose consented to, and because the deferred promise-tracking phase (§16) would be marketing a new product to a list gathered for an election. Using these contacts for it needs fresh consent, not this clause — the optional "future civic tools" checkbox at registration (§10) collects exactly that consent.
+- **Languages.** Both pages ship in English **and** Kannada; the English text is legally controlling, and the Kannada version carries a note saying so (a courtesy translation — standard practice that keeps the bilingual promise without doubling the legal-verification cost). The note's wording is legal-review input.
 - **`/privacy` ships in Phase 0 — the earliest page on the critical path.** Meta requires a published privacy-policy URL to approve WhatsApp Business API onboarding, so this page gates template approval, which gates the comms plan (§9). It is not launch-week hygiene.
-- Both need **legal review**; their content is outside a product spec's competence. `/privacy` is additionally blocked on an undecided retention policy (§17).
+- Both need **legal review**; their content is outside a product spec's competence. `/privacy` is additionally blocked on legal confirmation of the proposed retention period (§17).
 
 ### 5.17 First-time voter checklist
 *Page: `/voting-guide`*
@@ -240,12 +248,12 @@ The logistics pages (§5.6–§5.10) each answer one question; a first-time vote
 
 ### 6.1 Flag → correction → live
 
-Flagging is done via a **popup** that overlays the current page (no redirect) and works across **any ward**.
+Flagging is done via a **popup** that overlays the current page (no redirect) and works across **any ward**. The **Flag an error** action appears wherever curator-maintained data is shown: the candidate report card, the ward result page, and the ward issues page.
 
 | Step | Role | What happens |
 |---|---|---|
 | 1. Notice an error | Anonymous / Registered | Anyone can tap Flag. Anonymous is shown the Register/Login popup first; registered proceeds. |
-| 2. Submit | Registered citizen | The flag popup captures the field/claim + detail + optional source, and routes to the curator whose scope covers that ward. |
+| 2. Submit | Registered citizen | The flag popup captures the field/claim + detail + optional source, and lands in that ward's review queue — visible to **every** curator whose scope covers the ward (scopes may overlap) and to admins (§7). A ward no curator covers holds its flags in the queue and surfaces to admins as a coverage gap, not a dropped flag. |
 | 3. Review | Data curator | On `/curator/queue/{submission-id}`: sees flag, current value, and source. Accepts (edit + attach source) or rejects (with reason). |
 | 4. Publish | Data curator | Accepted edits go live immediately — no second approval, because curators are trusted. |
 | 5. Record | System | Immutable audit-log entry; the outcome appears as status on the submitter's `/account/submissions` (§6.2). No email or WhatsApp is sent — the campaign calendar (§9.3) and OTP are the only outbound messages. |
@@ -257,7 +265,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 ### 6.3 Anti-abuse
 
 - Registration-gating gives every flag and every issue vote an identity, enabling de-duplication and rate-limiting.
-- Multiple flags on the same field collapse into one queue item with a count (a strong signal to the curator).
+- Multiple flags on the same field collapse into one queue item with a count (a strong signal to the curator). Resolving the queue item resolves every collapsed flag at once — each submitter sees the same outcome and reason on `/account/submissions` (§6.2).
 - The `/partner-with-us` expression-of-interest form (§5.13) is the **one anonymous write path**. It has no identity to rate-limit, so it is protected by a **CAPTCHA** (Google reCAPTCHA v3 — vendor decision recorded in `docs/architecture.md` §7), with admin triage (§7) as the backstop — a spammed queue wastes admin time but touches no published data.
 
 ---
@@ -303,10 +311,10 @@ Registered citizens can see the **status of every flag they have submitted** on 
 ## 9. Notifications & delivery
 *Page: `/account/notifications`*
 
-- Registered users receive ward-scoped updates from the fixed campaign calendar (§9.3): election dates and official notices, the electoral-roll deadline, candidate milestones (filed at the notification; final after withdrawals), issue voting, and booth logistics. There is no ongoing candidate-change alert stream — candidate news arrives only at those milestones.
+- Registered users receive ward-scoped updates from the fixed campaign calendar (§9.3): election dates and official notices, the electoral-roll deadline, candidate milestones (filed — sent once scrutiny completes, not at the notification; final after withdrawals), issue voting, and booth logistics. There is no ongoing candidate-change alert stream — candidate news arrives only at those milestones.
 - Channels: email and/or WhatsApp, per the user's contact details and language preference.
 - **Email is the baseline channel.** WhatsApp delivery depends on external template approval (§15), so registration nudges WhatsApp-first users to also provide an email address; no send waits on WhatsApp.
-- Ward is the routing key; it is set via the address→ward lookup (not free text) so updates route correctly.
+- Ward is the routing key; it is set via the address→ward lookup (not free text) so updates route correctly. Each send resolves its audience **at send time**: a user who changes home ward receives subsequent sends for the new ward, with no catch-up of sends the new ward has already received.
 
 ### 9.1 Ward data-readiness gating
 
@@ -315,10 +323,10 @@ Registered citizens can see the **status of every flag they have submitted** on 
 
 **A ward is ready when both of the following hold:**
 
-1. **Completeness.** Every candidate who has filed a nomination in the ward has a report card record; each carries name and party/independent; cases, assets, and education are either populated or explicitly marked *not declared*; and every field has a source (§11). "Not declared" is a valid, complete answer — it is a fact about the affidavit, not a gap.
-2. **Curator sign-off.** The ward's curator has explicitly marked it ready (§7). The mechanical check alone cannot tell a thin ward from a finished one; a person who knows the ward can.
+1. **Completeness.** Every candidate standing in the ward (status *filed* or *contesting* — withdrawn and rejected candidates are excluded, §5.2) has a report card record; each carries name and party/independent; cases, assets, and education are either populated or explicitly marked *not declared*; and every field has a source (§11). "Not declared" is a valid, complete answer — it is a fact about the affidavit, not a gap.
+2. **Curator sign-off.** A curator whose scope covers the ward has explicitly marked it ready (§7) — where scopes overlap, any covering curator's sign-off counts. The mechanical check alone cannot tell a thin ward from a finished one; a person who knows the ward can.
 
-**Sign-off is cleared automatically when the ward's candidate set materially changes** — a new nomination or a withdrawal. Otherwise a ward signed off at the notification would still count as ready at E−2w, when the list it was signed off against no longer exists. In practice this means C2 requires a fresh sign-off after withdrawals close.
+**Sign-off is cleared automatically when the ward's candidate set materially changes** — a new nomination or a withdrawal. Otherwise a ward signed off at the notification would still count as ready at E−2w, when the list it was signed off against no longer exists. In practice this means C2 requires a fresh sign-off after withdrawals close. The nomination-window churn this creates is **accepted, not deferred** (decided 2026-07-19): only L1 and C2 actually depend on sign-off, and the gap list on the readiness panel (IA §5.5) keeps a re-sign to a minute's work.
 
 - Held wards must be visible to admins (`/admin/partners`), since a held ward is a curator-coverage gap that needs fixing, not a silent skip. Admins can override a hold and release the send — consistent with their oversight role (§7).
 - Sign-off and override are both published changes and are therefore written to the audit log (§11).
@@ -334,6 +342,7 @@ Registered citizens can see the **status of every flag they have submitted** on 
 ### 9.3 Send cadence
 
 - The campaign is a small, fixed set of ward-scoped sends (defined in the GTM spec), not an open-ended stream. WhatsApp opt-outs are permanent, so send volume is a budget to spend, not a dial to turn up.
+- **Send codes used across this document** name the calendar's entries (`docs/gtm-plan.md` §4): **W1** welcome on registration · **R1** roll deadline (roll close −7d) · **L1** candidates filed (scrutiny complete) · **C1–C3** countdown sends (issue voting, final list, compare + booth) · **F1** final logistics at E−3d.
 - Every send honours the user's saved language preference (§8) and their channel toggles on `/account/notifications`.
 
 *Calendar, triggers, and per-message content: `docs/gtm-plan.md`.*
@@ -346,8 +355,9 @@ Registered citizens can see the **status of every flag they have submitted** on 
 - **Email OTP is the baseline; WhatsApp OTP arrives with the Business API.** Sending an OTP over WhatsApp requires completed Meta onboarding and an approved Authentication-category template (`docs/project-dependencies.md` §3), so until that path completes — including all of Phase 0/1 curator and admin work — login is email-OTP only.
 - **Registration/login is a popup.** It overlays the current page with no redirection, is openable directly from the **Sign in** control (available to unregistered visitors), from a **"Register for updates" prompt on ward pages** (§5.1), or auto-triggered by a gated action, and **resumes the exact action** after auth. A `/login` fallback page exists for deep links / no-JS.
 - **The ward-page entry point pre-fills the home ward.** When registration is opened from a ward page's "Register for updates" prompt, the ward the citizen is already viewing is carried into the confirm step as their home ward — read-only, not re-asked — while language selection is unchanged. Registering via the **Sign in** control or a gated action still asks the citizen to pick their ward as today.
-- **Registration is the consent act.** The confirm step links to `/terms` and `/privacy` and states plainly that registering signs the user up for ward election updates on their chosen channels; completing it is the affirmative opt-in, and the event (timestamp + wording version shown) is stored as the recorded opt-in evidence WhatsApp policy requires (`docs/project-dependencies.md` §3.10). The stated wording includes an **"I am 18 or older" assertion** — DPDP §9 makes consent from a minor invalid without verifiable parental consent, which this platform does not collect — recorded as part of the same consent event. No separate checkbox. The wording itself is legal-review input (§5.16).
-- **Role-based access control.** Curator edit/review rights are scoped to assigned wards/zone; admins have city-wide access.
+- **Registration is the consent act.** The confirm step links to `/terms` and `/privacy` and states plainly that registering signs the user up for ward election updates on their chosen channels; completing it is the affirmative opt-in, and the event (timestamp + wording version shown) is stored as the recorded opt-in evidence WhatsApp policy requires (`docs/project-dependencies.md` §3.10). The stated wording includes an **"I am 18 or older" assertion** — DPDP §9 makes consent from a minor invalid without verifiable parental consent, which this platform does not collect — recorded as part of the same consent event. No separate checkbox for consent itself. One optional checkbox does exist: **"tell me about future civic tools"** — unchecked by default, never required, recorded as part of the same consent event — so a deferred phase (§16) has a lawful list without stretching the election-updates consent (§5.16). The wording itself is legal-review input (§5.16).
+- **One account per contact.** An email address or WhatsApp number belongs to at most one account. The Register/Login popup is a single flow, not two: an OTP verified against a known contact signs into that contact's account; a new contact creates one. An account may carry both an email and a WhatsApp number (§9) — either verified contact logs in. Contacts are added or changed on `/account`, each verified by an OTP sent to the new contact — this is the follow-up path for the WhatsApp-first email nudge (§9).
+- **Role-based access control.** Curator edit/review rights are scoped to an assigned **set of wards** — the ward is the permission unit; "assign a zone" is an admin UI shortcut that expands to that zone's wards (so a zone-wide curator and a one-ward curator are the same mechanism). Admins have city-wide access.
 - **Sessions.** Sliding 1-hour idle timeout for all roles; re-auth via OTP (`docs/architecture.md` §7).
 
 ---
@@ -409,15 +419,18 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 |---|---|
 | Curator publish gate | Curators are trusted; edits go live immediately, no second-person approval. |
 | Authentication | Single OTP mechanism for all roles (citizen, curator, admin); no passwords, no 2FA. |
-| Registration & flagging UX | Both are popups that overlay the current page — no redirection. |
+| Registration & flagging UX | Both are popups that overlay the current page — no redirection. The `/login` fallback page stays, for no-JS and deep links. |
 | Anonymous contribution | Anonymous users see flag and issue-vote actions but are prompted to register at submit. |
 | Issue-vote visibility | Aggregated issue-vote results are public and visible to anonymous citizens. |
+| Issue-vote display | Ranked order with percentage shares on ward pages; no raw counts there — the total-votes figure lives on `/data` (§5.5). |
 | Issue-vote scope | Registered citizens can vote only in their registered home ward. |
 | Flagging scope | Registered citizens can flag misinformation across any ward. |
 | Issue list ownership | The per-ward list of votable issues is defined by the curator. |
-| Report card content | Includes curator-maintained links to news articles about the candidate. |
+| Report card content | Includes links to news articles about the candidate — auto-suggested by the platform, visible only to curators until approved; nothing publishes unapproved (§5.2). |
+| Comparison layout | 2-up with horizontal scroll through all candidates on mobile — no hard cap — with pinned field labels; more columns on wider screens (§5.3). |
 | Affidavit ingestion | Curator uploads the EC affidavit (file or EC link); AI extracts the affidavit fields, which publish immediately marked *AI-extracted* until the curator confirms or edits them; the stored PDF is the public source link (§5.2). |
 | Curator scope size | **Uncapped — an owned risk.** How many wards a curator is assigned is an admin judgement; nothing technical prevents a broad or city-wide scope. With publish-immediately trust and OTP-only login, scope is a curator's unreviewed blast radius; vetting, the audit log, and rollback are the nets. Uncapped scope lets coverage follow curator supply — the binding constraint across 369 wards. |
+| Curator scoping unit | **Per-ward.** A curator's scope is a set of wards; "assign a zone" is an admin UI shortcut that expands to that zone's wards (§10). |
 | Curator sourcing | Recruiting/vetting curators is an offline process, out of scope here — tracked as a dependency. |
 | URLs | Every page has a distinct URL under `bangalore-votes.opencity.in`. |
 | Language URLs | English at the root, Kannada under `/kn/`, `hreflang`-linked; the app-bar toggle navigates between them (§8). |
@@ -426,15 +439,18 @@ Before N, the candidate routes show the pre-nomination empty state already speci
 | Distribution | Partner-led and unpaid — RWAs, civic orgs, press. No paid acquisition, on both cost and neutrality grounds. |
 | Teaser asset | The ward finder itself, not a standalone "notify me" page. Citizens don't know their new ward; the finder answers that and captures ward at registration. |
 | Election-silence rule | Outbound comms are logistics-only from 48h before poll close (§9.2) — and the campaign goes dark entirely after a final logistics send at E−3d. The site stays up. |
-| Public metrics | `/data` publishes coverage, integrity, and the city-wide issue roll-up (§5.14). Figures only — no dataset downloads or API this release. |
+| Public metrics | `/data` publishes coverage, integrity, and the city-wide issue roll-up (§5.14). Figures only — no dataset downloads or API this release. Coverage counts published data (comms-held wards included), with a separate wards-signed-off-for-comms figure (§5.14). |
 | Recruitment funnel | `/partner-with-us` collects anonymous expressions of interest for both paths; admins grant access. No self-service activation (§5.13). |
-| Funding disclosure | `/about` states who funds the platform (§5.11). Neutrality is the product; its funding cannot be opaque. |
+| Funding disclosure | `/about` **names each funder** (amounts optional) (§5.11). Neutrality is the product; its funding cannot be opaque, and categories alone invite the question the disclosure exists to close. |
 | Legal page sequencing | `/privacy` ships in **Phase 0**, before the teaser — it gates WhatsApp onboarding and therefore the comms plan (§5.16). |
+| Legal page languages | `/terms` and `/privacy` ship in English **and** Kannada; English is the legally controlling text, the Kannada version a marked courtesy translation (§5.16). |
+| Press timing | The launch press push goes out **at N**, with a planned second beat at E−2w when the final list and complete report cards land (§5.15). |
+| Future-phase consent | Registration carries an optional, unchecked **"tell me about future civic tools"** checkbox, recorded with the consent event — the lawful list for any deferred phase (§10, §5.16). |
 | Ward send gating | Candidate-referencing sends are gated per ward on data readiness; unready wards are held (§9.1). |
-| Ward readiness test | Field completeness **and** explicit curator sign-off. Sign-off clears when the ward's candidate set changes (§9.1). |
+| Ward readiness test | Field completeness **and** explicit curator sign-off. Sign-off clears when the ward's candidate set changes (§9.1); the nomination-window churn this creates is accepted — only L1 and C2 depend on sign-off. |
 | Operator | The **Oorvani Foundation** runs the platform in production; named on `/about` and `/privacy`. |
 | Citizen data use | Oorvani does not sell citizen data and shares it only with the service providers operating the platform — under contract, listed in `/privacy`, never for their own purposes (§5.16). Contacts are used for ward election updates and critical product updates only — the latter meaning service-affecting notices, not feature marketing. |
-| Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). |
+| Partner model | Partners are not a role. Attribution is a `?src=` parameter; the kit is an unlisted public page (§5.12). The kit, `/press`, and `/partner-with-us` are bilingual like every public path (§5.12). |
 | Success metrics | **300,000 unique visitors** and **25,000 registered users** this release, with the ward-breadth guardrail (≥50 registrations in ≥300 of 369 wards) from the GTM plan (§2). |
 | Analytics | Visitor and event data is tracked in **Google Analytics**; server-side application events remain the source of truth for registration and contribution counts; disclosed in `/privacy` (§5.16, §12). |
 
@@ -468,21 +484,11 @@ Also out of scope this release: **open data downloads and a public API** — `/d
 
 *This section is the single home for open questions across all project documents — the IA and GTM plan point here rather than keeping their own lists. The subset that blocks work is also tracked in `docs/project-dependencies.md` §7, which exists to carry owners.*
 
-- Issue-vote results display: raw counts, percentages, or ranked order only?
-- Curator scoping unit: per-ward vs per-zone (affects `/curator` navigation). Scope *size* is decided — uncapped, an owned risk (§14); only the unit remains open.
-- Candidate comparison: maximum number of candidates shown at once on mobile.
-- Do GBA ward polls use EVMs or paper ballots? Determines the voting-day walkthrough on `/voting-guide/how-to-vote` (§5.9); resolvable from the State Election Commission before that content is written.
-- News links: curator-added only, or auto-suggested for curator approval?
-- Is the `/login` fallback page necessary, or is the popup sufficient for all entry paths?
-- Does clearing sign-off on every candidate-set change (§9.1) create too much curator churn during the nomination window, when the set changes daily? A possible refinement: suspend gating entirely until withdrawals close, since no candidate-referencing send falls in that window except L1.
-- Is the partner kit page itself bilingual, or English-only with bilingual assets inside it? Same for `/press` and `/partner-with-us`.
-- Press timing: does the launch push go out at the notification, or at E−2w when report cards are actually complete?
-- **Retention period** (§5.16): Oorvani's commitments settle *who* may use the data (nobody else) and *for what* (election updates, critical product notices). They do not settle **for how long**. `/privacy` must state a period or a deletion trigger, and this remains a Phase 0 blocker.
-- **Re-consent path for the next phase** (§5.16, §16): if promise tracking ships, the election list cannot simply be reused. Is re-consent collected during this release — an optional "tell me about future civic tools" checkbox at registration — or sought later against a list that has gone cold? Deciding now costs one checkbox; deciding later may cost the list.
-- Funding disclosure detail (§5.11): does `/about` name funders and amounts, or only funder categories? Anything less than names invites the question the disclosure was meant to close.
-- Do `/data` coverage figures count a ward whose data exists but is held from comms by the §9.1 readiness check? The honest answer and the flattering answer differ.
-- Do `/terms` and `/privacy` need Kannada versions at launch, or is English acceptable for legal text on an otherwise bilingual product?
-- Does the Home page need a pre-notification state distinct from its post-notification one, given the ward finder is the teaser? *(raised by the IA)*
-- Does the readiness panel belong on `/curator/ward/{id}`, or does it deserve its own screen once the gap list grows long? *(raised by the IA)*
-- Is Citizen Matters an owned channel? If the Oorvani Foundation also publishes Citizen Matters, the GTM plan's cold-start assumption is wrong in the project's favour and Phase 1 should be planned differently. *(raised by the GTM plan; = `docs/project-dependencies.md` 7.4)*
+*The 2026-07-19 review resolved fourteen formerly open questions; the resolutions live in §14 and the feature sections they affect (issue-vote display §5.5 · curator scoping unit §10 · compare layout §5.3 · news-link sourcing §5.2 · `/login` kept §10 · sign-off churn accepted §9.1 · no distinct pre-N Home state, IA §3.1 · readiness panel stays on the ward edit page, IA §5.5 · partner surfaces bilingual §5.12 · press timing §5.15 · `/data` held-ward counting §5.14 · future-tools consent checkbox §10 · funders named §5.11 · legal-page languages §5.16).*
+
+**What remains open is external confirmation, not product decisions:**
+
+- **Retention period — legal confirmation** (§5.16): the product proposal is decided — citizen contact data deleted or anonymized within **3 months of results being declared**, backups aging out on rotation. `/privacy` cannot ship until the lawyer confirms (or amends) the period, so this stays the Phase 0 blocker.
+- **EVMs or paper ballots** — the `/voting-guide/how-to-vote` walkthrough is drafted for **EVMs** (Karnataka urban local-body practice, §5.9); confirm with the State Election Commission before that content publishes.
+- **Is Citizen Matters an owned channel?** Likely — Oorvani publishes Citizen Matters alongside Open City — but unconfirmed. If confirmed, the GTM plan's cold-start assumption is wrong in the project's favour and Phase 1 distribution should be re-planned around it. *(= `docs/project-dependencies.md` 7.4)*
 

@@ -185,9 +185,9 @@ Three public pages carry the neutrality claim. **About** names the operator — 
 
 **Partner with us** turns recruitment from a private motion into a public one, offering the two ways to help — *spread awareness* or *curate data* — and taking applications from anyone. The team's own address book does not stretch to 369 wards, and it is precisely where a central-Bengaluru skew would come from.
 
-One sequencing point worth stakeholder attention: the **privacy policy is the first thing we must publish**, before the teaser. Meta will not approve WhatsApp onboarding without a live privacy-policy URL, so it gates the templates, which gate the entire comms plan. It also needs a lawyer — India's DPDP Act applies squarely to what we collect — and it is still blocked on **how long we keep citizen contact data**. Oorvani's commitments settle who may use it and for what; they do not yet settle for how long, and the privacy policy cannot ship without a period or a deletion trigger.
+One sequencing point worth stakeholder attention: the **privacy policy is the first thing we must publish**, before the teaser. Meta will not approve WhatsApp onboarding without a live privacy-policy URL, so it gates the templates, which gate the entire comms plan. It also needs a lawyer — India's DPDP Act applies squarely to what we collect. The retention proposal is now decided product-side — citizen contact data deleted or anonymized within **3 months of results being declared** — and the privacy policy waits only on the lawyer confirming or amending that period.
 
-One related decision is cheap now and expensive later. Citizens will register for *election* updates. If the deferred promise-tracking phase ever ships, that list cannot simply be reused — it was gathered for a different purpose, and "critical product updates" does not stretch to a new product. An optional "tell me about future civic tools" consent at registration costs one checkbox today; without it, the next phase starts from a cold list.
+One related decision is cheap now and expensive later. Citizens will register for *election* updates. If the deferred promise-tracking phase ever ships, that list cannot simply be reused — it was gathered for a different purpose, and "critical product updates" does not stretch to a new product. An optional "tell me about future civic tools" consent at registration costs one checkbox today; without it, the next phase starts from a cold list. That checkbox is now part of registration (PRD §14).
 
 Full detail: `docs/gtm-plan.md`.
 
@@ -199,9 +199,9 @@ Full detail: `docs/gtm-plan.md`.
 - Resolve remaining open questions (see the PRD).
 - Kick off offline curator **and partner** recruitment in parallel — one motion, one named owner.
 - **Engage a lawyer for the privacy policy and terms.** This is the first item on the critical path, not the last: the privacy policy gates WhatsApp onboarding, which gates the templates, which gate the comms plan.
-- **Decide how long citizen contact data is retained** — it blocks the privacy policy, and the privacy policy blocks everything else.
-- Decide whether registration carries an optional consent for future civic tools, so a later phase has a lawful list to talk to.
+- **Confirm the retention proposal with the lawyer** — citizen contact data deleted or anonymized within 3 months of results being declared (PRD §17). It blocks the privacy policy, and the privacy policy blocks everything else.
+- Registration carries an optional "tell me about future civic tools" consent checkbox (decided — PRD §14), so a later phase has a lawful list to talk to.
 - Start WhatsApp template approval as soon as the privacy policy is live. Approval does not gate the teaser — email is the baseline channel and WhatsApp joins when Meta approves — but every week of delay is a week of WhatsApp-first registrants the campaign cannot reach.
-- Agree the funding disclosure: named funders, or categories only?
+- Funding disclosure is decided — `/about` names each funder (PRD §14); collect funder sign-off on the wording.
 - Confirm whether Oorvani's existing channels (Open City, and Citizen Matters if that is also Oorvani) are available as launch distribution — the plan is currently written as though starting from no audience at all.
 - Proceed to wireframe → hi-fi design and technical design.
