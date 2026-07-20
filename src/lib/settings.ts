@@ -29,6 +29,14 @@ export const SETTING_KEYS = [
   'consent_wording_version',
   'data_page_live',
   'results_declared_at',
+  // Task 21 guide pages' guided link-out URLs — dependency register §4.8,
+  // "INPUT NEEDED" in the corresponding content/pages/en/*.md file until an
+  // admin fills these in. Absent -> the page shows a pending-note
+  // placeholder rather than inventing a URL (src/components/ExternalLinkOut.astro).
+  'roll_lookup_url',
+  'form6_url',
+  'form8_url',
+  'booth_lookup_url',
 ] as const;
 
 export type SettingKey = (typeof SETTING_KEYS)[number];

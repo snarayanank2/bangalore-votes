@@ -1,0 +1,39 @@
+---
+/**
+ * How to vote (`/voting-guide/how-to-vote`, `/kn/voting-guide/how-to-vote`)
+ * — information-architecture.md §3.11, PRD §5.9.
+ *
+ * Renders the Task 8 `how-to-vote` content entry inside Prose as-is: the
+ * content is already structured as question-shaped `##` headings followed
+ * by plain paragraphs/lists (the first-timer FAQ included) — exactly the
+ * AEO-safe shape architecture.md §8 asks for ("question-shaped headings,
+ * facts in visible text"). This deliberately does NOT wrap the FAQ answers
+ * in `<details>/<summary>` accordions: collapsed-by-default answer text is
+ * still in the DOM, but AEO crawlers and assistive tech both do better
+ * with facts that are unconditionally visible rather than gated behind an
+ * interaction — see the task brief's own reasoning for choosing
+ * headings+paragraphs over an accordion here.
+ *
+ * CACHE-SAFETY: no settings/DB/cookie read at all — this page is pure
+ * static content, the simplest of the six to cache.
+ */
+import Prose from '../../layouts/Prose.astro';
+import type { Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml } from '../../lib/render-content';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'how-to-vote');
+if (!content) {
+  throw new Error('HowToVote: missing content/pages/en/how-to-vote.md');
+}
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/voting-guide/how-to-vote">
+  <div set:html={renderContentHtml(content.body, lang)} />
+</Prose>

@@ -1,0 +1,205 @@
+---
+/**
+ * Find your polling booth (`/voting-guide/find-booth`,
+ * `/kn/voting-guide/find-booth`) — information-architecture.md §3.12, PRD
+ * §5.10.
+ *
+ * Mirrors Home.astro's no-JS-first pattern: a real `<form method="post">`
+ * that, with JS disabled, POSTs back to this same page and server-renders
+ * the result using the SAME resolution functions `/api/booth-lookup` uses
+ * (booths-table-empty check, then `lookupWardByAddress`) — never fetched.
+ * With JS enabled, `src/islands/BoothLookup.ts` intercepts the submit and
+ * calls the API instead, painting the result inline.
+ *
+ * ALWAYS-VISIBLE GUIDED LINK-OUT (PRD §5.10, task brief): booth-level data
+ * is a tracked dependency that may not be loaded for every (or any) ward
+ * yet, so a card linking to the official EC/CEO Karnataka booth finder
+ * renders unconditionally below the form/result — not only after a failed
+ * lookup. That makes it the "always-available fallback" for a no-JS
+ * visitor (whose form submit re-renders this same page) AND the reference
+ * point the aria-live result messages (below) point back to for every
+ * non-`booth` outcome.
+ *
+ * CACHE-SAFETY: the GET render never reads cookies/session, only
+ * app_settings (`booth_lookup_url`) — safe under the anonymous-page
+ * micro-cache. The POST branch is a per-request lookup and is explicitly
+ * `cache-control: no-store`, mirroring Home.astro exactly.
+ */
+import { eq, sql } from 'drizzle-orm';
+import Prose from '../../layouts/Prose.astro';
+import FormField from '../../components/FormField.astro';
+import Button from '../../components/Button.astro';
+import ExternalLinkOut from '../../components/ExternalLinkOut.astro';
+import Card from '../../components/Card.astro';
+import { localePath, t, type Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml, splitMarkdownSections } from '../../lib/render-content';
+import { getSettings } from '../../lib/settings';
+import { lookupWardByAddress } from '../../lib/geocode';
+import { db } from '../../db/client';
+import { booths } from '../../db/schema';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'find-booth');
+if (!content) {
+  throw new Error('FindBooth: missing content/pages/en/find-booth.md');
+}
+
+const sections = splitMarkdownSections(content.body);
+// [ "## How do I find my polling booth?", "## What if my address doesn't match a booth?" ]
+const introSection = sections[0] ?? '';
+const fallbackSection = sections.slice(1).join('');
+
+type BoothRow = { id: number; nameEn: string; nameKn: string | null; address: string; wardId: number };
+
+type LookupResult =
+  | { result: 'booth'; booths: BoothRow[] }
+  | { result: 'no_booth_data' }
+  | { result: 'out_of_coverage' }
+  | { result: 'unavailable'; reason: 'ambiguous' | 'budget' | 'failed' };
+
+let postResult: LookupResult | null = null;
+
+// No-JS fallback path (see file header). Only ever runs for a POST; the GET
+// render below is unaffected and stays cacheable.
+if (Astro.request.method === 'POST') {
+  Astro.response.headers.set('cache-control', 'no-store');
+
+  const form = await Astro.request.formData();
+  const address = String(form.get('address') ?? '').trim();
+
+  if (address.length > 0) {
+    // Check FIRST, before geocoding, so a bare empty table never implies a
+    // failed lookup — same discipline as /api/booth-lookup.
+    const [{ total }] = await db.select({ total: sql<number>`count(*)::int` }).from(booths);
+    if (total === 0) {
+      postResult = { result: 'no_booth_data' };
+    } else {
+      const lookup = await lookupWardByAddress(address);
+      switch (lookup.kind) {
+        case 'ward': {
+          const rows = await db.select().from(booths).where(eq(booths.wardId, lookup.wardId));
+          postResult = rows.length === 0 ? { result: 'no_booth_data' } : { result: 'booth', booths: rows };
+          break;
+        }
+        case 'out_of_coverage':
+          postResult = { result: 'out_of_coverage' };
+          break;
+        case 'ambiguous':
+          postResult = { result: 'unavailable', reason: 'ambiguous' };
+          break;
+        case 'budget_exhausted':
+          postResult = { result: 'unavailable', reason: 'budget' };
+          break;
+        case 'failed':
+          postResult = { result: 'unavailable', reason: 'failed' };
+          break;
+      }
+    }
+  } else {
+    // Defensive only — the input carries `required`.
+    postResult = { result: 'unavailable', reason: 'failed' };
+  }
+}
+
+const settings = await getSettings(['booth_lookup_url']);
+
+function boothName(b: BoothRow): string {
+  return lang === 'kn' && b.nameKn ? b.nameKn : b.nameEn;
+}
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/voting-guide/find-booth">
+  <div set:html={renderContentHtml(introSection, lang)} />
+
+  <form
+    method="post"
+    action={localePath(lang, '/voting-guide/find-booth')}
+    class="booth-form"
+    data-booth-lookup
+    data-lang={lang}
+    data-msg-booth-label={t(lang, 'findBooth.result.boothLabel')}
+    data-msg-no-booth-data={t(lang, 'findBooth.result.noBoothData')}
+    data-msg-out-of-coverage={t(lang, 'home.result.outOfCoverage')}
+    data-msg-unavailable={t(lang, 'findBooth.result.unavailable')}
+  >
+    <FormField
+      label={t(lang, 'findBooth.form.label')}
+      name="address"
+      type="text"
+      required
+      lang={lang}
+    />
+    <Button type="submit" variant="primary" lang={lang}>
+      {t(lang, 'findBooth.form.submit')}
+    </Button>
+
+    <div class="booth-result" data-booth-result aria-live="polite">
+      {postResult?.result === 'booth' && (
+        <ul aria-label={t(lang, 'findBooth.result.boothLabel')}>
+          {postResult.booths.map((b) => (
+            <li>
+              <p class="booth-name">{boothName(b)}</p>
+              <p class="booth-address">{b.address}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {postResult?.result === 'no_booth_data' && <p>{t(lang, 'findBooth.result.noBoothData')}</p>}
+      {postResult?.result === 'out_of_coverage' && <p>{t(lang, 'home.result.outOfCoverage')}</p>}
+      {postResult?.result === 'unavailable' && <p>{t(lang, 'findBooth.result.unavailable')}</p>}
+    </div>
+  </form>
+
+  <Card>
+    <h2>{t(lang, 'findBooth.linkOut.heading')}</h2>
+    <ExternalLinkOut lang={lang} href={settings.booth_lookup_url} label={t(lang, 'findBooth.linkOut.label')} />
+  </Card>
+
+  <div set:html={renderContentHtml(fallbackSection, lang)} />
+
+  <script>
+    import { initBoothLookup } from '../../islands/BoothLookup';
+    initBoothLookup();
+  </script>
+</Prose>
+
+<style>
+  .booth-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 32rem;
+    margin-block: var(--space-6);
+  }
+
+  .booth-result:not(:empty) {
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+  }
+
+  .booth-result ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .booth-name {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .booth-address {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+</style>

@@ -1,0 +1,77 @@
+---
+/**
+ * ExternalLinkOut — the "guided link-out" pattern used across the guide
+ * pages (Task 21; design-system.md §7.3/§9): a primary-button-styled link
+ * to an official EC/CEO-Karnataka process (roll lookup, Form 6/8, booth
+ * finder) that several of this platform's URLs depend on but don't own
+ * (dependency register §4.8 — "official link pending").
+ *
+ * `href` is caller-resolved (usually `getSetting('some_url_key')`) rather
+ * than hardcoded here — see e.g. src/features/pages/CheckRegistration.astro.
+ * When it's `null` (the setting hasn't been filled in yet), this renders a
+ * disabled-looking placeholder pointing at "#" plus a visible
+ * "(official link pending)" note, rather than inventing a URL.
+ *
+ * The button ALWAYS carries `target="_blank" rel="noopener noreferrer"`
+ * and the external-link glyph — even in the pending state — because the
+ * button's identity (a link that will leave this platform) doesn't change
+ * once the URL is filled in; only the destination does.
+ *
+ * design-system.md §7.13: "Icons never appear without a text label except
+ * the close X and external-link glyph, both aria-labeled" — so the glyph
+ * SVG below carries its own `role="img" aria-label` rather than relying on
+ * visually-hidden companion text.
+ */
+import Button from './Button.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  href: string | null;
+  label: string;
+}
+
+const { lang, href, label } = Astro.props;
+---
+
+<p class="external-link-out">
+  <Button variant="primary" href={href ?? '#'} target="_blank" rel="noopener noreferrer" lang={lang} data-external-link>
+    {label}
+    <svg
+      class="external-glyph"
+      viewBox="0 0 24 24"
+      width="18"
+      height="18"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      role="img"
+      aria-label={t(lang, 'common.opensInNewTab')}
+    >
+      <path d="M9 6h9v9" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M18 6 8 16" stroke-linecap="round" stroke-linejoin="round"></path>
+      <path d="M13 6H6.75A1.75 1.75 0 0 0 5 7.75v10.5A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V12" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+  </Button>
+  {!href && <span class="pending-note">{t(lang, 'common.officialLinkPending')}</span>}
+</p>
+
+<style>
+  .external-link-out {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin: 0;
+  }
+
+  .external-glyph {
+    margin-inline-start: var(--space-2);
+    vertical-align: -3px;
+  }
+
+  .pending-note {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+</style>

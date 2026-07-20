@@ -1,0 +1,65 @@
+---
+/**
+ * Voter-ID enrolment/transfer (`/voting-guide/voter-id`,
+ * `/kn/voting-guide/voter-id`) — information-architecture.md §3.10, PRD
+ * §5.8.
+ *
+ * Renders the Task 8 `voter-id` content entry inside Prose, with two
+ * guided link-out buttons (Form 6, Form 8) interleaved right after their
+ * respective sections — same splitMarkdownSections technique as
+ * CheckRegistration.astro, placed at the exact section boundary the
+ * content's own (now-stripped) `<!-- INPUT NEEDED -->` markers sit at (see
+ * content/pages/en/voter-id.md: both markers are the LAST line of their
+ * section, right before the next `## ` heading).
+ *
+ * Both URLs come from app_settings (`form6_url`, `form8_url` — INPUT
+ * NEEDED, dependency register §4.8) — never invented; absent -> the
+ * pending-note placeholder.
+ *
+ * CACHE-SAFETY: only reads app_settings — no cookie/session access, safe
+ * under the anonymous-page micro-cache.
+ */
+import Prose from '../../layouts/Prose.astro';
+import DeadlineBanner from '../../components/DeadlineBanner.astro';
+import ExternalLinkOut from '../../components/ExternalLinkOut.astro';
+import { t, type Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml, splitMarkdownSections } from '../../lib/render-content';
+import { getSettings } from '../../lib/settings';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'voter-id');
+if (!content) {
+  throw new Error('VoterId: missing content/pages/en/voter-id.md');
+}
+
+const sections = splitMarkdownSections(content.body);
+// [preamble, "## How do I enrol..." (Form 6), "## How do I update/transfer..." (Form 8),
+//  "## I'm registered in another city...", "## What documents...", "## Where do I do this..."]
+const form6Section = sections.slice(0, 2).join('');
+const form8Section = sections[2] ?? '';
+const remainder = sections.slice(3).join('');
+
+const settings = await getSettings(['roll_deadline', 'form6_url', 'form8_url']);
+const rollDeadline = settings.roll_deadline;
+const rollDeadlineActive = rollDeadline
+  ? new Date(`${rollDeadline}T23:59:59Z`).getTime() >= Date.now()
+  : false;
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/voting-guide/voter-id">
+  {rollDeadlineActive && rollDeadline && <DeadlineBanner deadlineISO={rollDeadline} lang={lang} />}
+
+  <div set:html={renderContentHtml(form6Section, lang)} />
+  <ExternalLinkOut lang={lang} href={settings.form6_url} label={t(lang, 'voterId.form6.label')} />
+
+  <div set:html={renderContentHtml(form8Section, lang)} />
+  <ExternalLinkOut lang={lang} href={settings.form8_url} label={t(lang, 'voterId.form8.label')} />
+
+  <div set:html={renderContentHtml(remainder, lang)} />
+</Prose>

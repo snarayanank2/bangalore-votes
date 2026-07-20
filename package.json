@@ -30,6 +30,7 @@
     "drizzle-orm": "^0.45.2",
     "gray-matter": "^4.0.3",
     "maplibre-gl": "^5.24.0",
+    "marked": "^18.0.6",
     "postgres": "^3.4.9",
     "zod": "^3.25.76"
   },

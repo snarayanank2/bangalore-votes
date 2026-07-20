@@ -1,0 +1,64 @@
+---
+/**
+ * About the election (`/about-election`, `/kn/about-election`) —
+ * information-architecture.md §3.8, PRD §5.7.
+ *
+ * Renders the Task 8 `about-election` content entry inside Prose, with an
+ * election-status/countdown Banner above it sourced from app_settings —
+ * the SAME notification_date/election_date read and Banner markup Home
+ * uses (see src/features/pages/Home.astro's "election-status" section),
+ * inlined here rather than factored into a shared helper per the task
+ * brief ("do NOT duplicate a big helper, a small inline read is fine") —
+ * this is a plain settings read + two Banner branches, not worth its own
+ * module.
+ *
+ * CACHE-SAFETY: only reads app_settings — no cookie/session access, safe
+ * under the anonymous-page micro-cache.
+ */
+import Prose from '../../layouts/Prose.astro';
+import Banner from '../../components/Banner.astro';
+import { t, type Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml } from '../../lib/render-content';
+import { getSettings } from '../../lib/settings';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'about-election');
+if (!content) {
+  throw new Error('AboutElection: missing content/pages/en/about-election.md');
+}
+
+const settings = await getSettings(['notification_date', 'election_date']);
+const notificationDate = settings.notification_date;
+const electionDate = settings.election_date;
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/about-election">
+  <section class="election-status">
+    {!notificationDate ? (
+      <Banner kind="notice" lang={lang}>
+        {t(lang, 'home.election.awaited')}
+      </Banner>
+    ) : (
+      notificationDate &&
+      electionDate && (
+        <Banner kind="notice" lang={lang}>
+          {t(lang, 'home.election.status', { notificationDate, electionDate })}
+        </Banner>
+      )
+    )}
+  </section>
+
+  <div set:html={renderContentHtml(content.body, lang)} />
+</Prose>
+
+<style>
+  .election-status {
+    margin-block-end: var(--space-6);
+  }
+</style>

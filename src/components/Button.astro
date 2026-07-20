@@ -16,6 +16,10 @@ interface Props {
   variant: ButtonVariant;
   type?: 'button' | 'submit' | 'reset';
   href?: string;
+  /** Anchor-only (ignored without `href`) — set alongside `rel` for external EC links (Task 21). */
+  target?: '_blank';
+  /** Anchor-only (ignored without `href`) — e.g. `"noopener noreferrer"` for external links. */
+  rel?: string;
   disabled?: boolean;
   loading?: boolean;
   lang: Lang;
@@ -28,14 +32,31 @@ interface Props {
   [key: `data-${string}`]: string | number | boolean | undefined;
 }
 
-const { variant, type = 'button', href, disabled = false, loading = false, lang, ...rest } = Astro.props;
+const {
+  variant,
+  type = 'button',
+  href,
+  target,
+  rel,
+  disabled = false,
+  loading = false,
+  lang,
+  ...rest
+} = Astro.props;
 
 const className = `btn btn--${variant}`;
 ---
 
 {
   href ? (
-    <a class={className} href={href} aria-disabled={disabled ? 'true' : undefined} {...rest}>
+    <a
+      class={className}
+      href={href}
+      target={target}
+      rel={rel}
+      aria-disabled={disabled ? 'true' : undefined}
+      {...rest}
+    >
       <span class="btn-content" aria-hidden={loading ? 'true' : undefined}>
         <span class="btn-label" style={loading ? 'visibility:hidden' : undefined}>
           <slot />
