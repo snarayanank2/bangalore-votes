@@ -240,6 +240,12 @@ describe('Candidates-in-ward list (/ward/{id}/candidates) — IA §3.3, PRD §5.
       );
     });
 
+    it('%s: empty state does NOT show the provisional marker', async () => {
+      const html = normalize(await (await renderWardCandidates('en', EMPTY_WARD.id)).text());
+      expect(html).toContain(escApos(t('en', 'ward.candidates.empty.awaited')));
+      expect(html).not.toContain(t('en', 'candidate.provisionalMarker'));
+    });
+
     it('uses the notification date wording once app_settings.notification_date is set', async () => {
       await db
         .insert(schema.appSettings)

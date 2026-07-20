@@ -129,8 +129,6 @@ const description = ward
           <p class="subheading">{t(lang, 'ward.links.candidates')}</p>
         </header>
 
-        {isProvisional && <p class="provisional-marker">{t(lang, 'candidate.provisionalMarker')}</p>}
-
         {sortedCandidates.length === 0 ? (
           <EmptyState fact={emptyFact}>
             <Button
@@ -146,6 +144,8 @@ const description = ward
           </EmptyState>
         ) : (
           <>
+            {isProvisional && <p class="provisional-marker">{t(lang, 'candidate.provisionalMarker')}</p>}
+
             <ul class="candidate-list" aria-label={t(lang, 'ward.candidates.list.label')}>
               {sortedCandidates.map((candidate) => (
                 <li class="candidate-item">
