@@ -8,8 +8,8 @@
  *   - ADMIN-ONLY: a curator or a citizen hitting either route -> 403
  *     (src/middleware.ts's /admin/* route class); an anonymous request
  *     redirects to /login.
- *   - CONSOLE: /admin renders its nav links (Roles & access, plus the
- *     "coming soon" placeholders for Manage users/Partners/Audit log).
+ *   - CONSOLE: /admin renders its nav links (Roles & access, Manage users,
+ *     Partners & coverage, Audit log — all real pages by Task 47).
  *   - GRANT: POST formAction=grant on /admin/roles actually promotes a
  *     citizen and writes a grant_role audit row.
  *   - REVOKE: POST formAction=revoke demotes to citizen AND clears
