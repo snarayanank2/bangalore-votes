@@ -381,6 +381,41 @@ describe('/curator/candidate/{id} — news links (Task 38)', () => {
     expect(approveRes.status).toBe(403);
   });
 
+  it('SCOPE HOP: approve an out-of-scope link via an in-scope URL -> 400 (the deeper scope-hop guard), link stays suggested', async () => {
+    // Curator is scoped to WARD_A; candidateA is in WARD_A (in scope);
+    // candidateOutOfScope is in WARD_OUT_OF_SCOPE (NOT in scope).
+    // Seed a suggested link L belonging to candidateOutOfScope.
+    const [outOfScopeLink] = await db
+      .insert(schema.candidateNewsLinks)
+      .values({
+        candidateId: candidateOutOfScope,
+        url: `https://auto-suggested.example.org/scope-hop-${randomUUID()}`,
+        title: 'Out of scope link for scope-hop test',
+        domain: 'auto-suggested.example.org',
+        origin: 'auto',
+        status: 'suggested',
+      })
+      .returning();
+
+    // POST an approve action to candidateA's editor URL (in scope) with linkId = L.
+    // The candidateA URL access should succeed (200 GET), but the POST to approve
+    // should hit the handleNewsLinkApprove's scope-hop guard (line 928:
+    // link.candidateId !== candidateId), returning validation_error -> 400.
+    const fd = newsLinkApproveForm(outOfScopeLink!.id, curatorAuth.token);
+    const res = await run(`/curator/candidate/${candidateA}`, {
+      method: 'POST',
+      cookieValue: curatorAuth.cookieValue,
+      params: { id: String(candidateA) },
+      form: fd,
+    });
+    expect(res.status).toBe(400);
+
+    // Verify link L is still 'suggested' (NOT approved — approvedBy is null).
+    const [after] = await db.select().from(schema.candidateNewsLinks).where(eq(schema.candidateNewsLinks.id, outOfScopeLink!.id));
+    expect(after!.status).toBe('suggested');
+    expect(after!.approvedBy).toBeNull();
+  });
+
   it('CSRF: POST without the synchronizer token -> 403 (for both add and approve)', async () => {
     const addFd = new FormData();
     addFd.set('formAction', 'news_link_add');
