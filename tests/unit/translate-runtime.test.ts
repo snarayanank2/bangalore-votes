@@ -27,7 +27,7 @@ vi.mock('../../src/lib/translate-runtime', async (importOriginal) => {
 });
 
 import { translateFieldNow, translateFieldSoon, buildFieldTranslationPrompt } from '../../src/lib/translate-runtime';
-import { publishCandidateField } from '../../src/lib/publish';
+import { publishCandidateField, publishStance } from '../../src/lib/publish';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -249,7 +249,13 @@ describe('src/lib/translate-runtime.ts — runtime MT of curator data (Task 40)'
       .select()
       .from(schema.auditLog)
       .where(and(eq(schema.auditLog.entityType, 'ward_issue'), eq(schema.auditLog.entityId, String(issueId))));
-    expect(auditRows.some((r) => r.action === 'mt' && r.actorRole === 'system')).toBe(true);
+    const mtRow = auditRows.find((r) => r.action === 'mt' && r.actorRole === 'system');
+    expect(mtRow).toBeDefined();
+    // ward_issues' real columns are titleEn/titleKn — the audit newValue key
+    // must reflect that, NOT the candidate_fields/candidate_stances
+    // valueEn/valueKn key (the bug this test guards against).
+    expect(mtRow!.newValue).toEqual({ titleKn: 'ರಸ್ತೆ ನಿರ್ವಹಣೆ' });
+    expect(mtRow!.newValue).not.toHaveProperty('valueKn');
   });
 
   it('candidate_stances: translates valueEn into valueKn, audited as candidate_stance', async () => {
@@ -425,6 +431,167 @@ describe('src/lib/translate-runtime.ts — runtime MT of curator data (Task 40)'
         .from(schema.candidateFields)
         .where(and(eq(schema.candidateFields.candidateId, candidateId), eq(schema.candidateFields.fieldKey, 'publish_noop')));
       expect(field?.translationStatus).toBe('done');
+      expect(vi.mocked(translateFieldSoon)).not.toHaveBeenCalled();
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // publishStance coordination (Fix 2, Task 40 review) — mirrors the
+  // publishCandidateField coordination tests above, but through
+  // publishStance, whose wiring of decideTranslationStatus /
+  // translateFieldSoon was previously untested. Each test uses a FRESH ward
+  // issue (rather than a fresh fieldKey, as candidate_fields tests do above)
+  // since a stance's natural key is (wardIssueId, candidateId).
+  // -------------------------------------------------------------------------
+
+  describe('publishStance manual-override + source-change-regeneration coordination', () => {
+    async function newWardIssue(titleEn: string, position: number): Promise<number> {
+      const [issue] = await db
+        .insert(schema.wardIssues)
+        .values({ wardId: WARD_ID, titleEn, authoredLang: 'en', translationStatus: 'pending', position })
+        .returning({ id: schema.wardIssues.id });
+      return issue!.id;
+    }
+
+    it('a fresh authored publish stays pending and DOES fire translateFieldSoon', async () => {
+      const wardIssueId = await newWardIssue('Stance Coordination Fresh', 10);
+      vi.mocked(translateFieldSoon).mockClear();
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'Original stance text.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      const [stance] = await db
+        .select()
+        .from(schema.candidateStances)
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+      expect(stance?.translationStatus).toBe('pending');
+      expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledWith({ table: 'candidate_stances', id: stance!.id });
+    });
+
+    it('MANUAL set on publish: a manual OTHER-language edit (same authored value, new valueKn) sets manual and does NOT fire translateFieldSoon', async () => {
+      const wardIssueId = await newWardIssue('Stance Coordination Manual', 11);
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'Stable stance source text.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      vi.mocked(translateFieldSoon).mockClear();
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'Stable stance source text.', // authored value UNCHANGED
+        valueKn: 'Curator-typed manual Kannada stance fix.', // other language explicitly edited
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      const [stance] = await db
+        .select()
+        .from(schema.candidateStances)
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+      expect(stance?.translationStatus).toBe('manual');
+      expect(stance?.valueKn).toBe('Curator-typed manual Kannada stance fix.');
+      expect(vi.mocked(translateFieldSoon)).not.toHaveBeenCalled();
+    });
+
+    it('SOURCE-CHANGE regeneration: editing the AUTHORED value after a manual fix flips back to pending and fires translateFieldSoon', async () => {
+      const wardIssueId = await newWardIssue('Stance Coordination Regenerate', 12);
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'First version of the stance text.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'First version of the stance text.', // unchanged
+        valueKn: 'Manually patched translation of the FIRST version.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      const [manualStance] = await db
+        .select()
+        .from(schema.candidateStances)
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+      expect(manualStance?.translationStatus).toBe('manual');
+
+      vi.mocked(translateFieldSoon).mockClear();
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'SECOND, updated version of the stance text.', // authored value changes
+        valueKn: 'Manually patched translation of the FIRST version.', // stale — describes the OLD source
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      const [regeneratedStance] = await db
+        .select()
+        .from(schema.candidateStances)
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+      expect(regeneratedStance?.translationStatus).toBe('pending');
+      expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledWith({ table: 'candidate_stances', id: regeneratedStance!.id });
+    });
+
+    it('an identical re-publish (nothing changed) preserves the existing status and does not fire translateFieldSoon', async () => {
+      const wardIssueId = await newWardIssue('Stance Coordination Noop', 13);
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'Unchanging stance text.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      // Simulate MT having already completed, so status is 'done'.
+      await db
+        .update(schema.candidateStances)
+        .set({ valueKn: 'ಬದಲಾಗದ ನಿಲುವು.', translationStatus: 'done' })
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+
+      vi.mocked(translateFieldSoon).mockClear();
+
+      await publishStance(ACTOR, {
+        wardIssueId,
+        candidateId,
+        valueEn: 'Unchanging stance text.',
+        valueKn: 'ಬದಲಾಗದ ನಿಲುವು.',
+        sourceUrl: 'https://example.org/source',
+        sourceType: 'curator',
+        authoredLang: 'en',
+      });
+
+      const [stance] = await db
+        .select()
+        .from(schema.candidateStances)
+        .where(and(eq(schema.candidateStances.wardIssueId, wardIssueId), eq(schema.candidateStances.candidateId, candidateId)));
+      expect(stance?.translationStatus).toBe('done');
       expect(vi.mocked(translateFieldSoon)).not.toHaveBeenCalled();
     });
   });

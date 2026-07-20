@@ -258,10 +258,28 @@ async function markStatus(target: TranslateTarget, status: 'pending' | 'done' | 
   }
 }
 
+/**
+ * The column-name key the audit oldValue/newValue should use for the
+ * OTHER-language value, per table — `ward_issues`' real columns are
+ * `titleEn`/`titleKn`, not `valueEn`/`valueKn` (those are only accurate for
+ * `candidate_fields`/`candidate_stances`). Using the wrong key here doesn't
+ * corrupt any data, but it does write a misleading audit trail (e.g. a
+ * ward-issue translation recorded as `{valueKn: "..."}` when the actual
+ * column is `titleKn`) — the audit log is a trust surface, so the recorded
+ * key must match the real column.
+ */
+function auditValueKey(table: TranslateTable, otherLang: Lang): 'valueEn' | 'valueKn' | 'titleEn' | 'titleKn' {
+  if (table === 'ward_issues') {
+    return otherLang === 'en' ? 'titleEn' : 'titleKn';
+  }
+  return otherLang === 'en' ? 'valueEn' : 'valueKn';
+}
+
 /** Writes the freshly-translated OTHER-language value + `translationStatus: 'done'`, and its system audit entry, atomically. */
 async function writeTranslationDone(target: TranslateTarget, row: LoadedRow, otherLang: Lang, translated: string): Promise<void> {
-  const oldValue = otherLang === 'en' ? { valueEn: row.valueEn } : { valueKn: row.valueKn };
-  const newValue = otherLang === 'en' ? { valueEn: translated } : { valueKn: translated };
+  const key = auditValueKey(target.table, otherLang);
+  const oldValue = { [key]: otherLang === 'en' ? row.valueEn : row.valueKn };
+  const newValue = { [key]: translated };
 
   await db.transaction(async (tx) => {
     if (target.table === 'candidate_fields') {

@@ -507,4 +507,91 @@ describe('flags.ts — deduped flag queue + transactional resolution (Task 31)',
     expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledWith({ table: 'candidate_fields', id: field!.id });
   });
+
+  it('resolveFlag ACCEPT manual-suppression: normal accept fires translate once (pending); a later accept that only changes the OTHER language (authored unchanged) resolves to manual and does NOT fire translate (Fix 3, Task 40 review)', async () => {
+    const targetRef = targetRefFor('manual_suppression');
+    const fieldKey = 'manual_suppression_field';
+
+    // --- First accept: brand-new field, no existing row -> decideTranslationStatus
+    // returns 'pending' -> translateFieldSoon fires exactly once (normal case).
+    const first = await submitFlag(submitterAId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'Initial concern about this field.',
+    });
+
+    vi.mocked(translateFieldSoon).mockClear();
+
+    await resolveFlag(
+      { userId: 4208, role: 'curator' },
+      first.flagItemId,
+      {
+        accept: true,
+        publish: {
+          candidateId,
+          fieldKey,
+          valueEn: 'Stable authored English text.',
+          sourceUrl: 'https://example.org/manual-suppression-source',
+          sourceType: 'curator',
+          authoredLang: 'en',
+        },
+      },
+    );
+
+    expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledWith(
+      expect.objectContaining({ table: 'candidate_fields' }),
+    );
+
+    // Simulate MT having completed (status now 'done'), so the NEXT accept's
+    // authored-unchanged / other-language-changed diff can resolve to
+    // 'manual' rather than 'pending' (decideTranslationStatus, src/lib/publish.ts).
+    await db
+      .update(schema.candidateFields)
+      .set({ valueKn: 'ಸ್ಥಿರ ಪಠ್ಯ.', translationStatus: 'done' })
+      .where(and(eq(schema.candidateFields.candidateId, candidateId), eq(schema.candidateFields.fieldKey, fieldKey)));
+
+    // A fresh flag on the same targetRef opens a new pending item (the first
+    // is already accepted — see the dedupe test above).
+    const second = await submitFlag(submitterBId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'A curator wants to hand-fix the Kannada translation via accept.',
+    });
+
+    vi.mocked(translateFieldSoon).mockClear();
+
+    // --- Second accept: authored value (valueEn) UNCHANGED, only valueKn
+    // supplied differently -> decideTranslationStatus returns 'manual' ->
+    // resolveFlag must NOT fire translateFieldSoon at all (flags.ts:~270).
+    await resolveFlag(
+      { userId: 4208, role: 'curator' },
+      second.flagItemId,
+      {
+        accept: true,
+        publish: {
+          candidateId,
+          fieldKey,
+          valueEn: 'Stable authored English text.', // authored value UNCHANGED
+          valueKn: 'Curator-typed manual Kannada fix via flag accept.', // other language explicitly edited
+          sourceUrl: 'https://example.org/manual-suppression-source',
+          sourceType: 'curator',
+          authoredLang: 'en',
+        },
+      },
+    );
+
+    const [field] = await db
+      .select()
+      .from(schema.candidateFields)
+      .where(and(eq(schema.candidateFields.candidateId, candidateId), eq(schema.candidateFields.fieldKey, fieldKey)));
+    expect(field?.translationStatus).toBe('manual');
+    expect(field?.valueKn).toBe('Curator-typed manual Kannada fix via flag accept.');
+    expect(vi.mocked(translateFieldSoon)).not.toHaveBeenCalled();
+
+    const [secondItem] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, second.flagItemId));
+    expect(secondItem!.status).toBe('accepted');
+  });
 });
