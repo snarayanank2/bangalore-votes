@@ -23,6 +23,8 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.112.3",
     "@astrojs/node": "^9.5.5",
+    "@turf/boolean-point-in-polygon": "^7.3.5",
+    "@turf/helpers": "^7.3.5",
     "astro": "^5.18.2",
     "drizzle-orm": "^0.45.2",
     "gray-matter": "^4.0.3",
