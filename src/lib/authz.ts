@@ -70,7 +70,25 @@ const DEFAULT_SITE_ORIGIN = 'https://bangalore-votes.opencity.in';
  *      RECONSTRUCTED `pathname + search + hash` from that parsed URL, never
  *      the raw input, so nothing attacker-controlled survives the trip —
  *      only a canonical same-origin path/query/hash ever comes back.
- * Anything that doesn't parse, or resolves off-origin, falls back to `/`.
+ * Fixed 2026-07 (Task 26 re-review, residual bypass): dot-segment
+ * normalization performed BY the URL parser itself (step 3 above) can turn a
+ * same-origin input into a pathname that starts with `//` — e.g.
+ * `new URL('/.//evil.example', SITE_ORIGIN).pathname` collapses to
+ * `//evil.example`. `u.origin` is still our own origin (the parser resolved
+ * the whole thing against SITE_ORIGIN first), so the origin check passes —
+ * but the RECONSTRUCTED string we hand back is protocol-relative. `/login`'s
+ * consumer (Task 27) uses that string as a raw redirect target, and a
+ * browser re-parsing `//evil.example` in isolation resolves it to
+ * `https://evil.example`. So the origin check alone is not sufficient; the
+ * reconstructed `pathname + search + hash` must ALSO be re-validated as a
+ * genuine single-`/`-rooted relative path (not `//`, not `/\`) after
+ * canonicalization — the same shape check as step 2, but applied to the
+ * parser's OUTPUT instead of the raw input. This is the backstop: no matter
+ * what dot-segment or backslash trick produces the final pathname, it can't
+ * leave this function unless it starts with exactly one `/`.
+ *
+ * Anything that doesn't parse, resolves off-origin, or reconstructs to a
+ * non-relative shape, falls back to `/`.
  */
 export function isSameOriginRelative(next: unknown): string {
   if (typeof next !== 'string' || next === '' || /[\x00-\x1f\x7f]/.test(next)) return '/';
@@ -80,7 +98,13 @@ export function isSameOriginRelative(next: unknown): string {
   try {
     const u = new URL(next, siteOrigin);
     if (u.origin !== new URL(siteOrigin).origin) return '/';
-    return u.pathname + u.search + u.hash;
+    const rel = u.pathname + u.search + u.hash;
+    // Post-canonicalization backstop: dot-segment collapse inside the URL
+    // parser (e.g. `/.//evil.example` -> pathname `//evil.example`) can
+    // produce a same-origin parse whose RECONSTRUCTED string is itself
+    // protocol-relative. Re-validate the output, not just the input.
+    if (!rel.startsWith('/') || rel.startsWith('//') || rel.startsWith('/\\')) return '/';
+    return rel;
   } catch {
     return '/';
   }

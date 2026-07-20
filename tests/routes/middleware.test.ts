@@ -346,6 +346,61 @@ describe('src/middleware.ts', () => {
         expect(isSameOriginRelative('/ward/57?a=b#c')).toBe('/ward/57?a=b#c');
       });
     });
+
+    // Regression cases for the residual bypass found in adversarial
+    // re-review of the Task 26 fix: dot-segment normalization performed BY
+    // the URL parser itself can collapse a same-origin-looking input into a
+    // pathname that starts with `//`. The origin check on `u.origin` passes
+    // (the parser genuinely resolved it against SITE_ORIGIN), but the
+    // RECONSTRUCTED string handed back to the caller is protocol-relative,
+    // so a downstream `Astro.redirect(next)` / `Location:` header / raw
+    // `window.location` assignment gets re-parsed by the browser in
+    // isolation as `https://evil.example`. Closed by re-validating the
+    // reconstructed `pathname + search + hash` after canonicalization.
+    describe('dot-segment-collapsed // pathname bypass (Task 26 re-review)', () => {
+      it('a leading /.// dot-segment collapses to /', () => {
+        expect(isSameOriginRelative('/.//evil.example')).toBe('/');
+      });
+
+      it('a leading /..// dot-segment collapses to /', () => {
+        expect(isSameOriginRelative('/..//evil.example')).toBe('/');
+      });
+
+      it('a nested /./..// dot-segment collapses to /', () => {
+        expect(isSameOriginRelative('/./..//evil.example')).toBe('/');
+      });
+
+      it('a trailing-segment /a/..// dot-segment collapses to /', () => {
+        expect(isSameOriginRelative('/a/..//evil.example')).toBe('/');
+      });
+
+      // Belt-and-suspenders: no adversarial input in our bypass corpus may
+      // ever cause this function to return a protocol-relative string. This
+      // is a property check over the whole list, not just a spot check —
+      // it's the invariant the rest of the codebase (the /login handler)
+      // depends on to treat the return value as a safe redirect target.
+      it('never returns a string starting with // for any known adversarial input', () => {
+        const adversarialInputs = [
+          '//evil.example',
+          '/\\evil.example',
+          '\\\\evil.example',
+          'https://evil.example',
+          'HTTP://evil',
+          'javascript:alert(1)',
+          '/\t/evil.example',
+          '/\n/evil.example',
+          '/\r/evil.example',
+          '/account/\tsubmissions',
+          '/.//evil.example',
+          '/..//evil.example',
+          '/./..//evil.example',
+          '/a/..//evil.example',
+        ];
+        for (const input of adversarialInputs) {
+          expect(isSameOriginRelative(input).startsWith('//')).toBe(false);
+        }
+      });
+    });
   });
 
   describe('canEditWard', () => {
