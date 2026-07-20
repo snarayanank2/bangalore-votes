@@ -1,0 +1,257 @@
+---
+/**
+ * Candidates-in-ward list (`/ward/{id}/candidates`, `/kn/ward/{id}/candidates`)
+ * — information-architecture.md §3.3, PRD §5.2, design-system §4.3/§7.12.
+ * Lists every candidate standing in the ward — including withdrawn/
+ * scrutiny-rejected ones, each with its lifecycle status shown — plus a
+ * Compare entry point and the register-for-updates slot.
+ *
+ * Existence check lives in the route twins (src/pages/ward/[id]/candidates.astro,
+ * src/pages/kn/ward/[id]/candidates.astro), not here — same pattern as
+ * Ward.astro/WardIssues.astro; see Ward.astro's header comment for the full
+ * rationale. The `ward` lookup below is guarded defensively anyway.
+ *
+ * ORDERING (design-system §4.3, LOAD-BEARING): candidates are sorted
+ * ALPHABETICALLY by `nameEn` (a single stable, language-independent sort
+ * key — same candidate order in both languages) — NEVER by status,
+ * insertion order, or any editorial rank. Every row renders through
+ * CandidateRow, which itself guarantees identical visual weight regardless
+ * of party/status/position (§4).
+ *
+ * LIFECYCLE STATUS (PRD §5.2, design-system §4): every candidate — filed,
+ * contesting, withdrawn, or rejected — shows its status as a plain neutral
+ * text label (`.status-label`, no color/tint). Withdrawn/rejected
+ * candidates are never hidden: their report-card links have already been
+ * shared and must keep resolving from this list too.
+ *
+ * PROVISIONAL marker: shown whenever `app_settings.withdrawals_closed`
+ * isn't `'true'` yet — same convention as Candidate.astro (PRD §5.2/§9.3).
+ *
+ * EMPTY STATE (design-system §7.12): a ward with zero candidates yet (the
+ * common case before the nomination window) renders EmptyState at HTTP
+ * 200 — NOT 404 — with the "Candidate nominations open on {date}…"
+ * copy (falling back to a date-less "the notification date" phrasing
+ * when `app_settings.notification_date` isn't set yet) plus the
+ * register-for-updates control folded into the empty state itself. The
+ * URL is shareable and accumulates authority regardless of whether
+ * candidates have been published yet (architecture §8) — the ward exists,
+ * there's just nothing to list.
+ *
+ * REGISTER-FOR-UPDATES SLOT: exactly ONE `[data-register-slot]` element
+ * ever renders per response — inside the empty state when there are no
+ * candidates, or in its own section at the bottom of the list otherwise —
+ * because these two branches are mutually exclusive and Task 28's MeSlot
+ * island (src/islands/MeSlot.ts) swaps only the FIRST such element it
+ * finds (`querySelector`, not `querySelectorAll`). Always the full
+ * anonymous-enabled markup (design-system §7.8), identical for every
+ * visitor — the auth gate/personalization happens client-side.
+ *
+ * CACHE-SAFETY (architecture §5): this component never reads cookies or
+ * session — the page is identical for every visitor.
+ */
+import Base from '../../layouts/Base.astro';
+import Button from '../../components/Button.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import CandidateRow from '../../components/CandidateRow.astro';
+import type { CandidateRowCandidate } from '../../components/CandidateRow.astro';
+import { t, localePath, type Lang } from '../../i18n';
+import { db } from '../../db/client';
+import { wards, candidates, media } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+import { getKnownSetting } from '../../lib/settings';
+
+interface Props {
+  lang: Lang;
+  wardId: number;
+}
+
+const { lang, wardId } = Astro.props;
+
+const [ward] = await db.select().from(wards).where(eq(wards.id, wardId));
+
+const candidateRows = ward
+  ? await db
+      .select({
+        id: candidates.id,
+        slug: candidates.slug,
+        nameEn: candidates.nameEn,
+        nameKn: candidates.nameKn,
+        partyEn: candidates.partyEn,
+        partyKn: candidates.partyKn,
+        photoMediaId: candidates.photoMediaId,
+        photoHash: media.sha256,
+        status: candidates.status,
+      })
+      .from(candidates)
+      .leftJoin(media, eq(media.id, candidates.photoMediaId))
+      .where(eq(candidates.wardId, wardId))
+  : [];
+
+// Alphabetical by nameEn — a single, stable, language-independent sort key
+// (design-system §4.3: alphabetical, NEVER editorially ranked; the same
+// candidate order in both languages). `id` is only a tiebreak for two
+// candidates that happen to share an identical nameEn.
+const sortedCandidates: (CandidateRowCandidate & { id: number; status: string })[] = candidateRows
+  .map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    nameEn: c.nameEn,
+    nameKn: c.nameKn,
+    partyEn: c.partyEn,
+    partyKn: c.partyKn,
+    photoUrl: c.photoMediaId != null && c.photoHash ? `/media/${c.photoMediaId}/${c.photoHash.slice(0, 16)}` : null,
+    status: c.status,
+  }))
+  .sort((a, b) => a.nameEn.localeCompare(b.nameEn) || a.id - b.id);
+
+const withdrawalsClosedSetting = await getKnownSetting('withdrawals_closed');
+const isProvisional = withdrawalsClosedSetting !== 'true';
+
+const notificationDateSetting = await getKnownSetting('notification_date');
+const emptyFact = notificationDateSetting
+  ? t(lang, 'ward.candidates.empty.fact', { date: notificationDateSetting })
+  : t(lang, 'ward.candidates.empty.awaited');
+
+const wardName = ward ? (lang === 'kn' ? ward.nameKn : ward.nameEn) : '';
+const pagePath = `/ward/${wardId}/candidates`;
+const title = ward ? t(lang, 'ward.candidates.meta.title', { wardName }) : t(lang, 'ward.notFound.fact');
+const description = ward
+  ? t(lang, 'ward.candidates.meta.description', { wardName })
+  : t(lang, 'ward.notFound.fact');
+---
+
+<Base lang={lang} title={title} description={description} path={pagePath}>
+  {
+    ward ? (
+      <div class="ward-candidates">
+        <header class="page-header">
+          <h1>{wardName}</h1>
+          <p class="subheading">{t(lang, 'ward.links.candidates')}</p>
+        </header>
+
+        {isProvisional && <p class="provisional-marker">{t(lang, 'candidate.provisionalMarker')}</p>}
+
+        {sortedCandidates.length === 0 ? (
+          <EmptyState fact={emptyFact}>
+            <Button
+              variant="primary"
+              href={localePath(lang, '/login')}
+              lang={lang}
+              data-register-slot
+              data-ward-id={wardId}
+              data-msg-receiving-updates={t(lang, 'common.receivingUpdates')}
+            >
+              {t(lang, 'common.registerForUpdates')}
+            </Button>
+          </EmptyState>
+        ) : (
+          <>
+            <ul class="candidate-list" aria-label={t(lang, 'ward.candidates.list.label')}>
+              {sortedCandidates.map((candidate) => (
+                <li class="candidate-item">
+                  <CandidateRow candidate={candidate} lang={lang} />
+                  <span class="status-label">
+                    {t(lang, `candidate.status.${candidate.status}` as `candidate.status.${string}`)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+
+            <nav class="candidate-links" aria-label={t(lang, 'ward.candidates.links.label')}>
+              <a href={localePath(lang, `/ward/${wardId}/compare`)}>{t(lang, 'candidate.links.compare')}</a>
+            </nav>
+
+            <section class="register-slot">
+              <Button
+                variant="secondary"
+                href={localePath(lang, '/login')}
+                lang={lang}
+                data-register-slot
+                data-ward-id={wardId}
+                data-msg-receiving-updates={t(lang, 'common.receivingUpdates')}
+              >
+                {t(lang, 'common.registerForUpdates')}
+              </Button>
+            </section>
+          </>
+        )}
+      </div>
+    ) : (
+      <EmptyState fact={t(lang, 'ward.notFound.fact')} />
+    )
+  }
+</Base>
+
+<style>
+  .ward-candidates {
+    max-width: var(--container-app);
+    margin-inline: auto;
+    padding: var(--space-8) var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .page-header h1 {
+    font-family: var(--font-heading);
+    font-size: var(--text-3xl);
+    line-height: var(--leading-3xl);
+    margin: 0 0 var(--space-2);
+  }
+
+  .subheading {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .provisional-marker {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+
+  .candidate-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .candidate-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+  }
+
+  .status-label {
+    flex: none;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .candidate-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .candidate-links a {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .candidate-links a:hover,
+  .candidate-links a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .register-slot {
+    display: flex;
+  }
+</style>
