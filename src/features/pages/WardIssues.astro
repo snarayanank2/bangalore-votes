@@ -113,6 +113,19 @@ const wardName = ward ? (lang === 'kn' ? ward.nameKn : ward.nameEn) : '';
 const pagePath = `/ward/${wardId}/issues`;
 const title = ward ? t(lang, 'ward.issues.meta.title', { wardName }) : t(lang, 'ward.notFound.fact');
 const description = ward ? t(lang, 'ward.issues.meta.description', { wardName }) : t(lang, 'ward.notFound.fact');
+
+// Flag misinformation (Task 32, IA §7.2, PRD §6.1) — this page's flaggable
+// targets are the ward's own curator-defined issues, one ward_issue target
+// per issue (only rendered once at least one issue exists — see the Flag
+// action markup below). Same anonymous-safe markup for every visitor
+// (design-system.md §7.8); the auth gate happens client-side on tap.
+const flagTargets = JSON.stringify(
+  issues.map((issue) => ({
+    targetType: 'ward_issue',
+    targetRef: `ward_issue:${issue.id}`,
+    label: pick(lang, issue.titleEn, issue.titleKn),
+  })),
+);
 ---
 
 <Base lang={lang} title={title} description={description} path={pagePath}>
@@ -122,6 +135,18 @@ const description = ward ? t(lang, 'ward.issues.meta.description', { wardName })
         <header class="page-header">
           <h1>{wardName}</h1>
           <p class="subheading">{t(lang, 'ward.issues.subheading')}</p>
+          {issues.length > 0 && (
+            <Button
+              variant="tertiary"
+              type="button"
+              lang={lang}
+              data-flag-action
+              data-ward-id={wardId}
+              data-flag-targets={flagTargets}
+            >
+              {t(lang, 'common.flagError')}
+            </Button>
+          )}
         </header>
 
         {issues.length === 0 ? (

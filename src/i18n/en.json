@@ -172,6 +172,18 @@
   "account.submissions.heading": "My flagged corrections",
   "account.submissions.empty": "You haven't flagged anything yet.",
   "account.submissions.reasonLabel": "Reason",
+  "flag.modal.title": "Flag an error",
+  "flag.modal.close": "Close",
+  "flag.modal.targetLabel": "What's wrong?",
+  "flag.modal.detailLabel": "Tell us what's incorrect",
+  "flag.modal.sourceLabel": "Source link (optional)",
+  "flag.modal.suggestedLabel": "Suggested correction (optional)",
+  "flag.modal.submit": "Submit flag",
+  "flag.modal.rateLimited": "You've submitted a lot of flags recently. Please try again later.",
+  "flag.modal.sourceInvalid": "Enter a valid web link, starting with http:// or https://.",
+  "flag.modal.genericError": "Something went wrong. Please try again.",
+  "flag.modal.success": "Thanks — this has been sent to the ward's curators.",
+  "ward.flag.wardFieldLabel": "This ward's name and details",
   "__hints": {
     "common.opensInNewTab": "aria-label on the external-link glyph next to a guided link-out button (design-system.md §7.13) — the glyph itself, not visually-hidden companion text.",
     "common.officialLinkPending": "Visible note shown next to a guided link-out button whose official URL has not been filled into app_settings yet (dependency register §4.8) — never invent a URL, show this instead.",
@@ -273,6 +285,18 @@
     "account.contact.addLabel": "Label on the SINGLE new-contact input on /account (email or WhatsApp number) — same single-input-per-step pattern as auth.step1.contactLabel.",
     "account.contact.step1.sent": "Shown on /account once a new contact's OTP code has been requested, right above the code-entry form — deliberately generic, mirrors auth.step1.sent.",
     "account.contact.error.taken": "Shown on /account step 2 when the verified new contact's OTP is correct but the contact already belongs to a DIFFERENT account (PRD §10 one-account-per-contact) — the new contact is not attached.",
-    "account.submissions.reasonLabel": "Short label prefixed before the curator's resolutionReason text on /account/submissions, e.g. 'Reason: <text>' — only shown once a flag is accepted/rejected (PRD §6.3)."
+    "account.submissions.reasonLabel": "Short label prefixed before the curator's resolutionReason text on /account/submissions, e.g. 'Reason: <text>' — only shown once a flag is accepted/rejected (PRD §6.3).",
+    "flag.modal.title": "Fixed <h2> title of the Flag misinformation modal (Task 32, IA §7.2, design-system.md §7.9).",
+    "flag.modal.close": "aria-label on the Flag modal's explicit Close button.",
+    "flag.modal.targetLabel": "aria-labelledby text above the field/claim picker (radiogroup) — 'which field/claim is wrong', built client-side from the targets the opening button carried.",
+    "flag.modal.detailLabel": "Label on the required free-text detail textarea — what specifically is wrong with the selected field/claim.",
+    "flag.modal.sourceLabel": "Label on the optional source-URL input backing a citizen's flagged correction.",
+    "flag.modal.suggestedLabel": "Label on the optional suggested-value input — what the citizen believes the correct value is.",
+    "flag.modal.submit": "Submit button label on the Flag modal.",
+    "flag.modal.rateLimited": "Shown inline when POST /api/flags returns 429 (Task 31's per-day flag budget) — try again later, not a queued/degraded submit.",
+    "flag.modal.sourceInvalid": "Shown on the source-URL field when POST /api/flags returns 400 for a non-http(s) sourceUrl (architecture §13).",
+    "flag.modal.genericError": "Shown on any other unexpected non-2xx/network failure submitting a flag.",
+    "flag.modal.success": "Success toast text shown after a flag is accepted (200) and the modal closes (PRD §6.1 step 2 — lands in the ward's review queue).",
+    "ward.flag.wardFieldLabel": "The single ward_field flag target's picker label on the ward result page (Ward.astro) — kept minimal/generic since the page shows the ward's name/number/corporation as one block."
   }
 }
