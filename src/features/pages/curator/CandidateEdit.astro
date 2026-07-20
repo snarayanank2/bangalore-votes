@@ -1,0 +1,365 @@
+---
+/**
+ * `/curator/candidate/{id}` and `/curator/candidate/new?ward={id}` (Task 36,
+ * information-architecture.md §5.4; PRD §5.2/§9.1/§11; architecture §6) — the
+ * curator candidate editor. Every route twin
+ * (src/pages/curator/candidate/[id].astro, .../new.astro) is responsible for
+ * the 404/403 scope check BEFORE rendering this component — see those
+ * files' docstrings and src/lib/curator.ts's module docstring for the same
+ * convention used by the queue-item editor (Task 34).
+ *
+ * THREE INDEPENDENT FORMS, each its own `<form>` posting back to the same
+ * URL with a distinct hidden `formAction` value (mirrors QueueItem.astro's
+ * accept/reject split):
+ *   - `formAction=core` — name/party/photo/status (or, on the `new` route,
+ *     name/party/photo only — status is always the schema default there).
+ *     A STATUS change clears the ward's sign-off (src/lib/publish.ts's
+ *     `publishCandidateCore`) — a static warning sits next to the status
+ *     select rather than a JS-conditional one, consistent with every other
+ *     form on `/curator/*` being a plain no-JS server round trip.
+ *   - `formAction=field:{fieldKey}`, one per report-card field
+ *     (track_record/cases/assets/education/approachability) — SOURCE IS
+ *     REQUIRED on every one of these (PRD §11): the source url field is
+ *     marked `required` and the server re-validates regardless (see
+ *     `handleCandidateFieldPublish`).
+ *
+ * AFFIDAVIT (Task 37) and NEWS LINKS (Task 38) are out of scope here —
+ * both render as a clearly-marked placeholder section, not a working
+ * upload/list, so this page has an obvious mount point for those tasks
+ * without faking functionality that doesn't exist yet.
+ */
+import CuratorLayout from '../../../layouts/CuratorLayout.astro';
+import Card from '../../../components/Card.astro';
+import Banner from '../../../components/Banner.astro';
+import Button from '../../../components/Button.astro';
+import FormField from '../../../components/FormField.astro';
+import SourceLine from '../../../components/SourceLine.astro';
+import { t, type Lang } from '../../../i18n';
+import { CSRF_FIELD_NAME } from '../../../lib/csrf';
+import { REPORT_CARD_FIELD_KEYS, type CandidateEditData, type ReportCardFieldKey } from '../../../lib/curator';
+
+interface Props {
+  lang: Lang;
+  csrfToken: string;
+  wardId: number;
+  wardNameEn: string;
+  wardNameKn: string;
+  /** Present in EDIT mode (an existing candidate); absent on the `new` route. */
+  candidate?: CandidateEditData;
+  message?: { kind: 'notice' | 'error'; key: string };
+}
+
+const { lang, csrfToken, wardId, wardNameEn, wardNameKn, candidate, message } = Astro.props;
+const isNew = candidate === undefined;
+const wardName = lang === 'kn' ? wardNameKn : wardNameEn;
+const messageText = message ? t(lang, message.key) : undefined;
+
+const FIELD_LABEL_KEYS: Record<ReportCardFieldKey, string> = {
+  track_record: 'curator.candidateEdit.field.trackRecord',
+  cases: 'curator.candidateEdit.field.cases',
+  assets: 'curator.candidateEdit.field.assets',
+  education: 'curator.candidateEdit.field.education',
+  approachability: 'curator.candidateEdit.field.approachability',
+};
+
+const pageHeading = isNew
+  ? t(lang, 'curator.candidateEdit.new.heading', { ward: wardName })
+  : t(lang, 'curator.candidateEdit.heading', { name: candidate!.nameEn });
+const pageTitle = isNew ? t(lang, 'curator.candidateEdit.new.meta.title') : t(lang, 'curator.candidateEdit.meta.title');
+const pageDescription = isNew
+  ? t(lang, 'curator.candidateEdit.new.meta.description')
+  : t(lang, 'curator.candidateEdit.meta.description');
+const formTarget = isNew ? `/curator/candidate/new?ward=${wardId}` : `/curator/candidate/${candidate!.id}`;
+---
+
+<CuratorLayout lang={lang} title={pageTitle} description={pageDescription}>
+  <div class="curator-page">
+    <p><a href="/curator">{t(lang, 'curator.candidateEdit.backToDashboard')}</a></p>
+    <h1>{pageHeading}</h1>
+    <p class="ward-line">{t(lang, 'curator.candidateEdit.wardLine', { ward: wardName })}</p>
+
+    {
+      messageText && (
+        <Banner kind={message!.kind === 'error' ? 'error' : 'notice'} lang={lang}>
+          {messageText}
+        </Banner>
+      )
+    }
+
+    <Card>
+      <h2>{t(lang, 'curator.candidateEdit.core.heading')}</h2>
+      <form method="post" action={formTarget} enctype="multipart/form-data">
+        <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+        <input type="hidden" name="formAction" value="core" />
+
+        <FormField
+          label={t(lang, 'curator.candidateEdit.core.nameEnLabel')}
+          name="nameEn"
+          required
+          value={candidate?.nameEn}
+          lang={lang}
+        />
+        <FormField
+          label={t(lang, 'curator.candidateEdit.core.nameKnLabel')}
+          name="nameKn"
+          value={candidate?.nameKn ?? undefined}
+          lang={lang}
+        />
+        <FormField
+          label={t(lang, 'curator.candidateEdit.core.partyEnLabel')}
+          name="partyEn"
+          required
+          value={candidate?.partyEn}
+          lang={lang}
+        />
+        <FormField
+          label={t(lang, 'curator.candidateEdit.core.partyKnLabel')}
+          name="partyKn"
+          value={candidate?.partyKn ?? undefined}
+          lang={lang}
+        />
+
+        <div class="form-field">
+          <label class="form-label" for="core-photo">
+            {t(lang, 'curator.candidateEdit.core.photoLabel')}
+          </label>
+          {candidate?.photoUrl && (
+            <p class="meta">
+              {t(lang, 'curator.candidateEdit.core.photoCurrent')}{' '}
+              <a href={candidate.photoUrl} target="_blank" rel="noopener noreferrer">
+                {candidate.photoUrl}
+              </a>
+            </p>
+          )}
+          <input id="core-photo" class="form-input" type="file" name="photo" accept="image/png,image/jpeg,image/webp" />
+        </div>
+
+        {
+          !isNew && (
+            <div class="form-field">
+              <label class="form-label" for="core-status">
+                {t(lang, 'curator.candidateEdit.core.statusLabel')}
+              </label>
+              <select id="core-status" class="form-input" name="status">
+                {(['filed', 'contesting', 'rejected', 'withdrawn'] as const).map((s) => (
+                  <option value={s} selected={candidate!.status === s}>
+                    {t(lang, `curator.candidateEdit.core.status.${s}`)}
+                  </option>
+                ))}
+              </select>
+              <p class="form-helper">{t(lang, 'curator.candidateEdit.core.statusWarning')}</p>
+            </div>
+          )
+        }
+
+        <Button type="submit" variant="primary" lang={lang}>
+          {isNew ? t(lang, 'curator.candidateEdit.core.createSubmit') : t(lang, 'curator.candidateEdit.core.submit')}
+        </Button>
+      </form>
+    </Card>
+
+    {
+      !isNew && (
+        <Card>
+          <h2>{t(lang, 'curator.candidateEdit.fields.heading')}</h2>
+          <div class="field-cards">
+            {REPORT_CARD_FIELD_KEYS.map((key) => {
+              const field = candidate!.fields[key];
+              return (
+                <div class="field-card">
+                  <h3>{t(lang, FIELD_LABEL_KEYS[key])}</h3>
+                  <SourceLine sourceType={field.sourceType} sourceUrl={field.sourceUrl} lang={lang} />
+                  <form method="post" action={formTarget}>
+                    <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+                    <input type="hidden" name="formAction" value={`field:${key}`} />
+                    <div class="form-field">
+                      <label class="form-label" for={`field-${key}-valueEn`}>
+                        {t(lang, 'curator.candidateEdit.field.valueEnLabel')}
+                      </label>
+                      <textarea id={`field-${key}-valueEn`} class="form-input" name="valueEn" rows={2}>
+                        {field.valueEn ?? ''}
+                      </textarea>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" for={`field-${key}-valueKn`}>
+                        {t(lang, 'curator.candidateEdit.field.valueKnLabel')}
+                      </label>
+                      <textarea id={`field-${key}-valueKn`} class="form-input" name="valueKn" rows={2}>
+                        {field.valueKn ?? ''}
+                      </textarea>
+                    </div>
+                    <label class="checkbox">
+                      <input type="checkbox" name="notDeclared" checked={field.notDeclared} />
+                      {t(lang, 'curator.queueItem.accept.notDeclaredLabel')}
+                    </label>
+                    <FormField
+                      label={t(lang, 'curator.queueItem.accept.sourceUrlLabel')}
+                      name="sourceUrl"
+                      type="text"
+                      required
+                      value={field.sourceUrl ?? undefined}
+                      lang={lang}
+                    />
+                    <div class="form-field">
+                      <label class="form-label" for={`field-${key}-sourceType`}>
+                        {t(lang, 'curator.queueItem.accept.sourceTypeLabel')}
+                      </label>
+                      <select id={`field-${key}-sourceType`} class="form-input" name="sourceType">
+                        <option value="curator" selected={field.sourceType === 'curator'}>
+                          {t(lang, 'curator.queueItem.accept.sourceType.curator')}
+                        </option>
+                        <option value="official" selected={field.sourceType === 'official'}>
+                          {t(lang, 'curator.queueItem.accept.sourceType.official')}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="form-field">
+                      <label class="form-label" for={`field-${key}-authoredLang`}>
+                        {t(lang, 'curator.queueItem.accept.authoredLangLabel')}
+                      </label>
+                      <select id={`field-${key}-authoredLang`} class="form-input" name="authoredLang">
+                        <option value="en" selected={field.authoredLang === 'en'}>
+                          {t(lang, 'curator.queueItem.accept.authoredLang.en')}
+                        </option>
+                        <option value="kn" selected={field.authoredLang === 'kn'}>
+                          {t(lang, 'curator.queueItem.accept.authoredLang.kn')}
+                        </option>
+                      </select>
+                    </div>
+                    <Button type="submit" variant="secondary" lang={lang}>
+                      {t(lang, 'curator.candidateEdit.field.submit')}
+                    </Button>
+                  </form>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )
+    }
+
+    {
+      !isNew && (
+        <Card>
+          <h2>{t(lang, 'curator.candidateEdit.affidavit.heading')}</h2>
+          <p class="placeholder-note">{t(lang, 'curator.candidateEdit.affidavit.note')}</p>
+        </Card>
+      )
+    }
+
+    {
+      !isNew && (
+        <Card>
+          <h2>{t(lang, 'curator.candidateEdit.newsLinks.heading')}</h2>
+          <p class="placeholder-note">{t(lang, 'curator.candidateEdit.newsLinks.note')}</p>
+        </Card>
+      )
+    }
+  </div>
+</CuratorLayout>
+
+<style>
+  .curator-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .curator-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .curator-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .curator-page h3 {
+    font-size: var(--text-base);
+    margin: 0 0 var(--space-1);
+  }
+
+  .ward-line {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .meta {
+    margin: 0 0 var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 32rem;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .form-label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .form-helper {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .form-input {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  textarea.form-input {
+    min-height: 5.5rem;
+    resize: vertical;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+  }
+
+  .field-cards {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .field-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+  }
+
+  .placeholder-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-style: italic;
+  }
+</style>

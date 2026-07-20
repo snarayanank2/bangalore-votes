@@ -34,15 +34,20 @@ import {
   curatorScopes,
   flagItems,
   flagSubmissions,
+  media,
   users,
   wardReadiness,
   wards,
+  type candidateStatusEnum,
   type flagStatusEnum,
   type flagTargetEnum,
   type sourceTypeEnum,
   type langEnum,
 } from '../db/schema';
 import { resolveFlag } from './flags';
+import { createCandidate, publishCandidateCore, publishCandidateField } from './publish';
+import { storeMedia, type MediaStoreErrorCode } from './media';
+import { checkDefaultLimit } from './rate-limit';
 import type { Lang } from '../i18n';
 import type { Role } from './session';
 
@@ -50,6 +55,8 @@ type FlagTargetType = (typeof flagTargetEnum.enumValues)[number];
 type FlagStatus = (typeof flagStatusEnum.enumValues)[number];
 type SourceType = (typeof sourceTypeEnum.enumValues)[number];
 type AuthoredLang = (typeof langEnum.enumValues)[number];
+type CandidateStatus = (typeof candidateStatusEnum.enumValues)[number];
+const CANDIDATE_STATUSES = ['filed', 'contesting', 'rejected', 'withdrawn'] as const satisfies readonly CandidateStatus[];
 
 /** Same shape `src/middleware.ts` puts on `locals.session` for an authed request. */
 export type CuratorActor = { userId: number; role: 'curator' | 'admin' };
@@ -451,4 +458,259 @@ export async function handleReject(actor: CuratorActor, itemId: number, form: Fo
   }
 
   return { kind: 'rejected' };
+}
+
+// ---------------------------------------------------------------------------
+// Candidate editor (Task 36; IA §5.4; PRD §5.2/§9.1/§11) — create/correct a
+// candidate's core record + report-card fields. Edits publish immediately
+// (curator trust, no approval gate); every report-card field carries a
+// required source. A status transition or a brand-new candidate is a
+// "candidate-set change" that clears the ward's sign-off — see
+// src/lib/publish.ts's `publishCandidateCore`/`createCandidate`.
+// ---------------------------------------------------------------------------
+
+/** The five report-card fields (PRD §5.2) — fixed set, in display order. */
+export const REPORT_CARD_FIELD_KEYS = ['track_record', 'cases', 'assets', 'education', 'approachability'] as const;
+export type ReportCardFieldKey = (typeof REPORT_CARD_FIELD_KEYS)[number];
+
+export interface ReportCardFieldEditRow {
+  fieldKey: ReportCardFieldKey;
+  valueEn: string | null;
+  valueKn: string | null;
+  notDeclared: boolean;
+  sourceUrl: string | null;
+  sourceType: SourceType;
+  authoredLang: AuthoredLang;
+}
+
+export interface CandidateEditData {
+  id: number;
+  slug: string;
+  wardId: number;
+  wardNameEn: string;
+  wardNameKn: string;
+  nameEn: string;
+  nameKn: string | null;
+  partyEn: string;
+  partyKn: string | null;
+  photoMediaId: number | null;
+  photoUrl: string | null;
+  status: CandidateStatus;
+  fields: Record<ReportCardFieldKey, ReportCardFieldEditRow>;
+}
+
+/** Loads everything `/curator/candidate/{id}` needs to render: the candidate's core row (+ ward name) and its five report-card fields, defaulting any field with no `candidate_fields` row yet to an empty, not-yet-declared state. `null` when no such candidate exists — the route twin turns that into a 404. Does NOT check scope (same convention as `loadQueueItem` — the caller must `canEditWard` against the returned `wardId`). */
+export async function loadCandidateForEdit(candidateId: number): Promise<CandidateEditData | null> {
+  const [row] = await db
+    .select({
+      id: candidates.id,
+      slug: candidates.slug,
+      wardId: candidates.wardId,
+      wardNameEn: wards.nameEn,
+      wardNameKn: wards.nameKn,
+      nameEn: candidates.nameEn,
+      nameKn: candidates.nameKn,
+      partyEn: candidates.partyEn,
+      partyKn: candidates.partyKn,
+      photoMediaId: candidates.photoMediaId,
+      photoHash: media.sha256,
+      status: candidates.status,
+    })
+    .from(candidates)
+    .innerJoin(wards, eq(wards.id, candidates.wardId))
+    .leftJoin(media, eq(media.id, candidates.photoMediaId))
+    .where(eq(candidates.id, candidateId));
+  if (!row) return null;
+
+  const fieldRows = await db.select().from(candidateFields).where(eq(candidateFields.candidateId, candidateId));
+  const byKey = new Map(fieldRows.map((f) => [f.fieldKey, f]));
+
+  const fields = Object.fromEntries(
+    REPORT_CARD_FIELD_KEYS.map((key) => {
+      const f = byKey.get(key);
+      const editRow: ReportCardFieldEditRow = {
+        fieldKey: key,
+        valueEn: f?.valueEn ?? null,
+        valueKn: f?.valueKn ?? null,
+        notDeclared: f?.notDeclared ?? false,
+        sourceUrl: f?.sourceUrl ?? null,
+        sourceType: f?.sourceType ?? 'curator',
+        authoredLang: f?.authoredLang ?? 'en',
+      };
+      return [key, editRow];
+    }),
+  ) as Record<ReportCardFieldKey, ReportCardFieldEditRow>;
+
+  return {
+    id: row.id,
+    slug: row.slug,
+    wardId: row.wardId,
+    wardNameEn: row.wardNameEn,
+    wardNameKn: row.wardNameKn,
+    nameEn: row.nameEn,
+    nameKn: row.nameKn,
+    partyEn: row.partyEn,
+    partyKn: row.partyKn,
+    photoMediaId: row.photoMediaId,
+    photoUrl: row.photoMediaId != null && row.photoHash ? `/media/${row.photoMediaId}/${row.photoHash.slice(0, 16)}` : null,
+    status: row.status,
+    fields,
+  };
+}
+
+/** Ward name lookup for `/curator/candidate/new?ward={id}` (no candidate exists yet to hang the ward name off of). `null` when the ward id doesn't exist — the route twin turns that into a 404. */
+export async function loadWardBasic(wardId: number): Promise<{ id: number; nameEn: string; nameKn: string } | null> {
+  const [row] = await db.select({ id: wards.id, nameEn: wards.nameEn, nameKn: wards.nameKn }).from(wards).where(eq(wards.id, wardId));
+  return row ?? null;
+}
+
+export type CandidateCoreOutcome = { kind: 'saved' } | { kind: 'validation_error'; key: string };
+export type CandidateCreateOutcome = { kind: 'created'; id: number } | { kind: 'validation_error'; key: string };
+export type CandidateFieldOutcome = { kind: 'saved' } | { kind: 'validation_error'; key: string };
+
+/** Error key for a `storeMedia` throw — shared by the core-publish and create paths below. */
+function photoErrorKey(err: unknown): string {
+  const code = err instanceof Error ? (err.message as MediaStoreErrorCode | string) : '';
+  if (code === 'media_too_large') return 'curator.candidateEdit.error.photoTooLarge';
+  return 'curator.candidateEdit.error.photoUnsupported';
+}
+
+/** Reads+validates the shared name/party/photo fields off a multipart `form` (used by both the core-edit and create paths). Returns a validation-error key, or the parsed values plus a freshly stored `photoMediaId` (`undefined` when no file was chosen — the caller decides what "no file" means for its path). */
+async function parseCandidateCoreForm(
+  actor: { userId: number },
+  form: FormData,
+): Promise<
+  | { ok: true; nameEn: string; nameKn: string | null; partyEn: string; partyKn: string | null; photoMediaId?: number }
+  | { ok: false; key: string }
+> {
+  const nameEn = String(form.get('nameEn') ?? '').trim();
+  const partyEn = String(form.get('partyEn') ?? '').trim();
+  const nameKnRaw = String(form.get('nameKn') ?? '').trim();
+  const partyKnRaw = String(form.get('partyKn') ?? '').trim();
+
+  if (!nameEn) return { ok: false, key: 'curator.candidateEdit.error.nameRequired' };
+  if (!partyEn) return { ok: false, key: 'curator.candidateEdit.error.partyRequired' };
+
+  let photoMediaId: number | undefined;
+  const photo = form.get('photo');
+  if (photo instanceof File && photo.size > 0) {
+    const allowed = await checkDefaultLimit(actor.userId, 'upload');
+    if (!allowed) return { ok: false, key: 'curator.candidateEdit.error.uploadRateLimited' };
+
+    try {
+      const bytes = Buffer.from(await photo.arrayBuffer());
+      const stored = await storeMedia(actor, { bytes, declaredType: photo.type }, 'photo');
+      photoMediaId = stored.id;
+    } catch (err) {
+      return { ok: false, key: photoErrorKey(err) };
+    }
+  }
+
+  return {
+    ok: true,
+    nameEn,
+    nameKn: nameKnRaw || null,
+    partyEn,
+    partyKn: partyKnRaw || null,
+    ...(photoMediaId !== undefined ? { photoMediaId } : {}),
+  };
+}
+
+/**
+ * Handles the CORE form on `/curator/candidate/{id}` (name/party/photo/
+ * status). A photo file is only read (and stored) when one was actually
+ * chosen — an empty file input leaves the existing photo untouched, it does
+ * NOT clear it. Publishes via `publishCandidateCore`, which itself clears
+ * the ward's sign-off atomically IF `status` actually changed (see that
+ * function's docstring) — this handler doesn't need to know or care which
+ * case applies.
+ */
+export async function handleCandidateCorePublish(
+  actor: CuratorActor,
+  candidateId: number,
+  form: FormData,
+): Promise<CandidateCoreOutcome> {
+  const parsed = await parseCandidateCoreForm(actor, form);
+  if (!parsed.ok) return { kind: 'validation_error', key: parsed.key };
+
+  const status = String(form.get('status') ?? '') as CandidateStatus;
+  if (!CANDIDATE_STATUSES.includes(status)) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.statusInvalid' };
+  }
+
+  await publishCandidateCore(actor, {
+    candidateId,
+    nameEn: parsed.nameEn,
+    nameKn: parsed.nameKn,
+    partyEn: parsed.partyEn,
+    partyKn: parsed.partyKn,
+    status,
+    ...(parsed.photoMediaId !== undefined ? { photoMediaId: parsed.photoMediaId } : {}),
+  });
+
+  return { kind: 'saved' };
+}
+
+/** Handles the CORE (create) form on `/curator/candidate/new?ward={id}`. Status is always the schema default (`'filed'`) — there is no status select on the create form. */
+export async function handleCandidateCreate(
+  actor: CuratorActor,
+  wardId: number,
+  form: FormData,
+): Promise<CandidateCreateOutcome> {
+  const parsed = await parseCandidateCoreForm(actor, form);
+  if (!parsed.ok) return { kind: 'validation_error', key: parsed.key };
+
+  const { id } = await createCandidate(actor, {
+    wardId,
+    nameEn: parsed.nameEn,
+    nameKn: parsed.nameKn,
+    partyEn: parsed.partyEn,
+    partyKn: parsed.partyKn,
+    ...(parsed.photoMediaId !== undefined ? { photoMediaId: parsed.photoMediaId } : {}),
+  });
+
+  return { kind: 'created', id };
+}
+
+/**
+ * Handles ONE report-card field's form on `/curator/candidate/{id}`
+ * (`formAction=field:{fieldKey}`). SOURCE REQUIRED (PRD §11 — source is the
+ * trust mechanism): a submission with a value (or `notDeclared`) but no
+ * source is rejected before anything is published — this mirrors
+ * `handleAccept`'s identical rule for the flag-queue accept path. A
+ * `notDeclared` field still needs a source (the affidavit itself, even when
+ * it declares nothing) — there is no path that skips this check.
+ */
+export async function handleCandidateFieldPublish(
+  actor: CuratorActor,
+  candidateId: number,
+  fieldKey: ReportCardFieldKey,
+  form: FormData,
+): Promise<CandidateFieldOutcome> {
+  const sourceUrl = String(form.get('sourceUrl') ?? '').trim();
+  const sourceType: SourceType = String(form.get('sourceType') ?? '') === 'official' ? 'official' : 'curator';
+  const authoredLang: AuthoredLang = String(form.get('authoredLang') ?? '') === 'kn' ? 'kn' : 'en';
+  const notDeclared = form.get('notDeclared') != null;
+  const valueEnRaw = String(form.get('valueEn') ?? '').trim();
+  const valueKnRaw = String(form.get('valueKn') ?? '').trim();
+
+  if (!sourceUrl || !isHttpUrl(sourceUrl)) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.sourceRequired' };
+  }
+  if (!notDeclared && !valueEnRaw && !valueKnRaw) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.valueRequired' };
+  }
+
+  await publishCandidateField(actor, {
+    candidateId,
+    fieldKey,
+    valueEn: valueEnRaw || null,
+    valueKn: valueKnRaw || null,
+    notDeclared,
+    sourceUrl,
+    sourceType,
+    authoredLang,
+  });
+
+  return { kind: 'saved' };
 }

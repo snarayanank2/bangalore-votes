@@ -1,0 +1,98 @@
+---
+/**
+ * `/curator/candidate/{id}` — see
+ * src/features/pages/curator/CandidateEdit.astro for the presentational
+ * side. This route twin owns:
+ *   - the numeric-id existence check (404 for a non-integer id or a row
+ *     that doesn't exist — same pattern as src/pages/curator/queue/[id].astro);
+ *   - the SCOPE CHECK (`canEditWard`) against the candidate's ward -> 403
+ *     for a curator not scoped to it;
+ *   - dispatching the core-edit / per-field POSTs via the hidden
+ *     `formAction` field (`core`, or `field:{fieldKey}`), and the resulting
+ *     redirect/re-render/400 status;
+ *   - no-store on every response.
+ */
+import CandidateEdit from '../../../features/pages/curator/CandidateEdit.astro';
+import { canEditWard } from '../../../lib/authz';
+import {
+  REPORT_CARD_FIELD_KEYS,
+  handleCandidateCorePublish,
+  handleCandidateFieldPublish,
+  loadCandidateForEdit,
+  loadCuratorLang,
+  type ReportCardFieldKey,
+} from '../../../lib/curator';
+
+const session = Astro.locals.session!;
+const actor = { userId: session.userId, role: session.role as 'curator' | 'admin' };
+
+const idParam = Astro.params.id;
+const candidateId = Number(idParam);
+if (!idParam || !Number.isInteger(candidateId)) {
+  return new Response(null, { status: 404 });
+}
+
+let candidate = await loadCandidateForEdit(candidateId);
+if (!candidate) {
+  return new Response(null, { status: 404 });
+}
+
+const inScope = await canEditWard(session.userId, session.role, candidate.wardId);
+if (!inScope) {
+  return new Response('Forbidden', { status: 403, headers: { 'cache-control': 'no-store' } });
+}
+
+const lang = await loadCuratorLang(session.userId);
+
+let message: { kind: 'notice' | 'error'; key: string } | undefined;
+let responseStatus = 200;
+
+if (Astro.request.method === 'POST') {
+  Astro.response.headers.set('cache-control', 'no-store');
+  const form = await Astro.request.formData();
+  const formAction = String(form.get('formAction') ?? '');
+
+  if (formAction === 'core') {
+    const outcome = await handleCandidateCorePublish(actor, candidateId, form);
+    if (outcome.kind === 'saved') {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/curator/candidate/${candidateId}`, 'cache-control': 'no-store' },
+      });
+    }
+    message = { kind: 'error', key: outcome.key };
+    responseStatus = 400;
+  } else if (formAction.startsWith('field:')) {
+    const fieldKey = formAction.slice('field:'.length);
+    if (!(REPORT_CARD_FIELD_KEYS as readonly string[]).includes(fieldKey)) {
+      return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
+    }
+    const outcome = await handleCandidateFieldPublish(actor, candidateId, fieldKey as ReportCardFieldKey, form);
+    if (outcome.kind === 'saved') {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/curator/candidate/${candidateId}`, 'cache-control': 'no-store' },
+      });
+    }
+    message = { kind: 'error', key: outcome.key };
+    responseStatus = 400;
+  } else {
+    return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
+  }
+
+  candidate = (await loadCandidateForEdit(candidateId))!;
+}
+
+Astro.response.headers.set('cache-control', 'no-store');
+Astro.response.status = responseStatus;
+---
+
+<CandidateEdit
+  lang={lang}
+  csrfToken={Astro.locals.csrfToken}
+  wardId={candidate.wardId}
+  wardNameEn={candidate.wardNameEn}
+  wardNameKn={candidate.wardNameKn}
+  candidate={candidate}
+  message={message}
+/>
