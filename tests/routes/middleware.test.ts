@@ -278,6 +278,74 @@ describe('src/middleware.ts', () => {
       expect(isSameOriginRelative(undefined)).toBe('/');
       expect(isSameOriginRelative('')).toBe('/');
     });
+
+    // Regression cases for the CRITICAL Task 26 review finding: ASCII
+    // tab/CR/LF inside a leading-single-slash string are invisible to plain
+    // startsWith()-based checks, but the WHATWG URL parser strips them as
+    // its first parsing step, turning `/\t/evil.example` into the
+    // protocol-relative `//evil.example` -> `https://evil.example`. The
+    // consumer (/login?next=) decodes %09/%0A/%0D back into these exact raw
+    // control bytes via URLSearchParams, so this bypass was live.
+    describe('control-char bypass regression (Task 26 review, CRITICAL)', () => {
+      it('a raw tab immediately after the leading slash collapses to /', () => {
+        expect(isSameOriginRelative('/\t/evil.example')).toBe('/');
+      });
+
+      it('a raw LF immediately after the leading slash collapses to /', () => {
+        expect(isSameOriginRelative('/\n/evil.example')).toBe('/');
+      });
+
+      it('a raw CR immediately after the leading slash collapses to /', () => {
+        expect(isSameOriginRelative('/\r/evil.example')).toBe('/');
+      });
+
+      it('a control char embedded mid-path also collapses to /', () => {
+        expect(isSameOriginRelative('/account/\tsubmissions')).toBe('/');
+      });
+
+      it('documents that the consumer decodes %09 into a raw tab before calling this function', () => {
+        // URLSearchParams (what /login?next= is read through) decodes
+        // percent-escapes, so a query string of `next=%09%2Fevil.example`
+        // arrives here as the raw control char, not the escaped form.
+        expect(isSameOriginRelative(decodeURIComponent('/%09/evil.example'))).toBe('/');
+      });
+    });
+
+    describe('additional bypass shapes rejected alongside the control-char fix', () => {
+      it('a bare scheme + host with no path collapses to /', () => {
+        expect(isSameOriginRelative('https://evil.example')).toBe('/');
+      });
+
+      it('protocol-relative collapses to /', () => {
+        expect(isSameOriginRelative('//evil.example')).toBe('/');
+      });
+
+      it('a leading-backslash trick collapses to /', () => {
+        expect(isSameOriginRelative('/\\evil.example')).toBe('/');
+      });
+
+      it('a javascript: URL collapses to /', () => {
+        expect(isSameOriginRelative('javascript:alert(1)')).toBe('/');
+      });
+
+      it('an uppercase-scheme absolute URL collapses to /', () => {
+        expect(isSameOriginRelative('HTTP://evil')).toBe('/');
+      });
+    });
+
+    describe('canonicalization preserves genuinely same-origin targets', () => {
+      it('a same-origin relative path with a query string round-trips unchanged', () => {
+        expect(isSameOriginRelative('/account/submissions?x=1')).toBe('/account/submissions?x=1');
+      });
+
+      it('a plain same-origin path round-trips unchanged', () => {
+        expect(isSameOriginRelative('/ward/57')).toBe('/ward/57');
+      });
+
+      it('a same-origin path with query and hash round-trips unchanged', () => {
+        expect(isSameOriginRelative('/ward/57?a=b#c')).toBe('/ward/57?a=b#c');
+      });
+    });
   });
 
   describe('canEditWard', () => {
