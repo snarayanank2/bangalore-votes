@@ -16,10 +16,17 @@ if (!process.env.DATABASE_URL) {
 const client = postgres(process.env.DATABASE_URL, { max: 1 });
 const db = drizzle(client, { schema });
 
-// Each test picks a distinct `kind` bucket so tests never share a counter
-// row and don't need to reset each other's state; both are otherwise-unused
-// budget kinds for this suite (geocode.test.ts owns 'geocode').
-const KIND_A = 'otp_send' as const;
+// Both buckets point at the same `kind`: with only three `budget_kind`
+// enum values total, and two of them now genuinely owned by a feature that
+// resets/asserts on them in its own test file (geocode.test.ts owns
+// 'geocode'; tests/unit/otp.test.ts and tests/routes/otp.test.ts own
+// 'otp_send', reset in their own beforeEach — Task 25), 'news_query' is the
+// only value left with no other owner. That's safe here because every test
+// below is preceded by a `beforeEach` that deletes today's row for this
+// kind, and tests within one file run strictly sequentially (no
+// `test.concurrent`), so KIND_A and KIND_B never actually need to be
+// distinct — the two names exist only for readability at each call site.
+const KIND_A = 'news_query' as const;
 const KIND_B = 'news_query' as const;
 
 function todayUtc(): string {

@@ -80,7 +80,14 @@ function resolveSessionSecret(): string {
   return DEV_SESSION_SECRET;
 }
 
-const SESSION_SECRET = resolveSessionSecret();
+/**
+ * Exported so src/lib/otp.ts can reuse this exact secret as the OTP-code
+ * hash pepper (`sha256(code + SESSION_SECRET)` — Task 25, documented there
+ * and in the `otp_codes.code_hash` column comment). One secret, one
+ * fail-closed resolution rule (`resolveSessionSecret` above), instead of a
+ * second secret to provision and rotate.
+ */
+export const SESSION_SECRET = resolveSessionSecret();
 
 /**
  * The exact `Set-Cookie` header value for issuing/refreshing the session
