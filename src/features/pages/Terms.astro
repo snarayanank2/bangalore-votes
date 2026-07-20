@@ -1,0 +1,47 @@
+---
+/**
+ * Terms and conditions (`/terms`, `/kn/terms`) — information-architecture.md
+ * §3.17, PRD §5.16.
+ *
+ * Renders the Task 8 `terms` content entry inside Prose (acceptable use,
+ * contribution licensing, accuracy/liability disclaimers, account
+ * termination, changes to these terms — LEGAL REVIEW REQUIRED markers in
+ * the source are stripped by renderContentHtml, never reaching the
+ * visitor).
+ *
+ * COURTESY-TRANSLATION NOTE (PRD §5.16, locked decision): the English text
+ * is legally controlling; the Kannada page carries a visible notice saying
+ * so. Shown ONLY on the `kn` variant — never on `en` — as a `notice` Banner
+ * above the content.
+ *
+ * CACHE-SAFETY: only reads repo content — no cookie/session access, safe
+ * under the anonymous-page micro-cache.
+ */
+import Prose from '../../layouts/Prose.astro';
+import Banner from '../../components/Banner.astro';
+import { t, type Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml } from '../../lib/render-content';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'terms');
+if (!content) {
+  throw new Error('Terms: missing content/pages/en/terms.md');
+}
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/terms">
+  {
+    lang === 'kn' && (
+      <Banner kind="notice" lang={lang}>
+        {t(lang, 'legal.courtesyNote')}
+      </Banner>
+    )
+  }
+  <div set:html={renderContentHtml(content.body, lang)} />
+</Prose>

@@ -171,6 +171,8 @@
     "votingGuide.steps.findWard": "f29f7ea81a316266214cd72ff22345f7a9690edce4109677583ed3596c5a7fd8",
     "votingGuide.steps.readCandidates": "f5f8a01149f7473e9515929c09f8a4fb8ab6ee903e6c419274382e051a5b32a1",
     "votingGuide.steps.findBooth": "d850e25f02d2ed49d48b2247aa3bda036e4f90c383c0c244c303a63290803cb2",
-    "votingGuide.steps.vote": "56ec54219990c36e070522ce666505333d15412d2d969857c3550ccc7cedcf19"
-  }
+    "votingGuide.steps.vote": "56ec54219990c36e070522ce666505333d15412d2d969857c3550ccc7cedcf19",
+    "legal.courtesyNote": "4ca44437691438ff4e8e6a454889ab859bc74eaa07da43f9a06ddbec90b76516"
+  },
+  "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ."
 }

@@ -1,0 +1,49 @@
+---
+/**
+ * Privacy policy (`/privacy`, `/kn/privacy`) — information-architecture.md
+ * §3.18, PRD §5.16.
+ *
+ * Renders the Task 8 `privacy` content entry inside Prose — carries the
+ * full §5.16 processor inventory (SendGrid/Twilio, Meta for WhatsApp,
+ * Google Geocoding, Anthropic, Sentry, Google Analytics, reCAPTCHA), DPDP
+ * Act 2023 data-principal rights, the proposed (legal-review-pending)
+ * 3-month retention period, and the data commitments — all authored in the
+ * content itself; INPUT NEEDED / LEGAL REVIEW REQUIRED markers are stripped
+ * by renderContentHtml, never reaching the visitor.
+ *
+ * COURTESY-TRANSLATION NOTE (PRD §5.16, locked decision): the English text
+ * is legally controlling; the Kannada page carries a visible notice saying
+ * so. Shown ONLY on the `kn` variant — never on `en` — as a `notice` Banner
+ * above the content.
+ *
+ * CACHE-SAFETY: only reads repo content — no cookie/session access, safe
+ * under the anonymous-page micro-cache.
+ */
+import Prose from '../../layouts/Prose.astro';
+import Banner from '../../components/Banner.astro';
+import { t, type Lang } from '../../i18n';
+import { getPageContent } from '../../i18n/content';
+import { renderContentHtml } from '../../lib/render-content';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const content = getPageContent(lang, 'privacy');
+if (!content) {
+  throw new Error('Privacy: missing content/pages/en/privacy.md');
+}
+---
+
+<Prose lang={lang} title={content.title} description={content.description} path="/privacy">
+  {
+    lang === 'kn' && (
+      <Banner kind="notice" lang={lang}>
+        {t(lang, 'legal.courtesyNote')}
+      </Banner>
+    )
+  }
+  <div set:html={renderContentHtml(content.body, lang)} />
+</Prose>
