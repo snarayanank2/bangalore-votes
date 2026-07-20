@@ -132,6 +132,29 @@ export async function computeReadiness(wardId: number): Promise<ReadinessResult>
 export type CuratorActor = { userId: number; role: 'curator' | 'admin' };
 
 /**
+ * True iff a `ward_readiness` row represents "was signed off, then cleared
+ * by a later candidate-set change" (PRD §9.1; IA §5.1: must be called out
+ * FIRST on the curator dashboard's awaiting-sign-off list). `clearWardSignOff`
+ * (src/lib/publish.ts) always NULLS `signedOffAt` the instant it clears a
+ * ward, and `signOffWard` above always NULLS `clearedAt` the instant it
+ * (re-)signs off a ward — so these two fields are mutually exclusive by
+ * construction, never both non-null at once. "Cleared by change" is
+ * therefore exactly `signedOffAt == null && clearedAt != null` — a ward
+ * that has NEVER been signed off (both null) is a different state and must
+ * NOT match this.
+ *
+ * Shared by src/lib/curator.ts's dashboard (`loadDashboard`) and
+ * src/features/pages/curator/WardEdit.astro's readiness panel so the two
+ * views can't independently drift out of sync — the dashboard's own inline
+ * copy of this check previously used a different (permanently-false, dead)
+ * formula, which silently broke the IA §5.1 early-warning sort. Route both
+ * through here instead of re-deriving it.
+ */
+export function wasClearedByChange(row: { signedOffAt: Date | null; clearedAt: Date | null }): boolean {
+  return row.signedOffAt == null && row.clearedAt != null;
+}
+
+/**
  * Records a curator/admin's sign-off for `wardId` (PRD §9.1). SCOPE-CHECKED
  * (`canEditWard`) — throws `Error('out_of_scope')` for a curator not
  * assigned to this ward; admin is always allowed.

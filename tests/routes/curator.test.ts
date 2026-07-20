@@ -23,6 +23,8 @@ import { t } from '../../src/i18n';
 import { SESSION_COOKIE, createSession } from '../../src/lib/session';
 import { issueCsrfToken, CSRF_FIELD_NAME } from '../../src/lib/csrf';
 import { humanTargetLabel } from '../../src/lib/curator';
+import { signOffWard } from '../../src/lib/readiness';
+import { publishCandidateCore } from '../../src/lib/publish';
 import { onRequest } from '../../src/middleware';
 
 import CuratorIndex from '../../src/pages/curator/index.astro';
@@ -299,12 +301,21 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
     itemAcceptMissingSource = await insertPendingItem(WARD_A.id, candidateA, 'net_worth', [submitterAId]);
     itemAcceptBadSource = await insertPendingItem(WARD_A.id, candidateA, 'contact_info', [submitterAId]);
 
-    const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    // WARD_A: produce a GENUINE "signed off, then cleared by a real
+    // candidate-set change" ward_readiness row by driving it through the
+    // actual write paths — src/lib/readiness.ts's `signOffWard`, then a
+    // status flip via src/lib/publish.ts's `publishCandidateCore` (a
+    // "candidate-set change", PRD §9.1) which clears the sign-off — rather
+    // than hand-crafting a row with both `signedOffAt` and `clearedAt` set,
+    // which those two functions never actually produce together
+    // (mutually exclusive by construction — see readiness.ts's
+    // `wasClearedByChange` docstring). A hand-crafted "both set" row is
+    // exactly what let the dashboard's old, broken formula pass unnoticed.
+    await signOffWard({ userId: curatorId, role: 'curator' }, WARD_A.id);
+    await publishCandidateCore({ userId: curatorId, role: 'curator' }, { candidateId: candidateA, status: 'contesting' });
+
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await db.insert(schema.wardReadiness).values([
-      // Signed off, THEN cleared by a later candidate-set change — must be
-      // called out FIRST on the dashboard (IA §5.1).
-      { wardId: WARD_A.id, signedOffAt: yesterday, clearedAt: now },
       // Fully signed off, never cleared — must NOT appear in the
       // awaiting-sign-off list at all.
       { wardId: WARD_E_FULLY_SIGNED_OFF.id, signedOffAt: yesterday, clearedAt: null },
@@ -361,6 +372,18 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
       expect(idxA).toBeGreaterThan(-1);
       expect(idxD).toBeGreaterThan(-1);
       expect(idxA).toBeLessThan(idxD); // cleared-by-change ward (WARD_A) called out first
+
+      // The cleared-by-change flag itself must actually be true for WARD_A
+      // (not just "sorted first by coincidence") — the "was signed off, now
+      // cleared" note (curator.dashboard.signOff.clearedNote) renders right
+      // next to WARD_A's row, and must NOT render next to WARD_D's (which
+      // was simply never signed off — a different state entirely).
+      const clearedNote = t('en', 'curator.dashboard.signOff.clearedNote');
+      const idxClearedNote = html.indexOf(clearedNote);
+      expect(idxClearedNote).toBeGreaterThan(-1);
+      expect(idxClearedNote).toBeGreaterThan(idxA);
+      expect(idxClearedNote).toBeLessThan(idxD);
+      expect(html.indexOf(clearedNote, idxD)).toBe(-1); // no second occurrence after WARD_D's row
 
       expect(html).not.toContain(WARD_E_FULLY_SIGNED_OFF.nameEn); // fully signed off — excluded entirely
     });

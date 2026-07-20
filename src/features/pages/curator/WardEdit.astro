@@ -19,12 +19,11 @@
  *
  * SIGN-OFF STATUS: distinguishes three states — signed off (shows
  * when/who), cleared-by-change (was signed off, a later candidate-set
- * change cleared it — `signedOffAt == null && clearedAt != null`, since
- * `clearWardSignOff` always nulls `signedOffAt` the moment it clears), and
- * never-signed-off (both null). This is a SEPARATE, more precise
- * computation than the dashboard's `clearedByChange` (Task 34,
- * src/lib/curator.ts's `loadDashboard`) — see this file's own comment
- * below for why.
+ * change cleared it), and never-signed-off (both null). "Cleared by
+ * change" is computed via the shared `wasClearedByChange` helper
+ * (src/lib/readiness.ts) — the same one the dashboard's `loadDashboard`
+ * (src/lib/curator.ts) uses, so the two views can't independently drift
+ * out of sync.
  */
 import CuratorLayout from '../../../layouts/CuratorLayout.astro';
 import Card from '../../../components/Card.astro';
@@ -34,6 +33,7 @@ import Button from '../../../components/Button.astro';
 import { t, type Lang } from '../../../i18n';
 import { CSRF_FIELD_NAME } from '../../../lib/csrf';
 import type { WardEditData } from '../../../lib/curator';
+import { wasClearedByChange } from '../../../lib/readiness';
 
 interface Props {
   lang: Lang;
@@ -49,12 +49,9 @@ const messageText = message ? t(lang, message.key) : undefined;
 const { complete, gaps } = ward.readiness;
 const noCandidates = !complete && gaps.length === 0;
 
-// See module docstring: distinct from the dashboard's `clearedByChange`,
-// computed directly off the fact that `clearWardSignOff` always nulls
-// `signedOffAt` when it clears a ward — so "was signed off, then cleared"
-// is exactly "signedOffAt is null AND clearedAt is set" (as opposed to
-// "never touched", where both are null).
-const clearedByChange = ward.signedOffAt == null && ward.clearedAt != null;
+// See module docstring: the shared readiness.ts helper, so this and the
+// dashboard's copy can't independently drift out of sync.
+const clearedByChange = wasClearedByChange(ward);
 const signedOffByLabel = ward.signedOffByEmail ?? (ward.signedOffByUserId != null ? String(ward.signedOffByUserId) : '');
 ---
 

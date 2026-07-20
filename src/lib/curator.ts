@@ -54,7 +54,7 @@ import { checkDefaultLimit } from './rate-limit';
 import { fetchAffidavitFromEc, type AffidavitFetchErrorCode } from './affidavit-fetch';
 import { extractAffidavitFields } from './extract';
 import { addNewsLink, approveNewsLink } from './news';
-import { computeReadiness, signOffWard, type ReadinessResult } from './readiness';
+import { computeReadiness, signOffWard, wasClearedByChange, type ReadinessResult } from './readiness';
 import type { Lang } from '../i18n';
 import type { Role } from './session';
 
@@ -189,7 +189,13 @@ export async function loadDashboard(userId: number, role: Role): Promise<Dashboa
 
   const awaitingSignOff: AwaitingSignOffWard[] = [];
   for (const row of wardRows) {
-    const clearedByChange = row.clearedAt != null && row.signedOffAt != null && row.clearedAt > row.signedOffAt;
+    // wasClearedByChange (src/lib/readiness.ts) is the shared, correct
+    // formula — signedOffAt and clearedAt are mutually exclusive by
+    // construction (see that helper's docstring), so clearedByChange
+    // already implies signedOffAt == null; `needsSignOff` is written as an
+    // explicit OR anyway as defense-in-depth against a future write path
+    // that might not preserve that invariant.
+    const clearedByChange = wasClearedByChange(row);
     const needsSignOff = row.signedOffAt == null || clearedByChange;
     if (needsSignOff) {
       awaitingSignOff.push({ wardId: row.wardId, nameEn: row.nameEn, nameKn: row.nameKn, clearedByChange });
