@@ -100,6 +100,33 @@ describe('lookupWardByAddress', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it('builds the Google request URL with a soft bounds bias, not a hard locality filter', async () => {
+    // Regression guard for the Task 16 review finding: a hard
+    // `components=locality:Bengaluru` filter risks ZERO_RESULTS (wrongly
+    // cached as out_of_coverage) for legitimate GBA addresses in the merged
+    // corporation's non-central former-CMC/TMC areas (Yelahanka,
+    // Bommanahalli, Krishnarajapuram, Rajarajeshwari Nagar, Mahadevapura,
+    // Dasarahalli, Byatarayanapura) that Google may not label "Bengaluru".
+    // The fix biases via `bounds=` (soft viewport) instead of excluding by
+    // locality; wardForPoint remains the sole coverage authority.
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        status: 'OK',
+        results: [{ geometry: { location: { lat: INTERIOR_LAT, lng: INTERIOR_LNG } } }],
+      }),
+    );
+
+    await lookupWardByAddress('Bounds Bias URL Shape Test Address');
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requestedUrl = fetchMock.mock.calls[0][0] as string;
+    expect(requestedUrl).toContain('bounds=');
+    expect(requestedUrl).not.toContain('locality:');
+    expect(requestedUrl).not.toContain('administrative_area:');
+    expect(requestedUrl).toContain('components=country%3AIN');
+    expect(requestedUrl).toContain('region=in');
+  });
+
   it('a single OK result resolves to a ward via real point-in-polygon and caches it', async () => {
     fetchMock.mockResolvedValueOnce(
       jsonResponse({

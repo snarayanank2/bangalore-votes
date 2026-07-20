@@ -27,6 +27,29 @@
  * degrades the caller's endpoint to pincode lookup (src/lib/pincode.ts)
  * once exhausted — see the `budget_exhausted` result below, backed by
  * src/lib/budgets.ts's shared counter.
+ *
+ * VIEWPORT BIAS, NOT A HARD LOCALITY FILTER — this matters for GBA coverage.
+ * The GBA (Greater Bengaluru Authority) is the merged corporation: it
+ * includes former CMC/TMC areas (e.g. Yelahanka, Bommanahalli,
+ * Krishnarajapuram, Rajarajeshwari Nagar, Mahadevapura, Dasarahalli,
+ * Byatarayanapura) well beyond the pre-merger "Bengaluru" core. Google's own
+ * `locality`/`administrative_area` labeling for addresses in those areas
+ * doesn't reliably say "Bengaluru" — a hard `components=locality:Bengaluru`
+ * filter would make Google return ZERO_RESULTS for perfectly valid GBA
+ * addresses there, which this code would then wrongly cache as
+ * `out_of_coverage` forever. So this module only *biases* Google toward the
+ * GBA area via the `bounds` viewport parameter (soft — widens/ignores the
+ * box if it can't find a match inside it) plus `components=country:IN`
+ * (a safe, non-clipping restriction). The actual coverage decision is never
+ * Google's locality string — it's `wardForPoint` against the real GBA ward
+ * polygons (src/lib/geo.ts), which is what determines `ward` vs
+ * `out_of_coverage` below.
+ *
+ * NOTE (concurrency / cost): a cache miss on the same not-yet-cached address
+ * arriving concurrently from two requests will both consume budget and both
+ * call Google (no single-flight de-duplication here). Acceptable for this
+ * platform's traffic shape; if it ever matters, dedupe in-flight lookups by
+ * normalizedAddress before spending budget.
  */
 import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
@@ -47,6 +70,24 @@ export const GEOCODE_DAILY_BUDGET = Number(process.env.GEOCODE_DAILY_BUDGET ?? 2
 const GEOCODE_ENDPOINT = 'https://maps.googleapis.com/maps/api/geocode/json';
 
 const BENGALURU_RE = /bengaluru|bangalore/i;
+
+/**
+ * Padded union bounding box of all 369 features in data/gba.geojson, used as
+ * a SOFT `bounds=` viewport bias on Google Geocoding requests (see the
+ * module comment above for why this is soft, not a hard locality filter).
+ *
+ * Derived by computing the union bbox of every Polygon/MultiPolygon
+ * coordinate in data/gba.geojson (raw: lat 12.8334905..13.1426196, lng
+ * 77.4598797..77.7840639), then padding by ~0.05° on each side so wards at
+ * the very edge of the GBA area aren't clipped by the box. Hardcoded here
+ * (rather than re-reading the GeoJSON at module load, which src/lib/geo.ts
+ * already does) to avoid a second file read on the hot path; regenerate
+ * these four numbers if data/gba.geojson's ward boundaries ever change.
+ */
+const GBA_BOUNDS_SW_LAT = 12.7834;
+const GBA_BOUNDS_SW_LNG = 77.4098;
+const GBA_BOUNDS_NE_LAT = 13.1927;
+const GBA_BOUNDS_NE_LNG = 77.8341;
 
 /**
  * Deterministic normalization used as the geocode_cache primary key: trim,
@@ -74,7 +115,16 @@ type GoogleGeocodeResponse = {
 function buildGeocodeUrl(normalizedAddress: string): string {
   const url = new URL(GEOCODE_ENDPOINT);
   url.searchParams.set('address', normalizedAddress);
-  url.searchParams.set('components', 'locality:Bengaluru|administrative_area:Karnataka|country:IN');
+  // Soft viewport bias toward the GBA area (does not exclude results outside
+  // it) + a safe country-only hard restriction. See the module comment and
+  // GBA_BOUNDS_* above for why there is no locality/administrative_area
+  // filter here.
+  url.searchParams.set(
+    'bounds',
+    `${GBA_BOUNDS_SW_LAT},${GBA_BOUNDS_SW_LNG}|${GBA_BOUNDS_NE_LAT},${GBA_BOUNDS_NE_LNG}`,
+  );
+  url.searchParams.set('region', 'in');
+  url.searchParams.set('components', 'country:IN');
   url.searchParams.set('key', process.env.GOOGLE_GEOCODING_API_KEY ?? '');
   return url.toString();
 }
