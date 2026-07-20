@@ -193,5 +193,9 @@ export async function destroySession(cookieValue: string): Promise<void> {
   const parsed = parseCookieValue(cookieValue);
   if (!parsed) return;
 
+  // Delete by parsed id without re-verifying HMAC: session ids are 256-bit
+  // unguessable (randomBytes(32)), and the spec permits delete-by-id on valid
+  // parses (malformed cookies fail at parse; HMAC re-verification could be
+  // added as hardening if session ids ever risk exposure, e.g., server logs).
   await db.delete(sessions).where(eq(sessions.id, parsed.id));
 }
