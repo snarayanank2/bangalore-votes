@@ -110,23 +110,25 @@ describe('Home page (/, /kn/) — IA §3.1, PRD §5.1/§5.7', () => {
       expect(knHtml).toContain(`<link rel="alternate" hreflang="kn" href="${SITE_ORIGIN}/kn/">`);
     });
 
-    it('emits its own WardLookup island script, plus Base.astro\'s global Register/Login modal, Flag modal, and MeSlot scripts (Tasks 27/28/32) — no others', async () => {
+    it('emits its own WardLookup island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, and MeSlot scripts (Tasks 27/28/32/33) — no others', async () => {
       const html = await renderHome('en');
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
-      // Every module script must be one of these four globally-expected
+      // Every module script must be one of these five globally-expected
       // sources: this page's own WardLookup island, the Register/Login
       // modal Base.astro renders on every page (src/components/
       // RegisterLoginModal.astro), the Flag misinformation modal (Task 32,
-      // src/components/FlagModal.astro), or Base.astro's own MeSlot mount
-      // (Task 28, src/islands/MeSlot.ts) — never a stray/unexpected fifth
+      // src/components/FlagModal.astro), the Cast issue vote modal (Task 33,
+      // src/components/VoteModal.astro), or Base.astro's own MeSlot mount
+      // (Task 28, src/islands/MeSlot.ts) — never a stray/unexpected sixth
       // script.
-      expect(scriptOpenTags).toHaveLength(4);
+      expect(scriptOpenTags).toHaveLength(5);
       for (const tag of scriptOpenTags) {
         expect(tag).toMatch(/type="module"/);
       }
       expect(html).toMatch(/Home\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
       expect(html).toMatch(/FlagModal\.astro\?astro&type=script/);
+      expect(html).toMatch(/VoteModal\.astro\?astro&type=script/);
       expect(html).toMatch(/Base\.astro\?astro&type=script/);
     });
   });

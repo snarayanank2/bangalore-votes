@@ -270,7 +270,17 @@
     "flag.modal.sourceInvalid": "3e5b15efe930ba7eff15aefd9dede357052d1b8f0f1e16cf5402a98cc9322573",
     "flag.modal.genericError": "3ccd9d6586ef9143f1e1cc09831532fc2342c50ee76e5cb3c151190acbc50b51",
     "flag.modal.success": "657656a359b7c29b91a188d8c59a83a6c521df596bcc19d4fde6190dff0300c3",
-    "ward.flag.wardFieldLabel": "1c17e28a9b08c44067d00edd85709c2a3ec9da2696382a0465d1292a2cb38caf"
+    "ward.flag.wardFieldLabel": "1c17e28a9b08c44067d00edd85709c2a3ec9da2696382a0465d1292a2cb38caf",
+    "vote.modal.title": "d652194fc2290f65b2d0ec7b07bbbc428cb236abf654bf1f38b77afaf8ad89fc",
+    "vote.modal.close": "7d9eb7acb13e24625c404401d8e88b2350e32162455885f18276cf802f7701ed",
+    "vote.modal.instructions": "a591caeb76d84bcfd589a97fa50f3cc985bcdf133d190ed54c265622897c6e12",
+    "vote.modal.issuesLabel": "8d0fced5db982da85d78fab287ab19738f0b017ade28639db4b07cab1ac3b702",
+    "vote.modal.submitTemplate": "4856f9dd583acc34d1d7171467953910d63e2f47902f78760832b0c6318305ce",
+    "vote.modal.rateLimited": "4fc195c72736d32e1e8e807117588a48d2f3ed4cdd9c0b0dadd54547fffc7236",
+    "vote.modal.genericError": "3ccd9d6586ef9143f1e1cc09831532fc2342c50ee76e5cb3c151190acbc50b51",
+    "vote.modal.success": "30369cb2b4909ddc8583856504bb069a41cad650d9bc52240927968fe6f7c169",
+    "vote.modal.homeWardOnlyTemplate": "ae5a9c2ad1459f4cda312e280bf52298b46d0054d69447cdf3b007fdbfa7198c",
+    "vote.modal.changeHomeWard": "1f21e37930e04349d8f0bb2b875d973b44b3d51fb94d0ced30502841d43a68f1"
   },
   "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ.",
   "error.notFound.title": "ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ",
@@ -370,5 +380,15 @@
   "flag.modal.sourceInvalid": "http:// ಅಥವಾ https:// ನಿಂದ ಆರಂಭವಾಗುವ ಮಾನ್ಯ ವೆಬ್ ಲಿಂಕ್ ನಮೂದಿಸಿ.",
   "flag.modal.genericError": "ಏನೋ ತಪ್ಪಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
   "flag.modal.success": "ಧನ್ಯವಾದಗಳು — ಇದನ್ನು ವಾರ್ಡ್‌ನ ಕ್ಯುರೇಟರ್‌ಗಳಿಗೆ ಕಳುಹಿಸಲಾಗಿದೆ.",
-  "ward.flag.wardFieldLabel": "ಈ ವಾರ್ಡ್‌ನ ಹೆಸರು ಮತ್ತು ವಿವರಗಳು"
+  "ward.flag.wardFieldLabel": "ಈ ವಾರ್ಡ್‌ನ ಹೆಸರು ಮತ್ತು ವಿವರಗಳು",
+  "vote.modal.title": "ನಿಮ್ಮ ಪ್ರಮುಖ 3 ಸಮಸ್ಯೆಗಳಿಗೆ ಮತ ಹಾಕಿ",
+  "vote.modal.close": "ಮುಚ್ಚಿ",
+  "vote.modal.instructions": "ನಿಮ್ಮ ಕಾರ್ಪೊರೇಟರ್ ಆದ್ಯತೆ ನೀಡಬೇಕೆಂದು ನೀವು ಬಯಸುವ ಗರಿಷ್ಠ ಮೂರು ಸಮಸ್ಯೆಗಳನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
+  "vote.modal.issuesLabel": "ಈ ವಾರ್ಡ್‌ನ ಸಮಸ್ಯೆಗಳು",
+  "vote.modal.submitTemplate": "ಮತ ಹಾಕಿ (3 ರಲ್ಲಿ {n} ಆಯ್ಕೆಯಾಗಿದೆ)",
+  "vote.modal.rateLimited": "ನೀವು ಇತ್ತೀಚೆಗೆ ನಿಮ್ಮ ಮತವನ್ನು ಹಲವು ಬಾರಿ ಮರುಹಾಕಿದ್ದೀರಿ. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "vote.modal.genericError": "ಏನೋ ತಪ್ಪಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "vote.modal.success": "ನಿಮ್ಮ ಮತವನ್ನು ದಾಖಲಿಸಲಾಗಿದೆ.",
+  "vote.modal.homeWardOnlyTemplate": "ನೀವು ನಿಮ್ಮ ನೋಂದಾಯಿತ ಹೋಮ್ ವಾರ್ಡ್‌ನಲ್ಲಿ ಮಾತ್ರ ಮತ ಹಾಕಬಹುದು (ವಾರ್ಡ್ {wardId}).",
+  "vote.modal.changeHomeWard": "ನಿಮ್ಮ ಹೋಮ್ ವಾರ್ಡ್ ಬದಲಾಯಿಸಿ"
 }

@@ -433,13 +433,14 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(kn.html).toContain('<form method="post" action="/kn/voting-guide/find-booth"');
     });
 
-    it('emits its own BoothLookup island script, plus Base.astro\'s global Register/Login modal, Flag modal, and MeSlot scripts (Tasks 27/28/32) — no others', async () => {
+    it('emits its own BoothLookup island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, and MeSlot scripts (Tasks 27/28/32/33) — no others', async () => {
       const { html } = await renderPage(FindBooth, 'en', '/voting-guide/find-booth');
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
-      expect(scriptOpenTags).toHaveLength(4);
+      expect(scriptOpenTags).toHaveLength(5);
       expect(html).toMatch(/FindBooth\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
       expect(html).toMatch(/FlagModal\.astro\?astro&type=script/);
+      expect(html).toMatch(/VoteModal\.astro\?astro&type=script/);
       expect(html).toMatch(/Base\.astro\?astro&type=script/);
     });
 

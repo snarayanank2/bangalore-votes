@@ -18,13 +18,19 @@
  * enabled anonymous markup (design-system.md §7.8: gated actions never
  * render disabled), identical for every visitor. The public issue-vote
  * results are themselves global per-ward state (same aggregate for
- * everyone), so nothing on this page varies by visitor. Task 33 mounts the
- * Cast issue vote modal against `data-vote-action`/`data-ward-id`, and
- * Task 28's MeSlot island (src/islands/MeSlot.ts) swaps the
- * register-for-updates control the same way it does on Ward.astro, and
+ * everyone), so nothing on this page varies by visitor. The "Vote your top
+ * 3" button is a plain `type="button"` (no `href` — same convention as the
+ * "Flag an error" button below it) carrying `data-vote-action`/
+ * `data-ward-id`/`data-vote-issues` (this ward's CURRENT issues as a
+ * JSON-encoded `{id,title}[]`, in the page's own language); Task 33's
+ * `src/islands/VoteModal.ts` (mounted once from Base.astro) wires it up —
+ * there is no server-rendered fallback href, matching FlagModal's own
+ * JS-only convention. Task 28's MeSlot island (src/islands/MeSlot.ts) swaps
+ * the register-for-updates control the same way it does on Ward.astro, and
  * lightly marks `data-vote-action` with `data-already-voted` when this ward
- * is the signed-in visitor's active issue-vote-set ward (for Task 33's
- * modal to read — a hint, not a full swap).
+ * is the signed-in visitor's active issue-vote-set ward (a hint only —
+ * VoteModal's own `/api/issue-votes` GET is what actually pre-checks the
+ * modal's selections).
  *
  * No-raw-counts guarantee (PRD §5.5): `issueResults` (src/lib/votes.ts)
  * never returns a count field, and `<IssueBars>` is called with
@@ -126,6 +132,15 @@ const flagTargets = JSON.stringify(
     label: pick(lang, issue.titleEn, issue.titleKn),
   })),
 );
+
+// Cast issue vote (Task 33, PRD §5.5) — the ward's current issues, in the
+// page's own language, for src/islands/VoteModal.ts's client-built checkbox
+// list. Same "current issue list only" scoping as issueResults: an issue
+// deleted after this button was rendered simply won't be an option the next
+// time the page (and this JSON) is served.
+const voteIssues = JSON.stringify(
+  issues.map((issue) => ({ id: issue.id, title: pick(lang, issue.titleEn, issue.titleKn) })),
+);
 ---
 
 <Base lang={lang} title={title} description={description} path={pagePath}>
@@ -186,10 +201,11 @@ const flagTargets = JSON.stringify(
             <section class="vote-action">
               <Button
                 variant="primary"
-                href={localePath(lang, '/login')}
+                type="button"
                 lang={lang}
                 data-vote-action
                 data-ward-id={wardId}
+                data-vote-issues={voteIssues}
               >
                 {t(lang, 'common.voteTop3')}
               </Button>

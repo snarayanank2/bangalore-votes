@@ -12,6 +12,12 @@
  * page needs pre-close); when a results item also carries a raw `count`,
  * showCounts=true additionally prints it. No result item is required to
  * carry a count — most callers won't have or show one yet.
+ *
+ * `data-issue-bars` on the `<ol>` is a hook for Task 33's Cast-issue-vote
+ * modal (src/islands/VoteModal.ts): after a successful vote it clones one
+ * of THESE server-rendered `<li>` nodes (preserving Astro's scoped-style
+ * attribute, which a freshly `document.createElement`-d node would lack)
+ * to splice in fresh results client-side, no page reload needed.
  */
 import type { Lang } from '../i18n';
 
@@ -31,7 +37,7 @@ interface Props {
 const { results, showCounts = false } = Astro.props;
 ---
 
-<ol class="issue-bars">
+<ol class="issue-bars" data-issue-bars>
   {
     results.map((result) => (
       <li class="issue-bar">

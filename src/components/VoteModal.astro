@@ -1,0 +1,188 @@
+---
+/**
+ * Cast issue vote modal shell (Task 33, IA §3.6/§7, PRD §5.5,
+ * design-system.md §7.9) — rendered ONCE per page (from Base.astro, same
+ * convention as `src/components/RegisterLoginModal.astro` /
+ * `FlagModal.astro`), as a native `<dialog>`. Purely markup/i18n — all
+ * behavior (auth gating + resume, home-ward check, the checkbox-cap-at-3
+ * list, the fetch calls, splicing fresh results into the page) lives in the
+ * client island `src/islands/VoteModal.ts`, which finds this exact markup
+ * via `[data-vote-modal]` and its `data-vote-*`/`data-msg-*` hooks.
+ *
+ * TWO STATES, one dialog (the island toggles which is visible, never both):
+ *   - `[data-vote-form-wrap]` — the checkbox list (built entirely
+ *     client-side, since the ward's current issue set isn't known to this
+ *     component) capped at three, and the submit button whose label counts
+ *     down ("Vote (2 of 3 selected)", design-system.md §7.9).
+ *   - `[data-vote-home-ward-wrap]` — shown INSTEAD of the form when the
+ *     authed visitor's home ward isn't the ward this modal was opened
+ *     against (PRD §5.5: voting is home-ward-only) — explains why, with a
+ *     link to `/account` to change it, rather than letting them submit a
+ *     request that can only ever come back 403.
+ *
+ * Modal shell (Close button, scrim-tap, Escape, focus trap/return, URL
+ * never changes) comes from `ModalController` (src/islands/ModalShell.ts).
+ */
+import { t, localePath, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+---
+
+<dialog class="vote-modal" data-vote-modal aria-labelledby="vote-modal-title">
+  <div class="vote-modal-inner">
+    <button type="button" class="vote-modal-close" data-modal-close aria-label={t(lang, 'vote.modal.close')}>
+      &times;
+    </button>
+    <h2 id="vote-modal-title">{t(lang, 'vote.modal.title')}</h2>
+
+    <div data-vote-form-wrap>
+      <p class="vote-modal-instructions">{t(lang, 'vote.modal.instructions')}</p>
+
+      <form data-vote-form novalidate>
+        <div data-vote-issue-options role="group" aria-label={t(lang, 'vote.modal.issuesLabel')}></div>
+
+        <p class="form-error" data-vote-rate-limit-error hidden></p>
+        <p class="form-error" data-vote-generic-error hidden></p>
+
+        <button type="submit" class="btn btn--primary" data-vote-submit disabled>
+          {t(lang, 'vote.modal.submitTemplate').replace('{n}', '0')}
+        </button>
+      </form>
+    </div>
+
+    <div data-vote-home-ward-wrap hidden>
+      <p data-vote-home-ward-message></p>
+      <a class="btn btn--secondary" data-vote-home-ward-link href={localePath(lang, '/account')}>
+        {t(lang, 'vote.modal.changeHomeWard')}
+      </a>
+    </div>
+  </div>
+
+  <span hidden data-msg-rate-limit>{t(lang, 'vote.modal.rateLimited')}</span>
+  <span hidden data-msg-generic-error>{t(lang, 'vote.modal.genericError')}</span>
+  <span hidden data-msg-success>{t(lang, 'vote.modal.success')}</span>
+  <span hidden data-msg-submit-template>{t(lang, 'vote.modal.submitTemplate')}</span>
+  <span hidden data-msg-home-ward-template>{t(lang, 'vote.modal.homeWardOnlyTemplate')}</span>
+</dialog>
+
+<style>
+  .vote-modal {
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-modal);
+    max-width: 28rem;
+    width: calc(100% - var(--space-8));
+  }
+
+  .vote-modal::backdrop {
+    background: rgba(26, 26, 26, 0.5);
+  }
+
+  .vote-modal-inner {
+    position: relative;
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .vote-modal h2 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+    padding-right: var(--space-8);
+  }
+
+  .vote-modal-close {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    min-width: 44px;
+    min-height: 44px;
+    background: transparent;
+    border: none;
+    font-size: var(--text-2xl);
+    line-height: 1;
+    cursor: pointer;
+    color: var(--color-text);
+  }
+
+  .vote-modal-instructions {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .vote-modal form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .form-error {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+  }
+
+  :global([data-vote-issue-options]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  :global(.vote-issue-option) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+  }
+
+  [data-vote-home-ward-wrap] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  /* Success toast (design-system.md §7.12) — created dynamically by
+     src/islands/VoteModal.ts's showSuccessToast, outside this component's
+     own scoped DOM (it must outlive the modal closing), so its styling
+     lives here as a :global rule, mirroring FlagModal.astro's
+     `.flag-success-toast`. */
+  :global(.vote-success-toast) {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-6);
+    transform: translateX(-50%);
+    max-width: calc(100vw - var(--space-8));
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-modal);
+    border-left: 4px solid var(--color-primary);
+  }
+
+  @media (max-width: 767px) {
+    .vote-modal {
+      position: fixed;
+      top: auto;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      max-width: 100%;
+      width: 100%;
+      margin: 0;
+      border-radius: var(--radius-md) var(--radius-md) 0 0;
+    }
+  }
+</style>
+
+<script>
+  import { initVoteModal } from '../islands/VoteModal';
+  initVoteModal();
+</script>
