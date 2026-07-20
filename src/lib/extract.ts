@@ -43,8 +43,24 @@
  * data outside this affidavit's own three fields. The caller (the curator
  * editor route) is expected to catch this and surface the failure rather
  * than let it crash the rest of the request.
+ *
+ * STRICT OUTPUT VALIDATION (integrity-critical — Task 37 review Fix 1): the
+ * model's `tool_use.input` is attacker-adjacent-shaped (the model is
+ * generating it, from a document an attacker partially controls) and is
+ * therefore validated against `extractionResultSchema` — an EXACT
+ * `{cases, assets, education}` shape, each value a `string` OR explicit
+ * `null` — BEFORE any field is published. A `null` value is a legitimate,
+ * complete "the affidavit does not declare this" answer and publishes as
+ * `notDeclared: true`. But a MALFORMED result — a missing key, an extra key,
+ * `undefined`, a number, an object/array, or a parse failure — is NOT the
+ * same thing as `null` and must never collapse into one: doing so would let
+ * a broken/hallucinating model publish a false "not declared" on, say, a
+ * candidate's criminal cases, AS OFFICIAL AFFIDAVIT DATA. So any schema
+ * validation failure is treated exactly like a thrown extractor error:
+ * `extractionStatus` -> `'failed'`, NOTHING published, rethrow.
  */
 import { eq } from 'drizzle-orm';
+import { z } from 'zod';
 import { db } from '../db/client';
 import { candidateAffidavits, media } from '../db/schema';
 import { publishCandidateField } from './publish';
@@ -55,7 +71,28 @@ export interface AffidavitExtraction {
   education: string | null;
 }
 
-export type Extractor = (pdfBytes: Buffer) => Promise<AffidavitExtraction>;
+/**
+ * The FIXED result shape every extractor output — real or test-injected —
+ * is validated against before ANY field is published. `.strict()` rejects
+ * extra keys; `.nullable()` (not `.optional()`) requires each key to be
+ * PRESENT with a `string` or explicit `null` value — a missing key or an
+ * `undefined` value fails validation rather than silently becoming `null`.
+ */
+const extractionResultSchema = z
+  .object({
+    cases: z.string().nullable(),
+    assets: z.string().nullable(),
+    education: z.string().nullable(),
+  })
+  .strict();
+
+/**
+ * Deliberately returns `unknown`, not `AffidavitExtraction` — the whole point
+ * of Fix 1 is that the extractor's raw output is UNTRUSTED until it passes
+ * `extractionResultSchema.parse`, so the type must not pretend it's already
+ * shaped correctly. Real tests inject malformed shapes here on purpose.
+ */
+export type Extractor = (pdfBytes: Buffer) => Promise<unknown>;
 
 const EXTRACTION_TOOL_NAME = 'record_affidavit_fields';
 
@@ -115,8 +152,15 @@ null means "the affidavit does not state this" and is itself a valid, complete a
  * can default to it while tests inject a fake `extractor` instead — this
  * function itself is never invoked in the test suite (no ANTHROPIC_API_KEY
  * is configured in this environment).
+ *
+ * Returns the tool call's `input` AS-IS (no sanitizing/coercion) — validating
+ * it is `extractAffidavitFields`'s job (`extractionResultSchema.parse`, Fix
+ * 1), not this function's. Silently coercing an unexpected shape here (e.g.
+ * a missing/non-string field folded into `null`) would be exactly the bug
+ * Fix 1 closes: a malformed response must surface as a validation failure,
+ * not disappear into a false "not declared".
  */
-export async function callExtractionModel(pdfBytes: Buffer): Promise<AffidavitExtraction> {
+export async function callExtractionModel(pdfBytes: Buffer): Promise<unknown> {
   const { default: Anthropic } = await import('@anthropic-ai/sdk');
   const client = new Anthropic();
 
@@ -151,12 +195,7 @@ export async function callExtractionModel(pdfBytes: Buffer): Promise<AffidavitEx
     throw new Error(`extract: model response contained no ${EXTRACTION_TOOL_NAME} tool_use block`);
   }
 
-  const input = toolUse.input as Record<string, unknown>;
-  return {
-    cases: typeof input.cases === 'string' ? input.cases : null,
-    assets: typeof input.assets === 'string' ? input.assets : null,
-    education: typeof input.education === 'string' ? input.education : null,
-  };
+  return toolUse.input;
 }
 
 const EXTRACTED_FIELD_KEYS = ['cases', 'assets', 'education'] as const;
@@ -170,9 +209,21 @@ const EXTRACTED_FIELD_KEYS = ['cases', 'assets', 'education'] as const;
  * `notDeclared: true` with the same affidavit source (PRD §9.1 — not
  * declared is a complete answer, not an absence).
  *
+ * The extraction PUBLISH is always audited under `actorUserId: null`,
+ * `actorRole: 'system'` (schema.ts's `audit_log.actor_user_id` convention —
+ * "null = system (MT, extraction, jobs)") — this is a system action
+ * regardless of which curator's upload triggered it. The `actor` parameter
+ * below is accepted only for call-site symmetry / future use and is
+ * DELIBERATELY not threaded into the publish actor: WHO triggered the
+ * upload is already captured by the `candidate_affidavits` row and the
+ * upload action's own audit entry, not by the extraction publish itself
+ * (Task 37 review Fix 2).
+ *
  * Sets `candidate_affidavits.extractionStatus` to `'done'` on success or
- * `'failed'` on any failure (model error, malformed output) — see the
- * module docstring for why a failure here cannot corrupt other data.
+ * `'failed'` on any failure (model error, or output that fails strict
+ * schema validation — see the module docstring's STRICT OUTPUT VALIDATION
+ * section) — see the module docstring for why a failure here cannot
+ * corrupt other data.
  *
  * `extractor` defaults to {@link callExtractionModel} (the real Anthropic
  * call) but tests should always inject a fake implementation instead.
@@ -183,16 +234,23 @@ export async function extractAffidavitFields(
   actor: { userId: number | null } = { userId: null },
   extractor: Extractor = callExtractionModel,
 ): Promise<void> {
+  void actor; // intentionally not threaded into the publish actor — see docstring above
   const [mediaRow] = await db.select().from(media).where(eq(media.id, mediaId));
   if (!mediaRow) {
     throw new Error(`extractAffidavitFields: no media row with id ${mediaId}`);
   }
 
   const sourceUrl = `/media/${mediaRow.id}/${mediaRow.sha256.slice(0, 16)}`;
-  const systemActor = { userId: actor.userId ?? null, role: 'system' as const };
+  const systemActor = { userId: null, role: 'system' as const };
 
   try {
-    const result = await extractor(mediaRow.bytes);
+    const rawResult = await extractor(mediaRow.bytes);
+    // STRICT validation (Fix 1): a malformed model output must become an
+    // extraction FAILURE, never silently collapse into a legitimate `null`
+    // ("not declared"). `.parse` throws ZodError on any mismatch — missing
+    // key, extra key, wrong type — which the catch below turns into
+    // `extractionStatus: 'failed'` with NOTHING published.
+    const result = extractionResultSchema.parse(rawResult);
 
     for (const key of EXTRACTED_FIELD_KEYS) {
       const value = result[key];

@@ -29,6 +29,14 @@ describe('isPublicIp (Task 37)', () => {
     ['fe80::1', false], // IPv6 link-local
     ['fc00::1', false], // IPv6 ULA
     ['2606:4700:4700::1111', true], // real public IPv6 (Cloudflare DNS)
+    // Task 37 review Fix 4: IPv4-mapped IPv6 (::ffff:a.b.c.d) must unwrap
+    // and re-check against the IPv4 rules — otherwise a private/loopback
+    // IPv4 address dressed up in its IPv6-mapped form would sail through.
+    ['::ffff:127.0.0.1', false], // IPv4-mapped loopback
+    ['::ffff:10.0.0.1', false], // IPv4-mapped 10/8 private
+    ['::ffff:192.168.0.1', false], // IPv4-mapped 192.168/16 private
+    ['::ffff:8.8.8.8', true], // IPv4-mapped PUBLIC address
+    ['::127.0.0.1', false], // deprecated IPv4-compatible loopback form
   ])('isPublicIp(%s) === %s', (ip, expected) => {
     expect(isPublicIp(ip)).toBe(expected);
   });
@@ -71,6 +79,15 @@ describe('fetchAffidavitFromEc (Task 37) — SSRF hardening', () => {
 
   it('rejects an allowlisted host that RESOLVES to a private IP -> ssrf_ip, never calls fetch', async () => {
     mockedLookup.mockResolvedValueOnce([{ address: '10.0.0.1', family: 4 }] as any);
+    await expect(fetchAffidavitFromEc('https://eci.gov.in/affidavit.pdf')).rejects.toThrow('ssrf_ip');
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('Fix 4: a DNS response with MIXED public + private addresses is rejected -> ssrf_ip (ANY private address rejects the whole resolution, never calls fetch)', async () => {
+    mockedLookup.mockResolvedValueOnce([
+      { address: '8.8.8.8', family: 4 },
+      { address: '10.0.0.1', family: 4 },
+    ] as any);
     await expect(fetchAffidavitFromEc('https://eci.gov.in/affidavit.pdf')).rejects.toThrow('ssrf_ip');
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -170,6 +187,48 @@ describe('fetchAffidavitFromEc (Task 37) — SSRF hardening', () => {
     fetchMock.mockResolvedValueOnce({ status: 404, ok: false, headers: new Headers() } as unknown as Response);
 
     await expect(fetchAffidavitFromEc('https://eci.gov.in/affidavit.pdf')).rejects.toThrow('fetch_failed');
+  });
+
+  it('Fix 3: the per-hop timeout stays armed through the BODY-READ phase — a slow-trickle body times out instead of hanging forever', async () => {
+    vi.useFakeTimers();
+    try {
+      mockedLookup.mockResolvedValue([{ address: '8.8.8.8', family: 4 }] as any);
+
+      let cancelled = false;
+      // A body whose `pull` never enqueues or closes — simulates a body
+      // trickling in slower than the fetch timeout, while staying well
+      // under the 20MB size cap. Only the timeout's abort (which cancels
+      // the reader, below) should ever settle this stream.
+      const slowBody = new ReadableStream<Uint8Array>({
+        pull() {
+          return new Promise<void>(() => {});
+        },
+        cancel() {
+          cancelled = true;
+        },
+      });
+
+      fetchMock.mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        headers: new Headers(),
+        body: slowBody,
+      } as unknown as Response);
+
+      const resultPromise = fetchAffidavitFromEc('https://eci.gov.in/affidavit.pdf');
+      const assertion = expect(resultPromise).rejects.toThrow('fetch_timeout');
+
+      // Advance well past the module's FETCH_TIMEOUT_MS (10s) so the
+      // AbortController fires; advanceTimersByTimeAsync interleaves
+      // microtask flushes with each tick, letting the DNS lookup + fetch()
+      // + body-read chain actually progress between advances.
+      await vi.advanceTimersByTimeAsync(15_000);
+
+      await assertion;
+      expect(cancelled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

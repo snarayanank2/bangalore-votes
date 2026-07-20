@@ -32,8 +32,14 @@
  *      `Content-Length` header and from the actual bytes read, so a body
  *      that omits/understates its length can't force an unbounded
  *      download. Each hop has its own request timeout (`FETCH_TIMEOUT_MS`)
- *      via `AbortController`, so a hung EC server can't block a request
- *      indefinitely.
+ *      via `AbortController` — and (Task 37 review Fix 3) that timeout is
+ *      NOT cleared once `fetch()` returns headers: it stays armed through
+ *      the ENTIRE body read (`readBodyCapped` is passed the same
+ *      `AbortSignal` and cancels its reader the instant the signal fires).
+ *      Without this, a body that trickles in slower than
+ *      `FETCH_TIMEOUT_MS` per byte — while staying under the 20 MB cap —
+ *      could hold the request (and the curator's in-request `await`) open
+ *      indefinitely; the size cap alone does not bound TIME, only bytes.
  *
  * What this module deliberately does NOT do: validate the fetched bytes are
  * actually a PDF. That is `storeMedia`'s job (magic-byte sniff + the same
@@ -60,6 +66,7 @@ export type AffidavitFetchErrorCode =
   | 'ssrf_ip'
   | 'ssrf_redirect_cap'
   | 'fetch_failed'
+  | 'fetch_timeout'
   | 'media_too_large';
 
 const MAX_REDIRECTS = 3;
@@ -139,6 +146,15 @@ function ipv6ToBigInt(ip: string): bigint {
   return result;
 }
 
+/** Renders the low 32 bits of `v4` as a dotted-quad string, for handing off to `isPublicIpv4`. */
+function low32ToIpv4String(v4: bigint): string {
+  const a = Number((v4 >> 24n) & 0xffn);
+  const b = Number((v4 >> 16n) & 0xffn);
+  const c = Number((v4 >> 8n) & 0xffn);
+  const d = Number(v4 & 0xffn);
+  return `${a}.${b}.${c}.${d}`;
+}
+
 function isPublicIpv6(ip: string): boolean {
   const value = ipv6ToBigInt(ip);
 
@@ -149,12 +165,15 @@ function isPublicIpv6(ip: string): boolean {
 
   // ::ffff:0:0/96 — IPv4-mapped: unwrap and re-check against the IPv4 rules.
   if (value >> 32n === 0xffffn) {
-    const v4 = value & 0xffffffffn;
-    const a = Number((v4 >> 24n) & 0xffn);
-    const b = Number((v4 >> 16n) & 0xffn);
-    const c = Number((v4 >> 8n) & 0xffn);
-    const d = Number(v4 & 0xffn);
-    return isPublicIpv4(`${a}.${b}.${c}.${d}`);
+    return isPublicIpv4(low32ToIpv4String(value & 0xffffffffn));
+  }
+
+  // ::a.b.c.d/96 — the deprecated "IPv4-compatible" form (top 96 bits zero,
+  // distinct from the ::ffff:/96 IPv4-MAPPED form above): unwrap the same
+  // way. `:: ` (0n) and `::1` (1n) are already handled above, so this can't
+  // misfire on those.
+  if (value >> 32n === 0n) {
+    return isPublicIpv4(low32ToIpv4String(value & 0xffffffffn));
   }
 
   return true;
@@ -199,8 +218,20 @@ async function checkUrlSafe(url: URL): Promise<void> {
   }
 }
 
-/** Reads `response`'s body as a `Buffer`, enforcing `maxBytes` both against a declared (possibly lying) `Content-Length` and against the actual streamed byte count. */
-async function readBodyCapped(response: Response, maxBytes: number): Promise<Buffer> {
+/**
+ * Reads `response`'s body as a `Buffer`, enforcing `maxBytes` both against a
+ * declared (possibly lying) `Content-Length` and against the actual streamed
+ * byte count.
+ *
+ * `signal` (Task 37 review Fix 3) is the SAME `AbortSignal` used for the
+ * `fetch()` call that produced `response` — the caller keeps its request
+ * timeout armed through this whole read, rather than clearing it once
+ * headers arrive, so a body that trickles in slower than the timeout (while
+ * staying under `maxBytes`) can't hold the request open indefinitely. If
+ * `signal` fires while a read is outstanding, the reader is cancelled and a
+ * `fetch_timeout` error is thrown instead of hanging forever.
+ */
+async function readBodyCapped(response: Response, maxBytes: number, signal?: AbortSignal): Promise<Buffer> {
   const declaredLength = response.headers.get('content-length');
   if (declaredLength !== null) {
     const declared = Number(declaredLength);
@@ -212,21 +243,41 @@ async function readBodyCapped(response: Response, maxBytes: number): Promise<Buf
   const body = response.body as ReadableStream<Uint8Array> | null | undefined;
   if (body && typeof body.getReader === 'function') {
     const reader = body.getReader();
-    const chunks: Uint8Array[] = [];
-    let total = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        total += value.byteLength;
-        if (total > maxBytes) {
-          await reader.cancel().catch(() => {});
-          throw new Error('media_too_large' satisfies AffidavitFetchErrorCode);
-        }
-        chunks.push(value);
-      }
+
+    if (signal?.aborted) {
+      await reader.cancel().catch(() => {});
+      throw new Error('fetch_timeout' satisfies AffidavitFetchErrorCode);
     }
-    return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+
+    let timedOut = false;
+    const onAbort = () => {
+      timedOut = true;
+      reader.cancel().catch(() => {});
+    };
+    signal?.addEventListener('abort', onAbort);
+
+    try {
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (timedOut) {
+          throw new Error('fetch_timeout' satisfies AffidavitFetchErrorCode);
+        }
+        if (done) break;
+        if (value) {
+          total += value.byteLength;
+          if (total > maxBytes) {
+            await reader.cancel().catch(() => {});
+            throw new Error('media_too_large' satisfies AffidavitFetchErrorCode);
+          }
+          chunks.push(value);
+        }
+      }
+      return Buffer.concat(chunks.map((c) => Buffer.from(c)));
+    } finally {
+      signal?.removeEventListener('abort', onAbort);
+    }
   }
 
   // No readable stream on the response (e.g. a simplified fetch mock in
@@ -259,35 +310,40 @@ export async function fetchAffidavitFromEc(url: string): Promise<Buffer> {
   for (;;) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    let response: Response;
+    // Task 37 review Fix 3: `timeout` is deliberately NOT cleared right
+    // after `fetch()` resolves — it is cleared in the `finally` below,
+    // AFTER the body has been fully read (for the terminal 200 response) or
+    // after the redirect target has been safety-checked (for a 30x hop).
+    // Clearing it eagerly (the old behavior) would leave a slow-trickling
+    // body under the 20 MB cap free to hold the request open forever.
     try {
-      response = await fetch(current, { redirect: 'manual', signal: controller.signal });
+      const response = await fetch(current, { redirect: 'manual', signal: controller.signal });
+
+      if (response.status >= 300 && response.status < 400) {
+        redirectCount += 1;
+        if (redirectCount > MAX_REDIRECTS) {
+          throw new Error('ssrf_redirect_cap' satisfies AffidavitFetchErrorCode);
+        }
+        const location = response.headers.get('location');
+        if (!location) {
+          throw new Error('fetch_failed' satisfies AffidavitFetchErrorCode);
+        }
+        const next = new URL(location, current);
+        // THE critical re-check: a redirect to an off-allowlist host or a
+        // host resolving to a private/metadata IP is rejected here, BEFORE
+        // it is ever followed.
+        await checkUrlSafe(next);
+        current = next;
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error('fetch_failed' satisfies AffidavitFetchErrorCode);
+      }
+
+      return await readBodyCapped(response, MAX_DOWNLOAD_BYTES, controller.signal);
     } finally {
       clearTimeout(timeout);
     }
-
-    if (response.status >= 300 && response.status < 400) {
-      redirectCount += 1;
-      if (redirectCount > MAX_REDIRECTS) {
-        throw new Error('ssrf_redirect_cap' satisfies AffidavitFetchErrorCode);
-      }
-      const location = response.headers.get('location');
-      if (!location) {
-        throw new Error('fetch_failed' satisfies AffidavitFetchErrorCode);
-      }
-      const next = new URL(location, current);
-      // THE critical re-check: a redirect to an off-allowlist host or a
-      // host resolving to a private/metadata IP is rejected here, BEFORE
-      // it is ever followed.
-      await checkUrlSafe(next);
-      current = next;
-      continue;
-    }
-
-    if (!response.ok) {
-      throw new Error('fetch_failed' satisfies AffidavitFetchErrorCode);
-    }
-
-    return readBodyCapped(response, MAX_DOWNLOAD_BYTES);
   }
 }

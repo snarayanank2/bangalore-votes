@@ -18,6 +18,16 @@
  *     `publishCandidateField`'s actor-role gate applies unchanged here.
  *   - a model failure sets `extractionStatus` to 'failed', publishes
  *     nothing, and rethrows.
+ *   - Task 37 REVIEW FIX 1 (integrity-critical): a MALFORMED extractor
+ *     output — a missing field, an extra key, or a non-string/non-null
+ *     value — must become an extraction FAILURE (nothing published), never
+ *     silently collapse into a legitimate `notDeclared`. Only an explicit
+ *     `null` is "not declared"; anything else malformed is a parse failure.
+ *   - Task 37 REVIEW FIX 2: the extraction publish's audit row always has
+ *     `actorUserId: null` / `actorRole: 'system'`, even when the triggering
+ *     curator's `userId` is passed into `extractAffidavitFields` — schema.ts's
+ *     `audit_log.actor_user_id` convention ("null = system") is a system
+ *     action regardless of who triggered the upload.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -219,6 +229,86 @@ describe('extractAffidavitFields (Task 37)', () => {
 
     const fieldRows = await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId));
     expect(fieldRows.length).toBe(0);
+  });
+
+  it('Fix 1: a missing field in the extractor output is an extraction FAILURE, not notDeclared — publishes nothing', async () => {
+    const { candidateId, mediaId } = await setupFixture();
+    // `education` key entirely absent — not the same as an explicit `null`.
+    const extractor = vi.fn(async (_pdfBytes: Buffer): Promise<unknown> => ({ cases: 'some cases', assets: 'some assets' }));
+
+    const before = (await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId))).length;
+    expect(before).toBe(0);
+
+    await expect(extractAffidavitFields(mediaId, candidateId, { userId: null }, extractor)).rejects.toThrow();
+
+    const [affidavitRow] = await db.select().from(schema.candidateAffidavits).where(eq(schema.candidateAffidavits.mediaId, mediaId));
+    expect(affidavitRow!.extractionStatus).toBe('failed');
+
+    const after = await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId));
+    expect(after.length).toBe(0);
+  });
+
+  it('Fix 1: an extra key in the extractor output is an extraction FAILURE — publishes nothing', async () => {
+    const { candidateId, mediaId } = await setupFixture();
+    const extractor = vi.fn(
+      async (_pdfBytes: Buffer): Promise<unknown> => ({ cases: 'some cases', assets: 'some assets', education: 'Graduate', extraField: 'sneaky' }),
+    );
+
+    await expect(extractAffidavitFields(mediaId, candidateId, { userId: null }, extractor)).rejects.toThrow();
+
+    const [affidavitRow] = await db.select().from(schema.candidateAffidavits).where(eq(schema.candidateAffidavits.mediaId, mediaId));
+    expect(affidavitRow!.extractionStatus).toBe('failed');
+
+    const fieldRows = await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId));
+    expect(fieldRows.length).toBe(0);
+  });
+
+  it('Fix 1: a non-string, non-null value (e.g. {cases: 42}) is an extraction FAILURE — publishes nothing', async () => {
+    const { candidateId, mediaId } = await setupFixture();
+    const extractor = vi.fn(async (_pdfBytes: Buffer): Promise<unknown> => ({ cases: 42, assets: 'some assets', education: 'Graduate' }));
+
+    await expect(extractAffidavitFields(mediaId, candidateId, { userId: null }, extractor)).rejects.toThrow();
+
+    const [affidavitRow] = await db.select().from(schema.candidateAffidavits).where(eq(schema.candidateAffidavits.mediaId, mediaId));
+    expect(affidavitRow!.extractionStatus).toBe('failed');
+
+    const fieldRows = await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId));
+    expect(fieldRows.length).toBe(0);
+  });
+
+  it('Fix 1: all-valid strings for all three fields publish all three (the legitimate happy path still works)', async () => {
+    const { candidateId, mediaId } = await setupFixture();
+    const extractor = vi.fn(async (_pdfBytes: Buffer): Promise<AffidavitExtraction> => ({ cases: 'a', assets: 'b', education: 'c' }));
+
+    await extractAffidavitFields(mediaId, candidateId, { userId: null }, extractor);
+
+    const fieldRows = await db.select().from(schema.candidateFields).where(eq(schema.candidateFields.candidateId, candidateId));
+    expect(fieldRows.length).toBe(3);
+    expect(fieldRows.every((f) => f.notDeclared === false)).toBe(true);
+  });
+
+  it('Fix 2: the extraction publish audits actorUserId=null/actorRole=system even when a curator userId triggered it', async () => {
+    const { candidateId, mediaId } = await setupFixture();
+    const extractor = vi.fn(async (_pdfBytes: Buffer): Promise<AffidavitExtraction> => ({ cases: 'x', assets: null, education: null }));
+
+    // A real curator's userId is passed in as the triggering actor...
+    await extractAffidavitFields(mediaId, candidateId, { userId: 424242 }, extractor);
+
+    // ...but the extraction PUBLISH's own audit row must still be system/null.
+    const auditRows = await db
+      .select()
+      .from(schema.auditLog)
+      .where(
+        and(
+          eq(schema.auditLog.entityType, 'candidate_field'),
+          eq(schema.auditLog.entityId, `${candidateId}:cases`),
+        ),
+      );
+    expect(auditRows.length).toBeGreaterThanOrEqual(1);
+    for (const row of auditRows) {
+      expect(row.actorUserId).toBeNull();
+      expect(row.actorRole).toBe('system');
+    }
   });
 
   it('a failure on one affidavit does not corrupt fields already published for another candidate', async () => {
