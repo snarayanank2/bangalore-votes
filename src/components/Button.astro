@@ -19,16 +19,23 @@ interface Props {
   disabled?: boolean;
   loading?: boolean;
   lang: Lang;
+  /**
+   * Arbitrary `data-*` passthrough (e.g. `data-register-slot`,
+   * `data-ward-id`) — needed so a later client-side island (WardMap's
+   * register-for-updates slot swap, Task 27/28) can select this exact
+   * rendered element without this component knowing about that feature.
+   */
+  [key: `data-${string}`]: string | number | boolean | undefined;
 }
 
-const { variant, type = 'button', href, disabled = false, loading = false, lang } = Astro.props;
+const { variant, type = 'button', href, disabled = false, loading = false, lang, ...rest } = Astro.props;
 
 const className = `btn btn--${variant}`;
 ---
 
 {
   href ? (
-    <a class={className} href={href} aria-disabled={disabled ? 'true' : undefined}>
+    <a class={className} href={href} aria-disabled={disabled ? 'true' : undefined} {...rest}>
       <span class="btn-content" aria-hidden={loading ? 'true' : undefined}>
         <span class="btn-label" style={loading ? 'visibility:hidden' : undefined}>
           <slot />
@@ -41,7 +48,7 @@ const className = `btn btn--${variant}`;
       </span>
     </a>
   ) : (
-    <button class={className} type={type} disabled={disabled} aria-busy={loading ? 'true' : undefined}>
+    <button class={className} type={type} disabled={disabled} aria-busy={loading ? 'true' : undefined} {...rest}>
       <span class="btn-content">
         <span class="btn-label" style={loading ? 'visibility:hidden' : undefined}>
           <slot />

@@ -1,0 +1,184 @@
+---
+/**
+ * Ward result (`/ward/{id}`, `/kn/ward/{id}`) — information-architecture.md
+ * §3.2, PRD §5.1. The hub page for a single GBA ward: name/number/
+ * corporation, the boundary map, the register-for-updates slot, and links
+ * to the ward's candidates/issues subpages and the (shared) voting guide.
+ *
+ * Existence check lives in the route twins (src/pages/ward/[id].astro,
+ * src/pages/kn/ward/[id].astro), not here — only a page-level frontmatter
+ * script can end an Astro request early with a custom HTTP status, so an
+ * unknown wardId never actually reaches this component in production. The
+ * `ward` lookup below is guarded anyway (renders a minimal not-found
+ * fallback rather than throwing) purely as a defensive belt-and-braces
+ * measure, not a path any test exercises.
+ *
+ * CACHE-SAFETY (architecture.md §5, binding): this component never reads
+ * cookies/session. The register-for-updates slot below always renders the
+ * ANONYMOUS "Register for updates" control, in its full enabled style
+ * (design-system.md §7.8 — gated actions never render disabled) — the same
+ * markup for every visitor regardless of auth state. Task 28's MeSlot
+ * island finds it via `data-register-slot`/`data-ward-id` and swaps it
+ * client-side to "Receiving updates" (own home ward) or removes it (any
+ * other ward) — see IA §3.2 and PRD §5.1.
+ *
+ * Boundary map URL: geo.ts's `wardBoundaryUrl(wardId)` resolves a ward id to
+ * its `/data/gba.geojson#<ref>` URL by looking `wardId` up in the *static
+ * file's own* in-memory feature index (`loadWardPolygons()`), which only
+ * recognizes the 369 real composite ids actually present in
+ * data/gba.geojson. Every real `wards` row is seeded FROM that same file
+ * (scripts/seed-wards.ts), so in production the two are always in lock
+ * step — but this component already has the full `wards` row loaded,
+ * including its own `boundaryRef` column (the very value that function
+ * would return), so we format the URL directly from the row instead of
+ * re-deriving/re-validating it through the static-file index on every
+ * render. This also sidesteps needing `loadWardPolygons()` (a full parse of
+ * a 3.5MB file) called anywhere at boot for this page to work.
+ */
+import Base from '../../layouts/Base.astro';
+import Card from '../../components/Card.astro';
+import Button from '../../components/Button.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import { t, localePath, type Lang } from '../../i18n';
+import { db } from '../../db/client';
+import { wards } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+interface Props {
+  lang: Lang;
+  wardId: number;
+}
+
+const { lang, wardId } = Astro.props;
+
+const [ward] = await db.select().from(wards).where(eq(wards.id, wardId));
+
+const wardName = ward ? (lang === 'kn' ? ward.nameKn : ward.nameEn) : '';
+const corporationLabel = ward ? t(lang, `ward.corporation.${ward.corporation}`) : '';
+const boundaryUrl = ward ? `/data/gba.geojson#${ward.boundaryRef}` : null;
+
+const pagePath = `/ward/${wardId}`;
+const title = ward ? t(lang, 'ward.meta.title', { wardName, wardId }) : t(lang, 'ward.notFound.fact');
+const description = ward ? t(lang, 'ward.meta.description', { wardName, wardId }) : t(lang, 'ward.notFound.fact');
+---
+
+<Base lang={lang} title={title} description={description} path={pagePath}>
+  {
+    ward ? (
+      <div class="ward">
+        <header class="ward-header">
+          <h1>
+            {wardName} <span class="ward-number">{t(lang, 'ward.heading.wardNumber', { wardId })}</span>
+          </h1>
+          <p class="corporation">{corporationLabel}</p>
+        </header>
+
+        <section aria-label={t(lang, 'ward.map.label')}>
+          <div class="map-container" data-ward-map data-boundary-url={boundaryUrl} data-ward-id={wardId}>
+            <p class="map-fallback">{t(lang, 'ward.map.fallback')}</p>
+          </div>
+        </section>
+
+        <section class="register-slot">
+          <Button
+            variant="primary"
+            href={localePath(lang, '/login')}
+            lang={lang}
+            data-register-slot
+            data-ward-id={wardId}
+          >
+            {t(lang, 'common.registerForUpdates')}
+          </Button>
+        </section>
+
+        <nav class="ward-links" aria-label={t(lang, 'ward.links.label')}>
+          <Card>
+            <a href={localePath(lang, `/ward/${wardId}/candidates`)}>{t(lang, 'ward.links.candidates')}</a>
+          </Card>
+          <Card>
+            <a href={localePath(lang, `/ward/${wardId}/issues`)}>{t(lang, 'ward.links.issues')}</a>
+          </Card>
+          <Card>
+            <a href={localePath(lang, '/voting-guide')}>{t(lang, 'home.shortcuts.votingGuide.title')}</a>
+          </Card>
+        </nav>
+      </div>
+    ) : (
+      <EmptyState fact={t(lang, 'ward.notFound.fact')} />
+    )
+  }
+
+  <script>
+    import { initWardMap } from '../../islands/WardMap';
+    initWardMap();
+  </script>
+</Base>
+
+<style>
+  .ward {
+    max-width: var(--container-app);
+    margin-inline: auto;
+    padding: var(--space-8) var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .ward-header h1 {
+    font-family: var(--font-heading);
+    font-size: var(--text-3xl);
+    line-height: var(--leading-3xl);
+    margin: 0 0 var(--space-2);
+  }
+
+  .ward-number {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .corporation {
+    margin: 0;
+    color: var(--color-text-muted);
+  }
+
+  .map-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .map-fallback {
+    margin: 0;
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: var(--space-4);
+  }
+
+  .register-slot {
+    display: flex;
+  }
+
+  .ward-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    gap: var(--space-4);
+  }
+
+  .ward-links a {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .ward-links a:hover,
+  .ward-links a:focus-visible {
+    text-decoration: underline;
+  }
+</style>

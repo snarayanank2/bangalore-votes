@@ -1,0 +1,182 @@
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { experimental_AstroContainer as AstroContainer } from 'astro/container';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import { migrate } from 'drizzle-orm/postgres-js/migrator';
+import postgres from 'postgres';
+import * as schema from '../../src/db/schema';
+import { localePath, t, type Lang } from '../../src/i18n';
+import WardEn from '../../src/pages/ward/[id].astro';
+import WardKn from '../../src/pages/kn/ward/[id].astro';
+
+if (!process.env.DATABASE_URL) {
+  throw new Error(
+    'DATABASE_URL is not set. CI always sets this; for local runs export ' +
+      'DATABASE_URL=postgres://postgres@localhost:54329/bv_test (see task brief).',
+  );
+}
+
+const SITE_ORIGIN = 'https://bangalore-votes.opencity.in';
+
+const client = postgres(process.env.DATABASE_URL, { max: 1 });
+const db = drizzle(client, { schema });
+
+// High, task-specific id (task-19 brief) so this suite never collides with
+// another test file's ward fixtures in the shared (not reset-between-files)
+// test DB — audit uses 9001, lookup uses 97xxx, home uses 96001.
+const WARD = {
+  id: 95001,
+  nameEn: 'Ward Result Test Ward',
+  nameKn: 'ವಾರ್ಡ್ ಫಲಿತಾಂಶ ಪರೀಕ್ಷಾ ವಾರ್ಡ್',
+  corporation: 'south' as const,
+  zone: 'Zone T',
+  boundaryRef: 'ward-result-test-ward',
+};
+
+/**
+ * Strips the container API's dev-mode debug attributes and collapses
+ * incidental whitespace (see tests/routes/layout.test.ts / home.test.ts for
+ * the same helper/rationale).
+ */
+function normalize(html: string): string {
+  return html
+    .replace(/\s+data-astro-cid-\w+/g, '')
+    .replace(/\s+data-astro-(?:source-file|source-loc)="[^"]*"/g, '')
+    .replace(/>\s+/g, '>')
+    .replace(/\s+</g, '<')
+    .replace(/\s+/g, ' ');
+}
+
+async function makeContainer() {
+  return AstroContainer.create({
+    astroConfig: {
+      site: SITE_ORIGIN,
+      i18n: { locales: ['en', 'kn'], defaultLocale: 'en', routing: { prefixDefaultLocale: false } },
+    },
+  });
+}
+
+function twinFor(lang: Lang) {
+  return lang === 'kn' ? WardKn : WardEn;
+}
+
+async function renderWard(
+  lang: Lang,
+  id: number | string,
+  extraHeaders?: Record<string, string>,
+): Promise<Response> {
+  const container = await makeContainer();
+  const path = localePath(lang, `/ward/${id}`);
+  return container.renderToResponse(twinFor(lang), {
+    partial: false,
+    params: { id: String(id) },
+    request: new Request(`${SITE_ORIGIN}${path}`, { headers: extraHeaders }),
+  });
+}
+
+describe('Ward result page (/ward/{id}, /kn/ward/{id}) — IA §3.2, PRD §5.1', () => {
+  beforeAll(async () => {
+    await migrate(db, { migrationsFolder: './drizzle' });
+    await db.insert(schema.wards).values(WARD).onConflictDoUpdate({ target: schema.wards.id, set: WARD });
+  });
+
+  afterAll(async () => {
+    await client.end();
+  });
+
+  describe('known ward id', () => {
+    it.each(['en', 'kn'] as const)('%s: renders ward name, number, corporation label; status 200', async (lang) => {
+      const res = await renderWard(lang, WARD.id);
+      expect(res.status).toBe(200);
+      const html = normalize(await res.text());
+
+      const expectedName = lang === 'kn' ? WARD.nameKn : WARD.nameEn;
+      expect(html).toContain(expectedName);
+      expect(html).toContain(String(WARD.id));
+      expect(html).toContain(t(lang, 'ward.corporation.south'));
+    });
+
+    it('en: corporation label maps "south" -> "South", not the raw enum value', async () => {
+      const res = await renderWard('en', WARD.id);
+      const html = normalize(await res.text());
+      expect(html).toContain('South');
+      expect(html).not.toMatch(/>south</);
+    });
+  });
+
+  describe('unknown ward id -> real 404 (route twin)', () => {
+    it.each(['en', 'kn'] as const)('%s: a well-formed but non-existent id 404s', async (lang) => {
+      const res = await renderWard(lang, 999999);
+      expect(res.status).toBe(404);
+    });
+
+    it.each(['en', 'kn'] as const)('%s: a non-numeric id 404s', async (lang) => {
+      const res = await renderWard(lang, 'not-a-number');
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('register-for-updates slot (design-system.md §7.8, cache invariant)', () => {
+    it.each(['en', 'kn'] as const)(
+      '%s: renders the anonymous "Register for updates" control with data-register-slot/data-ward-id',
+      async (lang) => {
+        const res = await renderWard(lang, WARD.id);
+        const html = normalize(await res.text());
+
+        expect(html).toContain(t(lang, 'common.registerForUpdates'));
+        expect(html).toMatch(new RegExp(`data-register-slot[^>]*data-ward-id="${WARD.id}"|data-ward-id="${WARD.id}"[^>]*data-register-slot`));
+        expect(html).toContain(`href="${localePath(lang, '/login')}"`);
+      },
+    );
+
+    it('server markup is byte-identical whether or not the request carries a session cookie (cache invariant)', async () => {
+      const noCookie = normalize(await (await renderWard('en', WARD.id)).text());
+      const withCookie = normalize(
+        await (await renderWard('en', WARD.id, { cookie: 'session=some-signed-in-users-session-id' })).text(),
+      );
+      expect(withCookie).toBe(noCookie);
+    });
+  });
+
+  describe('links to candidates/issues/voting-guide', () => {
+    it.each(['en', 'kn'] as const)('%s: locale-correct hrefs', async (lang) => {
+      const res = await renderWard(lang, WARD.id);
+      const html = normalize(await res.text());
+
+      expect(html).toContain(`href="${localePath(lang, `/ward/${WARD.id}/candidates`)}"`);
+      expect(html).toContain(`href="${localePath(lang, `/ward/${WARD.id}/issues`)}"`);
+      expect(html).toContain(`href="${localePath(lang, '/voting-guide')}"`);
+    });
+  });
+
+  describe('lang attribute + hreflang pair', () => {
+    it('sets <html lang> and emits the en/kn hreflang alternates', async () => {
+      const enHtml = normalize(await (await renderWard('en', WARD.id)).text());
+      const knHtml = normalize(await (await renderWard('kn', WARD.id)).text());
+
+      expect(enHtml).toMatch(/<html lang="en"/);
+      expect(knHtml).toMatch(/<html lang="kn"/);
+      expect(enHtml).toContain(`<link rel="alternate" hreflang="en" href="${SITE_ORIGIN}/ward/${WARD.id}">`);
+      expect(enHtml).toContain(`<link rel="alternate" hreflang="kn" href="${SITE_ORIGIN}/kn/ward/${WARD.id}">`);
+      expect(knHtml).toContain(`<link rel="alternate" hreflang="en" href="${SITE_ORIGIN}/ward/${WARD.id}">`);
+      expect(knHtml).toContain(`<link rel="alternate" hreflang="kn" href="${SITE_ORIGIN}/kn/ward/${WARD.id}">`);
+    });
+  });
+
+  describe('WardMap island + no-JS fallback', () => {
+    it('emits exactly one <script> tag — the WardMap island', async () => {
+      const html = normalize(await (await renderWard('en', WARD.id)).text());
+      const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
+      expect(scriptOpenTags).toHaveLength(1);
+      expect(scriptOpenTags[0]).toMatch(/type="module"/);
+      expect(html).toMatch(/Ward\.astro\?astro&type=script/);
+    });
+
+    it('renders the map container with the boundary URL and a no-JS fallback text', async () => {
+      const html = normalize(await (await renderWard('en', WARD.id)).text());
+      expect(html).toContain('data-ward-map');
+      expect(html).toContain(`data-boundary-url="/data/gba.geojson#${WARD.boundaryRef}"`);
+      expect(html).toContain(`data-ward-id="${WARD.id}"`);
+      expect(html).toContain(t('en', 'ward.map.fallback'));
+    });
+  });
+});

@@ -1,0 +1,31 @@
+---
+/**
+ * Ward result (`/ward/{id}`) — thin route twin over
+ * src/features/pages/Ward.astro (see src/features/pages/README.md).
+ *
+ * Existence check ONLY lives here, not in Ward.astro: only a page-level
+ * frontmatter script can end an Astro request early with a custom HTTP
+ * status (returning a Response from a component rendered as a child of a
+ * page has no effect on the actual response) — so this twin runs a minimal
+ * existence lookup and returns a real 404 before Ward.astro (which does its
+ * own full-row lookup for the fields it renders) is ever reached. IA §3.2.
+ */
+import Ward from '../../features/pages/Ward.astro';
+import { db } from '../../db/client';
+import { wards } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const idParam = Astro.params.id;
+const wardId = Number(idParam);
+
+if (!idParam || !Number.isInteger(wardId)) {
+  return new Response(null, { status: 404 });
+}
+
+const [exists] = await db.select({ id: wards.id }).from(wards).where(eq(wards.id, wardId));
+if (!exists) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<Ward lang="en" wardId={wardId} />
