@@ -6,10 +6,10 @@
  * navigation, not a dashboard — see `src/lib/admin.ts`'s `loadConsoleStats`
  * docstring.
  *
- * Only "Roles & access" links to a real page today (this task). Manage
- * users (Task 45), Partners & coverage (Task 46), and Audit log (Task 47)
- * have no route yet — listed as coming soon rather than linking to a 404
- * or faking a page, same convention as the Task 34 curator dashboard's
+ * "Roles & access" (Task 44) and "Manage users" (Task 45) link to real
+ * pages. Partners & coverage (Task 46) and Audit log (Task 47) have no
+ * route yet — listed as coming soon rather than linking to a 404 or
+ * faking a page, same convention as the Task 34 curator dashboard's
  * "coming soon" quick links (see src/features/pages/curator/Dashboard.astro).
  *
  * No `/kn/` twin (internal tooling, noindex — see AdminLayout's
@@ -56,7 +56,9 @@ const { lang, stats } = Astro.props;
         <li>
           <a href="/admin/roles">{t(lang, 'admin.console.nav.roles')}</a>
         </li>
-        <li class="nav-list-pending">{t(lang, 'admin.console.nav.usersComingSoon')}</li>
+        <li>
+          <a href="/admin/users">{t(lang, 'admin.console.nav.users')}</a>
+        </li>
         <li class="nav-list-pending">{t(lang, 'admin.console.nav.partnersComingSoon')}</li>
         <li class="nav-list-pending">{t(lang, 'admin.console.nav.auditComingSoon')}</li>
       </ul>

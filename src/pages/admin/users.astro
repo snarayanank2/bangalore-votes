@@ -1,0 +1,92 @@
+---
+/**
+ * `/admin/users` — see src/features/pages/admin/Users.astro for the
+ * presentational side. This route twin owns the HTTP concerns: the `?q=`
+ * GET search, dispatching the three POST form actions (`ban`, `reactivate`,
+ * `erase`) to src/lib/erasure.ts, and no-store on every response.
+ *
+ * src/middleware.ts already 403s any non-admin session and redirects an
+ * anonymous request to /login before this ever runs; the actor handed to
+ * every src/lib/erasure.ts mutator is therefore always `role: 'admin'` in
+ * practice — the `assertAdmin` re-check inside those mutators is defense
+ * in depth, not something this route expects to ever trip.
+ *
+ * AFTER A POST: redirects back to `/admin/users?q=<the same query>` on
+ * success (re-running the search picks up the row's new status), or
+ * re-renders in place with a 400 + friendly error AND the same search
+ * results recomputed, so a rejected action (e.g. a lockout guard) doesn't
+ * lose the admin's place.
+ */
+import Users from '../../features/pages/admin/Users.astro';
+import { banUser, eraseUser, reactivateUser, searchUsers, type AdminActor } from '../../lib/erasure';
+import { loadCuratorLang } from '../../lib/curator';
+
+const session = Astro.locals.session!;
+const actor: AdminActor = { userId: session.userId, role: 'admin' };
+
+/** Maps a thrown Error's message to a user-facing i18n key, falling back to `fallbackKey` for anything unrecognized. */
+function errorKey(err: unknown, fallbackKey: string): string {
+  const msg = err instanceof Error ? err.message : '';
+  if (msg === 'user_not_found') return 'admin.users.error.userNotFound';
+  if (msg === 'cannot_ban_self') return 'admin.users.error.cannotBanSelf';
+  if (msg === 'cannot_ban_last_admin') return 'admin.users.error.cannotBanLastAdmin';
+  if (msg === 'cannot_erase_self') return 'admin.users.error.cannotEraseSelf';
+  if (msg === 'cannot_erase_last_admin') return 'admin.users.error.cannotEraseLastAdmin';
+  if (msg === 'cannot_ban_erased') return 'admin.users.error.cannotBanErased';
+  if (msg === 'cannot_reactivate_erased') return 'admin.users.error.cannotReactivateErased';
+  return fallbackKey;
+}
+
+let message: { kind: 'notice' | 'error'; key: string } | undefined;
+let responseStatus = 200;
+let query = Astro.url.searchParams.get('q') ?? '';
+
+if (Astro.request.method === 'POST') {
+  Astro.response.headers.set('cache-control', 'no-store');
+  const form = await Astro.request.formData();
+  const formAction = String(form.get('formAction') ?? '');
+  const confirmed = form.get('confirm') != null;
+  query = String(form.get('q') ?? '');
+
+  const targetUserId = Number(form.get('targetUserId'));
+  if (!Number.isInteger(targetUserId)) {
+    return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
+  }
+
+  if (!['ban', 'reactivate', 'erase'].includes(formAction)) {
+    return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
+  }
+
+  if (!confirmed) {
+    message = { kind: 'error', key: 'admin.users.error.confirmRequired' };
+    responseStatus = 400;
+  } else {
+    try {
+      if (formAction === 'ban') {
+        const reason = String(form.get('reason') ?? '').trim();
+        await banUser(actor, targetUserId, reason || undefined);
+      } else if (formAction === 'reactivate') {
+        await reactivateUser(actor, targetUserId);
+      } else {
+        await eraseUser(actor, targetUserId);
+      }
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: query ? `/admin/users?q=${encodeURIComponent(query)}` : '/admin/users',
+          'cache-control': 'no-store',
+        },
+      });
+    } catch (err) {
+      message = { kind: 'error', key: errorKey(err, 'admin.users.error.userNotFound') };
+      responseStatus = 400;
+    }
+  }
+}
+
+const [results, lang] = await Promise.all([searchUsers(query), loadCuratorLang(session.userId)]);
+Astro.response.headers.set('cache-control', 'no-store');
+Astro.response.status = responseStatus;
+---
+
+<Users lang={lang} csrfToken={Astro.locals.csrfToken} query={query} results={results} message={message} />

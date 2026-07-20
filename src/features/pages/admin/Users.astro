@@ -1,0 +1,311 @@
+---
+/**
+ * `/admin/users` (Task 45, information-architecture.md §6.3; PRD §4/§7,
+ * §5.16). The user-moderation console: search by id/email/phone, ban or
+ * reactivate an account, and run the DPDP erasure routine — see
+ * src/lib/erasure.ts's module docstring for exactly what erasure
+ * deletes/nulls/keeps.
+ *
+ * SEARCH IS A GET, NOT A POST: unlike the mutating forms below, the search
+ * box submits `?q=` as a plain query-string GET (route twin reads
+ * `Astro.url.searchParams`) so a results page is bookmarkable/shareable and
+ * needs no CSRF token — same reasoning as src/pages/curator/queue/index.astro's
+ * `?sort=`.
+ *
+ * ONE ROW, UP TO TWO ACTION FORMS: an 'active' row gets a Ban form; a
+ * 'banned' row gets a Reactivate form; an 'erased' row gets NEITHER (an
+ * opaque tombstone has nothing left to ban/reactivate). Every row except
+ * an already-erased one also gets the separate, more strongly-worded Erase
+ * form — visually set apart as the one IRREVERSIBLE action here (PRD
+ * §5.16, design-system.md §7.13's confirmation-dialog convention, same
+ * REQUIRED-checkbox substitute src/features/pages/admin/Roles.astro uses).
+ * Every action form carries a hidden `q` field so a POST redirect can
+ * return to the SAME search results.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Card from '../../../components/Card.astro';
+import Banner from '../../../components/Banner.astro';
+import Button from '../../../components/Button.astro';
+import FormField from '../../../components/FormField.astro';
+import { t, type Lang } from '../../../i18n';
+import { CSRF_FIELD_NAME } from '../../../lib/csrf';
+import type { UserSearchRow } from '../../../lib/erasure';
+
+interface Props {
+  lang: Lang;
+  csrfToken: string;
+  query: string;
+  results: UserSearchRow[];
+  message?: { kind: 'notice' | 'error'; key: string };
+}
+
+const { lang, csrfToken, query, results, message } = Astro.props;
+const messageText = message ? t(lang, message.key) : undefined;
+
+const roleLabelKeys: Record<string, string> = {
+  citizen: 'admin.users.results.roleCitizen',
+  curator: 'admin.users.results.roleCurator',
+  admin: 'admin.users.results.roleAdmin',
+};
+
+function contactDisplay(row: UserSearchRow): string {
+  if (row.status === 'erased') return t(lang, 'admin.users.results.noContact');
+  return [row.email, row.phone].filter(Boolean).join(' / ') || '—';
+}
+
+function userIdentifier(row: UserSearchRow): string {
+  return row.email ?? row.phone ?? String(row.id);
+}
+---
+
+<AdminLayout lang={lang} title={t(lang, 'admin.users.meta.title')} description={t(lang, 'admin.users.meta.description')}>
+  <div class="admin-page">
+    <p><a href="/admin">{t(lang, 'admin.users.backToConsole')}</a></p>
+    <h1>{t(lang, 'admin.users.heading')}</h1>
+
+    {
+      messageText && (
+        <Banner kind={message!.kind === 'error' ? 'error' : 'notice'} lang={lang}>
+          {messageText}
+        </Banner>
+      )
+    }
+
+    <Card>
+      <h2>{t(lang, 'admin.users.search.heading')}</h2>
+      <form method="get" action="/admin/users" class="search-form">
+        <FormField label={t(lang, 'admin.users.search.label')} name="q" value={query} lang={lang} />
+        <Button type="submit" variant="primary" lang={lang}>
+          {t(lang, 'admin.users.search.submit')}
+        </Button>
+      </form>
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'admin.users.results.heading')}</h2>
+      {
+        query.trim() === '' ? (
+          <p class="placeholder-note">{t(lang, 'admin.users.search.prompt')}</p>
+        ) : results.length === 0 ? (
+          <p class="placeholder-note">{t(lang, 'admin.users.search.noResults')}</p>
+        ) : (
+          <div class="table-scroll">
+            <table class="dense-table">
+              <thead>
+                <tr>
+                  <th>{t(lang, 'admin.users.results.colId')}</th>
+                  <th>{t(lang, 'admin.users.results.colContact')}</th>
+                  <th>{t(lang, 'admin.users.results.colStatus')}</th>
+                  <th>{t(lang, 'admin.users.results.colRole')}</th>
+                  <th>{t(lang, 'admin.users.results.colWard')}</th>
+                  <th>{t(lang, 'admin.users.results.colFlags')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((row) => (
+                  <tr>
+                    <td>{row.id}</td>
+                    <td>{contactDisplay(row)}</td>
+                    <td>{t(lang, `admin.users.status.${row.status}`)}</td>
+                    <td>{t(lang, roleLabelKeys[row.role] ?? 'admin.users.results.roleCitizen')}</td>
+                    <td>{row.homeWardNameEn ?? t(lang, 'admin.users.results.noWard')}</td>
+                    <td>{row.flagSubmissionCount}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+    </Card>
+
+    {
+      results.length > 0 && (
+        <Card>
+          <h2>{t(lang, 'admin.roles.manage.heading')}</h2>
+          <ul class="manage-list">
+            {results.map((row) => (
+              <li class="manage-row">
+                <p class="manage-row-title">
+                  #{row.id} — {contactDisplay(row)}
+                </p>
+
+                {row.status === 'active' && (
+                  <form method="post" action="/admin/users" class="ban-form">
+                    <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+                    <input type="hidden" name="formAction" value="ban" />
+                    <input type="hidden" name="targetUserId" value={row.id} />
+                    <input type="hidden" name="q" value={query} />
+                    <FormField label={t(lang, 'admin.users.ban.reasonLabel')} name="reason" lang={lang} />
+                    <label class="checkbox">
+                      <input type="checkbox" name="confirm" required />
+                      {t(lang, 'admin.users.ban.confirmLabel', { user: userIdentifier(row) })}
+                    </label>
+                    <Button type="submit" variant="destructive" lang={lang}>
+                      {t(lang, 'admin.users.ban.submit')}
+                    </Button>
+                  </form>
+                )}
+
+                {row.status === 'banned' && (
+                  <form method="post" action="/admin/users" class="reactivate-form">
+                    <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+                    <input type="hidden" name="formAction" value="reactivate" />
+                    <input type="hidden" name="targetUserId" value={row.id} />
+                    <input type="hidden" name="q" value={query} />
+                    <label class="checkbox">
+                      <input type="checkbox" name="confirm" required />
+                      {t(lang, 'admin.users.reactivate.confirmLabel', { user: userIdentifier(row) })}
+                    </label>
+                    <Button type="submit" variant="secondary" lang={lang}>
+                      {t(lang, 'admin.users.reactivate.submit')}
+                    </Button>
+                  </form>
+                )}
+
+                {row.status !== 'erased' && (
+                  <div class="erase-block">
+                    <h3>{t(lang, 'admin.users.erase.heading')}</h3>
+                    <Banner kind="notice" lang={lang}>
+                      {t(lang, 'admin.users.erase.warning', { user: userIdentifier(row) })}
+                    </Banner>
+                    <form method="post" action="/admin/users" class="erase-form">
+                      <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+                      <input type="hidden" name="formAction" value="erase" />
+                      <input type="hidden" name="targetUserId" value={row.id} />
+                      <input type="hidden" name="q" value={query} />
+                      <label class="checkbox">
+                        <input type="checkbox" name="confirm" required />
+                        {t(lang, 'admin.users.erase.confirmLabel', { user: userIdentifier(row) })}
+                      </label>
+                      <Button type="submit" variant="destructive" lang={lang}>
+                        {t(lang, 'admin.users.erase.submit')}
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )
+    }
+  </div>
+</AdminLayout>
+
+<style>
+  .admin-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .admin-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .admin-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .placeholder-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-style: italic;
+  }
+
+  .search-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 32rem;
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  .dense-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .dense-table th,
+  .dense-table td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .dense-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--color-bg);
+  }
+
+  .dense-table tbody tr:nth-child(odd) {
+    background: var(--color-surface);
+  }
+
+  .manage-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .manage-row {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .manage-row-title {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .ban-form,
+  .reactivate-form,
+  .erase-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 32rem;
+  }
+
+  .erase-block {
+    border-top: 1px dashed var(--color-border);
+    padding-top: var(--space-3);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .erase-block h3 {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--color-danger);
+  }
+</style>
