@@ -514,6 +514,117 @@ describe('src/middleware.ts', () => {
     });
   });
 
+  // Task 48 review / Task 26 bug: prefix checks matched the RAW pathname,
+  // so a `/kn/…` twin of a guarded route (`/kn/account`, and defense-in-depth
+  // for `/kn/curator`, `/kn/admin` even though those two have no twin today)
+  // slipped past the route guard, the synchronizer-token CSRF check, and the
+  // noindex header. Fixed by matching against a locale-stripped pathname.
+  // These tests exercise the KN-prefixed paths directly against the
+  // middleware to prove the prefix match now fires identically to the EN
+  // original, and that public `/kn/…` pages remain unguarded/unindexed as
+  // before.
+  describe('/kn/ locale-twin route guards (Task 48 review, Task 26 bug)', () => {
+    it('unauthenticated GET /kn/account/submissions -> redirect to /login?next=<kn path> (guard now fires on the KN twin)', async () => {
+      const ctx = makeContext({ path: '/kn/account/submissions?x=1' });
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(302);
+      expect(res.headers.get('location')).toBe(
+        `/login?next=${encodeURIComponent('/kn/account/submissions?x=1')}`,
+      );
+    });
+
+    it('authenticated GET /kn/account passes through (guard recognizes the session)', async () => {
+      const { cookieValue } = await sessionFor(citizenId);
+      const next = nextStub(200);
+      const ctx = makeContext({ path: '/kn/account', cookieValue });
+      const res = await run(ctx, next);
+      expect(next).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it('unauthenticated GET /kn/curator -> redirect to /login (no /kn/curator page exists, but the prefix match must still fire — defense in depth)', async () => {
+      const ctx = makeContext({ path: '/kn/curator' });
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(302);
+      expect(res.headers.get('location')).toBe(`/login?next=${encodeURIComponent('/kn/curator')}`);
+    });
+
+    it('citizen GET /kn/curator -> 403 (wrong role, KN prefix)', async () => {
+      const { cookieValue } = await sessionFor(citizenId);
+      const ctx = makeContext({ path: '/kn/curator', cookieValue });
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(403);
+    });
+
+    it('curator GET /kn/admin -> 403 (wrong role, KN prefix)', async () => {
+      const { cookieValue } = await sessionFor(curatorId);
+      const ctx = makeContext({ path: '/kn/admin', cookieValue });
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(403);
+    });
+
+    it('CSRF: unsafe POST to /kn/account/notifications without a valid token -> 403 (CSRF check now fires on the KN twin)', async () => {
+      const { cookieValue } = await sessionFor(citizenId);
+      const ctx = makeContext({
+        method: 'POST',
+        path: '/kn/account/notifications',
+        headers: { origin: SITE_ORIGIN },
+        cookieValue,
+        contentType: 'application/x-www-form-urlencoded',
+        body: new URLSearchParams({}).toString(),
+      });
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(403);
+    });
+
+    it('CSRF: unsafe POST to /kn/account/notifications with a valid token passes through', async () => {
+      const { id, cookieValue } = await sessionFor(citizenId);
+      const next = nextStub(200);
+      const ctx = makeContext({
+        method: 'POST',
+        path: '/kn/account/notifications',
+        headers: { origin: SITE_ORIGIN },
+        cookieValue,
+        contentType: 'application/x-www-form-urlencoded',
+        body: new URLSearchParams({ csrf_token: issueCsrfToken(id) }).toString(),
+      });
+      const res = await run(ctx, next);
+      expect(next).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+    });
+
+    it.each(['/kn/partner/some-slug', '/kn/login', '/kn/account'])(
+      '%s carries X-Robots-Tag: noindex (KN twin, previously missing)',
+      async (path) => {
+        const ctx = makeContext({ path });
+        const res = await run(ctx, nextStub(200));
+        expect(res.headers.get('x-robots-tag')).toBe('noindex');
+      },
+    );
+
+    it('a public /kn/ page (e.g. /kn/ward/57) is still NOT guarded and NOT noindex (the strip does not over-match)', async () => {
+      const next = nextStub(200);
+      const ctx = makeContext({ path: '/kn/ward/57' });
+      const res = await run(ctx, next);
+      expect(next).toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(res.headers.get('x-robots-tag')).toBeNull();
+      expect(ctx.locals.session).toBeNull();
+    });
+
+    it('locals.lang is still "kn" for a /kn/ path after the guard/noindex fix', async () => {
+      const ctx = makeContext({ path: '/kn/account' });
+      await run(ctx, nextStub(200));
+      expect(ctx.locals.lang).toBe('kn');
+    });
+
+    it('locals.lang is still "en" for an EN path', async () => {
+      const ctx = makeContext({ path: '/account' });
+      await run(ctx, nextStub(200));
+      expect(ctx.locals.lang).toBe('en');
+    });
+  });
+
   describe('X-Robots-Tag: noindex', () => {
     it.each(['/account', '/curator', '/admin', '/login', '/partner/some-slug'])(
       '%s carries X-Robots-Tag: noindex',

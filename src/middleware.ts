@@ -64,6 +64,20 @@ function isUnderAny(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => isUnder(pathname, p));
 }
 
+/**
+ * Strips a leading `/kn` locale prefix so prefix-based route-class checks
+ * (route guards, CSRF form-route check, noindex) apply identically to a
+ * `/kn/…` twin as to its English original — e.g. `/kn/account/submissions`
+ * must be guarded exactly like `/account/submissions`. Only used for prefix
+ * MATCHING; the raw `pathname` is still used for `locals.lang` detection,
+ * the actual request/response, and redirect targets (Task 48 review,
+ * Task 26 bug: the /kn/ twin of an authenticated route was reachable
+ * without a session because the guard matched the raw, un-stripped path).
+ */
+function stripLocalePrefix(pathname: string): string {
+  return pathname.replace(/^\/kn(?=\/|$)/, '') || '/';
+}
+
 const AUTH_FORM_PREFIXES = ['/account', '/curator', '/admin'];
 const NOINDEX_PREFIXES = ['/partner', '/account', '/curator', '/admin', '/login'];
 
@@ -122,6 +136,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
   const { request, url, cookies, locals, site } = context;
   const pathname = url.pathname;
   const method = request.method.toUpperCase();
+  // Locale-stripped pathname for prefix MATCHING only (route guards, CSRF
+  // form-route check, noindex) — never for lang detection, redirect
+  // targets, or anything else that needs the real path.
+  const guardPath = stripLocalePrefix(pathname);
 
   // --- locals: lang, session, csrfToken, cspNonce -------------------------
   locals.lang = pathname === '/kn' || pathname.startsWith('/kn/') ? 'kn' : 'en';
@@ -135,7 +153,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   locals.cspNonce = randomBytes(16).toString('base64');
 
   const respond = (response: Response): Response => {
-    if (isUnderAny(pathname, NOINDEX_PREFIXES)) {
+    if (isUnderAny(guardPath, NOINDEX_PREFIXES)) {
       const headers = new Headers(response.headers);
       headers.set('X-Robots-Tag', 'noindex');
       return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
@@ -153,23 +171,24 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  // --- route guards: /account/*, /curator/*, /admin/* ---------------------
+  // --- route guards: /account/*, /curator/*, /admin/* (and their /kn/
+  // twins, via guardPath) ---------------------------------------------------
   const role: Role | undefined = session?.role;
 
-  if (isUnder(pathname, '/account')) {
+  if (isUnder(guardPath, '/account')) {
     if (!session) return respond(redirectToLogin(pathname + url.search));
   }
-  if (isUnder(pathname, '/curator')) {
+  if (isUnder(guardPath, '/curator')) {
     if (!session) return respond(redirectToLogin(pathname + url.search));
     if (role !== 'curator' && role !== 'admin') return respond(forbidden());
   }
-  if (isUnder(pathname, '/admin')) {
+  if (isUnder(guardPath, '/admin')) {
     if (!session) return respond(redirectToLogin(pathname + url.search));
     if (role !== 'admin') return respond(forbidden());
   }
 
   // --- synchronizer CSRF token: unsafe methods on authenticated form routes
-  if (UNSAFE_METHODS.has(method) && isUnderAny(pathname, AUTH_FORM_PREFIXES)) {
+  if (UNSAFE_METHODS.has(method) && isUnderAny(guardPath, AUTH_FORM_PREFIXES)) {
     // Route guards above already ensured `session`/`cookieValue` are set for
     // any request reaching this point on these prefixes.
     const sessionId = sessionIdFromCookieValue(cookieValue!);
