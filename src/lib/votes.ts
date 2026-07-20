@@ -37,8 +37,9 @@
  * later, separate total-votes figure is out of scope for this function.
  */
 import { and, eq, sql } from 'drizzle-orm';
-import { db } from '../db/client';
+import { db, type Db } from '../db/client';
 import { wardIssues, issueVoteSets, issueVoteSelections } from '../db/schema';
+import type { Tx } from './audit';
 
 export interface IssueResult {
   issueId: number;
@@ -109,4 +110,29 @@ export async function issueResults(wardId: number): Promise<IssueResult[]> {
     rank: index + 1,
     sharePct: roundShare(issue.count, total),
   }));
+}
+
+/**
+ * Retires `userId`'s ACTIVE issue-vote-set, if any (a no-op otherwise —
+ * `schema.ts`'s `active_set_uq` guarantees at most one). Called whenever a
+ * citizen changes their home ward (PRD §5.5: "changing home ward retires
+ * the previous ward's vote-set" — Task 29, `src/lib/account-flow.ts`) and,
+ * per Task 33, whenever they re-cast a fresh top-3 in their current ward.
+ *
+ * Accepts an optional `executor` (a `db.transaction()` callback's `tx`
+ * handle) so a caller that must update `users.homeWardId` and retire the
+ * vote-set atomically can pass its own `tx` through — e.g.
+ * `db.transaction(async (tx) => { await tx.update(users)...; await
+ * retireActiveSet(userId, tx); })`. Defaults to the module-level `db` for
+ * every other (non-transactional) call site.
+ *
+ * NOT an audited action (Task 4/prototype decision, reaffirmed here): the
+ * audit log records published DATA changes and moderation/admin actions,
+ * never a citizen's own vote choices — so this never calls `writeAudit`.
+ */
+export async function retireActiveSet(userId: number, executor: Db | Tx = db): Promise<void> {
+  await executor
+    .update(issueVoteSets)
+    .set({ active: false })
+    .where(and(eq(issueVoteSets.userId, userId), eq(issueVoteSets.active, true)));
 }
