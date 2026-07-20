@@ -1,0 +1,43 @@
+---
+/**
+ * EmptyState — design-system.md §7.12. States a fact, then a next step —
+ * no sad-face iconography on civic data. `fact` and `nextStep` are
+ * already-resolved, caller-translated strings (not i18n keys) so this
+ * component stays purely presentational. An optional default slot can add
+ * a muted illustration or action (e.g. a Button).
+ */
+interface Props {
+  fact: string;
+  nextStep?: string;
+}
+
+const { fact, nextStep } = Astro.props;
+---
+
+<div class="empty-state">
+  <p class="fact">{fact}</p>
+  {nextStep && <p class="next-step">{nextStep}</p>}
+  <slot />
+</div>
+
+<style>
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-8) var(--space-4);
+    text-align: center;
+  }
+
+  .fact {
+    margin: 0;
+    font-size: var(--text-lg);
+    color: var(--color-text);
+  }
+
+  .next-step {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--color-text-muted);
+  }
+</style>

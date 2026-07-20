@@ -18,9 +18,25 @@
   "common.source.affidavit": "From affidavit",
   "common.source.curator": "Compiled by our team",
   "common.source.aiExtracted": "AI-extracted",
+  "common.deadlineBanner.defaultLabel": "Registration closes in",
+  "common.deadlineBanner.daysLeft": "{days} days left",
+  "common.required": "Required",
+  "common.loading": "Loading",
+  "common.badge.flagPending": "Pending review",
+  "common.badge.flagAccepted": "Accepted",
+  "common.badge.flagRejected": "Rejected",
+  "common.badge.wardReady": "Ready",
+  "common.badge.wardHeld": "Held",
   "__hints": {
     "common.notDeclared": "Shown in place of a candidate field the candidate has not filled in — neutral, not accusatory.",
     "common.source.curator": "Distinguish from official/affidavit sources — this is our editorial team's compiled context, not a government document.",
-    "common.flagError": "Action label on the button citizens tap to report incorrect info on any field."
+    "common.flagError": "Action label on the button citizens tap to report incorrect info on any field.",
+    "common.deadlineBanner.defaultLabel": "Default label on the statutory-deadline countdown banner (design-system.md §7.6); a specific page may override with its own label key, e.g. voter-registration roll closure.",
+    "common.deadlineBanner.daysLeft": "The countdown figure suffix, e.g. '12 days left' — {days} is a plain integer, not localized-plural-aware yet (MVP).",
+    "common.badge.flagPending": "Status chip on a citizen's own flagged-correction list (/account/submissions) while a curator has not yet acted on it.",
+    "common.badge.flagAccepted": "Status chip when a curator accepted and published the citizen's flagged correction.",
+    "common.badge.flagRejected": "Status chip when a curator reviewed and rejected the citizen's flagged correction.",
+    "common.badge.wardReady": "Curator/admin chip: this ward's report cards meet the publish-readiness bar.",
+    "common.badge.wardHeld": "Curator/admin chip: this ward is missing required data and is held back from readiness — a work state, not an error (design-system.md §7.13)."
   }
 }

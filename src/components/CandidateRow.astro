@@ -1,0 +1,115 @@
+---
+/**
+ * CandidateRow — design-system.md §7.5, neutrality rules §4 (LOAD-BEARING).
+ * Identical in ward lists and compare headers: a 56px photo circle (or a
+ * neutral initials placeholder — never a fake/stock image), the
+ * candidate's name at --text-xl Manrope 700, and the party name (plus an
+ * optional symbol image slot) beneath at --text-sm.
+ *
+ * Neutrality (§4, non-negotiable):
+ *   - Party renders as TEXT only. No color, tint, or accent is ever keyed
+ *     to a party or candidate — not here, not in any consumer of this
+ *     component.
+ *   - Every candidate gets the exact same markup/classes/sizing regardless
+ *     of party, status, or position in a list — ordering and any
+ *     differentiation happen outside this component, never as a style
+ *     variant in here.
+ *   - Photography is documentary: the photo renders as given, no filters.
+ */
+import { localePath, type Lang } from '../i18n';
+
+export interface CandidateRowCandidate {
+  slug: string;
+  nameEn: string;
+  nameKn?: string | null;
+  partyEn: string;
+  partyKn?: string | null;
+  photoUrl?: string | null;
+  status?: string;
+}
+
+interface Props {
+  candidate: CandidateRowCandidate;
+  lang: Lang;
+}
+
+const { candidate, lang } = Astro.props;
+
+const name = lang === 'kn' && candidate.nameKn ? candidate.nameKn : candidate.nameEn;
+const party = lang === 'kn' && candidate.partyKn ? candidate.partyKn : candidate.partyEn;
+
+// Initials placeholder (no photo): first letter of up to the first two
+// words of the English name — a neutral text stand-in, never a fake image.
+const initials = candidate.nameEn
+  .trim()
+  .split(/\s+/)
+  .slice(0, 2)
+  .map((word) => word[0]?.toUpperCase() ?? '')
+  .join('');
+
+const href = localePath(lang, `/candidate/${candidate.slug}`);
+---
+
+<a class="candidate-row" href={href}>
+  {
+    candidate.photoUrl ? (
+      <img class="photo" src={candidate.photoUrl} width="56" height="56" alt="" loading="lazy" />
+    ) : (
+      <span class="photo photo--placeholder" aria-hidden="true">
+        {initials}
+      </span>
+    )
+  }
+  <span class="identity">
+    <span class="name">{name}</span>
+    <span class="party">{party}</span>
+  </span>
+</a>
+
+<style>
+  .candidate-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .photo {
+    flex: none;
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    background: var(--color-surface);
+  }
+
+  .photo--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--color-text-muted);
+  }
+
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .name {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-xl);
+    color: var(--color-text);
+  }
+
+  .party {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+</style>

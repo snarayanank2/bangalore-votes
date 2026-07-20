@@ -1,0 +1,123 @@
+---
+/**
+ * FormField — design-system.md §7.10. Label always above the input (never
+ * placeholder-as-label); 16px input text (prevents iOS zoom-on-focus);
+ * 44px min height; focus border + ring in --color-primary. Errors render
+ * as brick text below the input PLUS a border-color change (never color
+ * alone, per the a11y floor §10) and mark the input `aria-invalid`. Helper
+ * text is muted and sits above the error slot.
+ */
+import { t, type Lang } from '../i18n';
+
+type FormFieldType = 'text' | 'email' | 'tel' | 'password' | 'number' | 'date' | 'search';
+
+interface Props {
+  label: string;
+  name: string;
+  type?: FormFieldType;
+  error?: string;
+  helper?: string;
+  required?: boolean;
+  value?: string;
+  lang: Lang;
+}
+
+const { label, name, type = 'text', error, helper, required = false, value, lang } = Astro.props;
+
+const inputId = `field-${name}`;
+const helperId = helper ? `${inputId}-helper` : undefined;
+const errorId = error ? `${inputId}-error` : undefined;
+const describedBy = [helperId, errorId].filter(Boolean).join(' ') || undefined;
+---
+
+<div class="form-field">
+  <label class="form-label" for={inputId}>
+    {label}
+    {required && (
+      <>
+        <span aria-hidden="true"> *</span>
+        <span class="sr-only"> ({t(lang, 'common.required')})</span>
+      </>
+    )}
+  </label>
+  <input
+    id={inputId}
+    class:list={['form-input', { 'form-input--invalid': Boolean(error) }]}
+    name={name}
+    type={type}
+    value={value}
+    required={required}
+    aria-required={required ? 'true' : undefined}
+    aria-invalid={error ? 'true' : undefined}
+    aria-describedby={describedBy}
+  />
+  {helper && (
+    <p id={helperId} class="form-helper">
+      {helper}
+    </p>
+  )}
+  {error && (
+    <p id={errorId} class="form-error">
+      {error}
+    </p>
+  )}
+</div>
+
+<style>
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .form-label {
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    font-weight: 700;
+  }
+
+  .form-input {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .form-input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-color: var(--color-primary);
+  }
+
+  .form-input--invalid {
+    border-color: var(--color-danger);
+  }
+
+  .form-helper {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .form-error {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

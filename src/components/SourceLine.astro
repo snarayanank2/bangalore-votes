@@ -1,0 +1,98 @@
+---
+/**
+ * SourceLine — design-system.md §3 (the platform's visual signature). The
+ * one-line, 13px, muted source badge that closes every field row: exactly
+ * one of three reserved badges, decided in this priority order:
+ *
+ *   1. aiExtracted (true)     -> "AI-extracted": ink on --sun-tint, dotted
+ *                                 --oc-sun border. Not yet curator-confirmed
+ *                                 (PRD §5.2) — no link, nothing to open yet.
+ *   2. sourceType === 'official' -> "Affidavit": forest text on
+ *                                 --color-primary-surface (--forest-tint).
+ *                                 Links to sourceUrl (the stored affidavit
+ *                                 PDF) when one is given; renders as plain
+ *                                 text if not.
+ *   3. sourceType === 'curator'  -> "Curator-compiled": gray-600 on
+ *                                 --gray-100. Never links (curator context
+ *                                 has no single source document).
+ *
+ * These three tint/border treatments are RESERVED (§3: "nothing else on a
+ * content page may use --forest-tint or --sun-tint chips") — do not reuse
+ * this exact chip styling for anything other than provenance.
+ */
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  sourceType: 'official' | 'curator';
+  sourceUrl?: string | null;
+  aiExtracted?: boolean;
+  lang: Lang;
+}
+
+const { sourceType, sourceUrl = null, aiExtracted = false, lang } = Astro.props;
+
+type Badge = 'ai-extracted' | 'affidavit' | 'curator';
+
+const badge: Badge = aiExtracted ? 'ai-extracted' : sourceType === 'official' ? 'affidavit' : 'curator';
+
+const labelKey =
+  badge === 'ai-extracted'
+    ? 'common.source.aiExtracted'
+    : badge === 'affidavit'
+      ? 'common.source.affidavit'
+      : 'common.source.curator';
+
+const label = t(lang, labelKey);
+
+// Only the confirmed-official Affidavit badge ever links out, and only when
+// a source document is actually on file.
+const href = badge === 'affidavit' ? sourceUrl : null;
+---
+
+<p class="source-line">
+  {
+    href ? (
+      <a class="badge badge--affidavit" href={href} target="_blank" rel="noopener noreferrer">
+        {label}
+      </a>
+    ) : (
+      <span class={`badge badge--${badge}`}>{label}</span>
+    )
+  }
+</p>
+
+<style>
+  .source-line {
+    margin: 0;
+    font-size: var(--text-xs);
+    line-height: var(--leading-xs);
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    text-decoration: none;
+  }
+
+  a.badge {
+    cursor: pointer;
+  }
+
+  .badge--affidavit {
+    color: var(--color-primary);
+    background: var(--color-primary-surface);
+  }
+
+  .badge--curator {
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+  }
+
+  .badge--ai-extracted {
+    color: var(--color-text);
+    background: var(--color-accent-surface);
+    border: 1px dotted var(--color-accent);
+  }
+</style>

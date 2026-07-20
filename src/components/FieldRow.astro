@@ -1,0 +1,67 @@
+---
+/**
+ * FieldRow — design-system.md §3/§7.5, the unit of the report card. Anatomy:
+ * label (muted, 14px) -> value (ink, 16px) -> SourceLine (§3). Report cards,
+ * compare columns, ward pages, and curator screens all reuse this exact
+ * component so the treatment is identical everywhere.
+ *
+ * A field with no data ("not declared" or an empty/nullish value) still
+ * renders its source line — absence of data is data (§3) — and shows
+ * "Not declared" in muted italic instead of a value.
+ */
+import { t, type Lang } from '../i18n';
+import SourceLine from './SourceLine.astro';
+
+interface Props {
+  label: string;
+  value?: string | null;
+  sourceType: 'official' | 'curator';
+  sourceUrl?: string | null;
+  aiExtracted?: boolean;
+  notDeclared?: boolean;
+  lang: Lang;
+}
+
+const { label, value = null, sourceType, sourceUrl = null, aiExtracted = false, notDeclared = false, lang } =
+  Astro.props;
+
+const isNotDeclared = notDeclared || !value;
+---
+
+<div class="field-row">
+  <p class="field-label">{label}</p>
+  {
+    isNotDeclared ? (
+      <p class="field-value field-value--not-declared">{t(lang, 'common.notDeclared')}</p>
+    ) : (
+      <p class="field-value">{value}</p>
+    )
+  }
+  <SourceLine sourceType={sourceType} sourceUrl={sourceUrl} aiExtracted={aiExtracted} lang={lang} />
+</div>
+
+<style>
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding-block: var(--space-2);
+  }
+
+  .field-label {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .field-value {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--color-text);
+  }
+
+  .field-value--not-declared {
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+</style>

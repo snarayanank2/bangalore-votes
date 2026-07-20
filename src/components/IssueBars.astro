@@ -1,0 +1,114 @@
+---
+/**
+ * IssueBars — design-system.md §7.11, neutrality rule §4.5 (LOAD-BEARING:
+ * "issue-vote results use one hue"). Ranked horizontal bars, every bar the
+ * same --oc-forest fill at full opacity on a --gray-100 track. Rank is
+ * conveyed by order and by the printed rank number — NEVER by color. Rank
+ * number and vote share render in tabular figures (font-variant-numeric:
+ * tabular-nums) so digits don't jitter. Issue titles never truncate.
+ *
+ * The same component renders the city-wide roll-up on /data — that's what
+ * `showCounts` is for: default false shows share% only (what every
+ * page needs pre-close); when a results item also carries a raw `count`,
+ * showCounts=true additionally prints it. No result item is required to
+ * carry a count — most callers won't have or show one yet.
+ */
+import type { Lang } from '../i18n';
+
+export interface IssueBarResult {
+  issueTitle: string;
+  rank: number;
+  sharePct: number;
+  count?: number;
+}
+
+interface Props {
+  results: IssueBarResult[];
+  lang: Lang;
+  showCounts?: boolean;
+}
+
+const { results, showCounts = false } = Astro.props;
+---
+
+<ol class="issue-bars">
+  {
+    results.map((result) => (
+      <li class="issue-bar">
+        <div class="issue-bar-header">
+          <span class="rank">{result.rank}</span>
+          <span class="issue-title">{result.issueTitle}</span>
+          <span class="share">
+            {result.sharePct}%
+            {showCounts && typeof result.count === 'number' && (
+              <span class="count"> ({result.count})</span>
+            )}
+          </span>
+        </div>
+        <div class="track">
+          <div class="fill" style={`width: ${result.sharePct}%`} />
+        </div>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .issue-bars {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .issue-bar-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-2);
+    margin-bottom: var(--space-1);
+  }
+
+  .rank,
+  .share,
+  .count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rank {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    flex: none;
+  }
+
+  .issue-title {
+    flex: 1;
+    font-size: var(--text-base);
+    color: var(--color-text);
+    /* Never truncated (§7.11) — no white-space:nowrap/overflow/ellipsis. */
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
+  .share {
+    flex: none;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .track {
+    height: 12px;
+    border-radius: var(--radius-full);
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+
+  .fill {
+    height: 100%;
+    /* Every bar, every rank: the same single hue, full opacity (§4.5). */
+    background: var(--color-primary);
+  }
+</style>

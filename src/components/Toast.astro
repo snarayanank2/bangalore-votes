@@ -1,0 +1,46 @@
+---
+/**
+ * Toast — design-system.md §7.12. Bottom-anchored, ink text on white,
+ * forest left edge for success / brick left edge for failure, announced
+ * via aria-live="polite" so screen-reader users hear it without a focus
+ * change. Static markup only — the show/auto-dismiss(>=5s)/dismiss JS is a
+ * later concern (the modals/toast-triggering tasks); this renders the
+ * element ready for that script to toggle.
+ */
+import type { Lang } from '../i18n';
+
+interface Props {
+  kind: 'success' | 'failure';
+  lang: Lang;
+}
+
+const { kind } = Astro.props;
+---
+
+<div class={`toast toast--${kind}`} role="status" aria-live="polite">
+  <slot />
+</div>
+
+<style>
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--space-6);
+    transform: translateX(-50%);
+    max-width: calc(100vw - var(--space-8));
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-modal);
+    border-left: 4px solid transparent;
+  }
+
+  .toast--success {
+    border-left-color: var(--color-primary);
+  }
+
+  .toast--failure {
+    border-left-color: var(--color-danger);
+  }
+</style>

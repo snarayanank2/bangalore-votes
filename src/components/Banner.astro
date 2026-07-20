@@ -1,0 +1,39 @@
+---
+/**
+ * Banner — design-system.md §7.6. Two kinds:
+ *   - notice: ink text on --sun-tint (election status, empty-state
+ *     explainers) — no countdown; use DeadlineBanner for a real deadline.
+ *   - error: brick text on --brick-tint.
+ * Content is caller-supplied via the default slot.
+ */
+import type { Lang } from '../i18n';
+
+interface Props {
+  kind: 'notice' | 'error';
+  lang: Lang;
+}
+
+const { kind } = Astro.props;
+---
+
+<div class={`banner banner--${kind}`} role={kind === 'error' ? 'alert' : 'status'}>
+  <slot />
+</div>
+
+<style>
+  .banner {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    font-size: var(--text-base);
+  }
+
+  .banner--notice {
+    background: var(--color-accent-surface);
+    color: var(--color-text);
+  }
+
+  .banner--error {
+    background: var(--color-danger-surface);
+    color: var(--color-danger);
+  }
+</style>

@@ -1,0 +1,60 @@
+---
+/**
+ * DeadlineBanner — design-system.md §7.6. Reserved for statutory
+ * deadlines (voter-roll closure, etc.) — ink text on solid --oc-sun,
+ * radius-md, the countdown figure in tabular Manrope 800. "If everything
+ * is urgent, nothing is" (§7.6): do not reach for this for anything but a
+ * real, dated statutory cutoff.
+ *
+ * `deadlineISO` is a plain `YYYY-MM-DD` date string; remaining days are
+ * computed server-side from the current server clock — no client JS tick
+ * is needed for a once-a-day-granularity countdown.
+ */
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  deadlineISO: string;
+  lang: Lang;
+  /** Overrides the default label (e.g. a page-specific "Voter registration closes in"). */
+  labelKey?: string;
+}
+
+const { deadlineISO, lang, labelKey } = Astro.props;
+
+const deadline = new Date(`${deadlineISO}T00:00:00Z`);
+const now = new Date();
+const startOfToday = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+const msPerDay = 24 * 60 * 60 * 1000;
+const daysRemaining = Math.max(0, Math.ceil((deadline.getTime() - startOfToday) / msPerDay));
+
+const label = t(lang, labelKey ?? 'common.deadlineBanner.defaultLabel');
+---
+
+<div class="deadline-banner" role="note">
+  <span class="label">{label}</span>
+  <strong class="countdown">{t(lang, 'common.deadlineBanner.daysLeft', { days: daysRemaining })}</strong>
+</div>
+
+<style>
+  .deadline-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    border-radius: var(--radius-md);
+  }
+
+  .label {
+    font-size: var(--text-base);
+  }
+
+  .countdown {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: var(--text-xl);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

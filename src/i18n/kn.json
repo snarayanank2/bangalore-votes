@@ -37,6 +37,24 @@
     "common.notDeclared": "b02009e442010e16348a1df7d472178842c53e54e9d4f37a4291a984daa9dc00",
     "common.source.affidavit": "7ad981f2a0bfec685ca035918e6f63e8864c0aac538e2db6440510670c0475a6",
     "common.source.curator": "e4e316ed2ac3a10683886ad5d95eca519b8cd9a32abe992b1e3f4854235a9b8c",
-    "common.source.aiExtracted": "79b72b772d286de440add3a2ab52732b5b21ee84f9add9bfd43e943fd7ae59ec"
-  }
+    "common.source.aiExtracted": "79b72b772d286de440add3a2ab52732b5b21ee84f9add9bfd43e943fd7ae59ec",
+    "common.deadlineBanner.defaultLabel": "386b6b91fc6385a937d37f56275062df10026ff7d5dce55c6827b18e69bf8cef",
+    "common.deadlineBanner.daysLeft": "8652c561e4f6af50d784f755485fc8a9c8e088a9544ee672c28b9d01bb119b36",
+    "common.required": "4850b174b713d88cfc63de107830d5388929020e78abc91fc19bba7a6821625f",
+    "common.loading": "dc380888c4e2c7762212480ff86eb39150ec70b45009c33bc6adcbd0041384b1",
+    "common.badge.flagPending": "f1c45f3f1314daddd14d36734ebdc192cbb4938d2141b77fa058c7a363c62b29",
+    "common.badge.flagAccepted": "a00fb0c50741f81bb51d35b4475a4357f8039aabd896a21036bc516839401595",
+    "common.badge.flagRejected": "aea4a04a80426ed865ec2058b16854b9146166d22c1f3282a18f285941c42eba",
+    "common.badge.wardReady": "5fa7aac5375c5815787fba3f49559f9b45b14023147ce0652803387974144e5f",
+    "common.badge.wardHeld": "85cd61f8c3c8a01e655e88062f7f60a33127b6947903765e9a2a41037d24936e"
+  },
+  "common.deadlineBanner.defaultLabel": "ನೋಂದಣಿ ಮುಚ್ಚಲು ಇನ್ನು",
+  "common.deadlineBanner.daysLeft": "{days} ದಿನಗಳು ಬಾಕಿ",
+  "common.required": "ಅಗತ್ಯವಿದೆ",
+  "common.loading": "ಲೋಡ್ ಆಗುತ್ತಿದೆ",
+  "common.badge.flagPending": "ಪರಿಶೀಲನೆ ಬಾಕಿ",
+  "common.badge.flagAccepted": "ಸ್ವೀಕರಿಸಲಾಗಿದೆ",
+  "common.badge.flagRejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
+  "common.badge.wardReady": "ಸಿದ್ಧವಾಗಿದೆ",
+  "common.badge.wardHeld": "ತಡೆಹಿಡಿಯಲಾಗಿದೆ"
 }
