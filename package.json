@@ -13,7 +13,7 @@
     "astro": "astro",
     "test": "vitest run",
     "typecheck": "astro check && tsc --noEmit",
-    "migrate": "node -e ''"
+    "migrate": "tsx src/db/migrate.ts"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.5",
