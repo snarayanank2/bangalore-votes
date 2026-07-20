@@ -8,6 +8,21 @@
  * A field with no data ("not declared" or an empty/nullish value) still
  * renders its source line — absence of data is data (§3) — and shows
  * "Not declared" in muted italic instead of a value.
+ *
+ * PENDING-TRANSLATION INDICATOR (Task 40; PRD §8; architecture §9): a
+ * curator-authored field is machine-translated into the OTHER language at
+ * publish time, with no human review. When that hasn't happened yet
+ * (`translationStatus: 'pending'`) and this row is being rendered in a
+ * locale OTHER than the one the value was authored in, the page is showing
+ * a fallback — the AUTHORED-language text, not a translation of it — and
+ * PRD §8 requires "a subtle indicator" rather than silently presenting it
+ * as if it were natively in `lang`. Callers resolve which STRING to pass
+ * as `value` themselves (typically `valueKn ?? valueEn` when pending); this
+ * component only decides whether to show the indicator, from `authoredLang`
+ * + `translationStatus` + `lang` — never from inspecting `value` itself.
+ * `authoredLang`/`translationStatus` default to values that never trigger
+ * the indicator, so every EXISTING caller (none of which know about MT
+ * yet) is unaffected.
  */
 import { t, type Lang } from '../i18n';
 import SourceLine from './SourceLine.astro';
@@ -20,12 +35,29 @@ interface Props {
   aiExtracted?: boolean;
   notDeclared?: boolean;
   lang: Lang;
+  authoredLang?: Lang;
+  translationStatus?: 'pending' | 'done' | 'manual';
 }
 
-const { label, value = null, sourceType, sourceUrl = null, aiExtracted = false, notDeclared = false, lang } =
-  Astro.props;
+const {
+  label,
+  value = null,
+  sourceType,
+  sourceUrl = null,
+  aiExtracted = false,
+  notDeclared = false,
+  lang,
+  authoredLang = lang,
+  translationStatus = 'done',
+} = Astro.props;
 
 const isNotDeclared = notDeclared || !value;
+
+// Only meaningful when there IS a value to show and it's being shown as a
+// stand-in for a translation that hasn't been generated yet — a
+// not-declared field has no prose in either language, so there is nothing
+// to flag as "not yet translated".
+const showPendingIndicator = !isNotDeclared && translationStatus === 'pending' && authoredLang !== lang;
 ---
 
 <div class="field-row">
@@ -34,7 +66,15 @@ const isNotDeclared = notDeclared || !value;
     isNotDeclared ? (
       <p class="field-value field-value--not-declared">{t(lang, 'common.notDeclared')}</p>
     ) : (
-      <p class="field-value">{value}</p>
+      <p class="field-value">
+        {value}
+        {showPendingIndicator && (
+          <span class="field-value__pending-note" aria-label={t(lang, 'common.translationPending')}>
+            {' '}
+            · {t(lang, 'common.translationPending')}
+          </span>
+        )}
+      </p>
     )
   }
   <SourceLine sourceType={sourceType} sourceUrl={sourceUrl} aiExtracted={aiExtracted} lang={lang} />
@@ -61,6 +101,12 @@ const isNotDeclared = notDeclared || !value;
   }
 
   .field-value--not-declared {
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+
+  .field-value__pending-note {
+    font-size: var(--text-xs);
     font-style: italic;
     color: var(--color-text-muted);
   }

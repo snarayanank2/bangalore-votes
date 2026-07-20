@@ -120,6 +120,60 @@ describe('FieldRow', () => {
     expect(html).toContain(t('en', 'common.notDeclared'));
     expect(html).toContain(t('en', 'common.source.curator'));
   });
+
+  // Task 40 (PRD §8, architecture §9) — the pending-machine-translation
+  // indicator: shown only when the value being displayed is a FALLBACK (the
+  // authored language, on the other locale's page) because MT hasn't landed.
+  describe('pending-translation indicator (Task 40)', () => {
+    it('shows the authored-language value plus the subtle indicator when pending and lang differs from authoredLang', async () => {
+      const html = await render(FieldRow, {
+        label: 'Track record',
+        value: 'Two-term corporator, led road-repair drive.',
+        sourceType: 'curator',
+        lang: 'kn',
+        authoredLang: 'en',
+        translationStatus: 'pending',
+      });
+      expect(html).toContain('Two-term corporator, led road-repair drive.');
+      expect(html).toContain(t('kn', 'common.translationPending'));
+    });
+
+    it('shows the value normally, with no indicator, once translationStatus is done', async () => {
+      const html = await render(FieldRow, {
+        label: 'Track record',
+        value: 'ಎರಡು ಅವಧಿಯ ಕಾರ್ಪೊರೇಟರ್.',
+        sourceType: 'curator',
+        lang: 'kn',
+        authoredLang: 'en',
+        translationStatus: 'done',
+      });
+      expect(html).toContain('ಎರಡು ಅವಧಿಯ ಕಾರ್ಪೊರೇಟರ್.');
+      expect(html).not.toContain(t('kn', 'common.translationPending'));
+    });
+
+    it('shows no indicator when rendering in the authored language itself, even while pending', async () => {
+      const html = await render(FieldRow, {
+        label: 'Track record',
+        value: 'Two-term corporator, led road-repair drive.',
+        sourceType: 'curator',
+        lang: 'en',
+        authoredLang: 'en',
+        translationStatus: 'pending',
+      });
+      expect(html).not.toContain(t('en', 'common.translationPending'));
+    });
+
+    it('a caller that omits authoredLang/translationStatus entirely (every pre-Task-40 caller) never shows the indicator', async () => {
+      const html = await render(FieldRow, {
+        label: 'Education',
+        value: 'B.Com, Bangalore University',
+        sourceType: 'official',
+        sourceUrl: 'https://example.com/a.pdf',
+        lang: 'en',
+      });
+      expect(html).not.toContain(t('en', 'common.translationPending'));
+    });
+  });
 });
 
 // ---------------------------------------------------------------------------

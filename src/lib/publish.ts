@@ -19,6 +19,67 @@ export type PublishCandidateFieldInput = {
 };
 
 /**
+ * MANUAL OVERRIDE + SOURCE-CHANGE REGENERATION (architecture §9) — the
+ * publish-path half of the MT coordination (`src/lib/translate-runtime.ts`
+ * owns the other half, the actual translate call). Every `candidate_fields`
+ * / `candidate_stances` row carries BOTH `valueEn` and `valueKn`; exactly
+ * one language is "authored" (`authoredLang`) and the other is normally
+ * machine-generated. A publish call always supplies both columns' next
+ * value (the curator's edit form round-trips both, pre-filled with the
+ * current stored values — see `src/lib/curator.ts`), so the RULE this
+ * function implements is a pure value-diff against what's already stored:
+ *
+ *   - No existing row (a brand-new field/stance): `'pending'` — a freshly
+ *     authored value always needs MT. (If a creator happens to supply
+ *     BOTH languages themselves on the very first publish, this still
+ *     comes back `'pending'` and MT will overwrite the second language —
+ *     a documented, untested-by-brief edge case: there is no reliable
+ *     signal, on a brand-new row, to tell "coincidentally identical
+ *     first value" apart from "deliberate day-one manual translation".)
+ *   - The AUTHORED-language value changed (including a change of WHICH
+ *     language is authored): `'pending'` — the source changed, so MT
+ *     must regenerate. This is also how a stale `'manual'` override gets
+ *     un-stuck: the curator's manual fix described the OLD source, and a
+ *     new source value means that fix no longer describes the current
+ *     text — the regenerated translation is expected to replace it.
+ *   - The authored value is UNCHANGED but the OTHER-language value
+ *     changed: `'manual'` — the curator hand-edited the translation
+ *     directly (e.g. fixing an MT error in place); MT must not touch it
+ *     again until the source changes.
+ *   - Neither changed (an identical re-publish, or a field re-saved with
+ *     no real edits): keep whatever status the row already had — this is
+ *     not a "publish sets the other language" event.
+ *
+ * The two callers (`publishCandidateFieldTx`, `publishStance`) only fire
+ * `translateFieldSoon` when this returns `'pending'` — a `'manual'` write
+ * or a status-preserving no-op re-publish must NOT kick off a translation
+ * attempt at all (not just rely on `translateFieldNow`'s own `'manual'`
+ * short-circuit — the point is to not even start the async work).
+ */
+export function decideTranslationStatus(
+  existing:
+    | { valueEn: string | null; valueKn: string | null; authoredLang: 'en' | 'kn'; translationStatus: 'pending' | 'done' | 'manual' }
+    | null
+    | undefined,
+  input: { valueEn?: string | null; valueKn?: string | null; authoredLang: 'en' | 'kn' },
+): 'pending' | 'done' | 'manual' {
+  if (!existing) return 'pending';
+
+  const nextValueEn = input.valueEn === undefined ? existing.valueEn : input.valueEn;
+  const nextValueKn = input.valueKn === undefined ? existing.valueKn : input.valueKn;
+
+  const authoredChanged =
+    input.authoredLang !== existing.authoredLang ||
+    (input.authoredLang === 'en' ? nextValueEn !== existing.valueEn : nextValueKn !== existing.valueKn);
+  if (authoredChanged) return 'pending';
+
+  const otherChanged = input.authoredLang === 'en' ? nextValueKn !== existing.valueKn : nextValueEn !== existing.valueEn;
+  if (otherChanged) return 'manual';
+
+  return existing.translationStatus;
+}
+
+/**
  * Tx-accepting core of the publish path: upserts the candidate_fields row
  * and writes its audit entry using the CALLER's transaction handle, so a
  * caller that must publish a field atomically alongside other writes of its
@@ -34,7 +95,7 @@ export async function publishCandidateFieldTx(
   tx: Tx,
   actor: Actor,
   input: PublishCandidateFieldInput,
-): Promise<{ id: number }> {
+): Promise<{ id: number; translationStatus: 'pending' | 'done' | 'manual' }> {
   const [existing] = await tx
     .select()
     .from(candidateFields)
@@ -53,6 +114,8 @@ export async function publishCandidateFieldTx(
   // (extraction pipeline). Any curator/admin publish is a human
   // confirmation of the value, so it always clears the flag.
   const aiExtracted = input.aiExtracted === true && actor.role === 'system';
+
+  const translationStatus = decideTranslationStatus(existing, input);
 
   const newValue = {
     valueEn: input.valueEn ?? null,
@@ -73,7 +136,7 @@ export async function publishCandidateFieldTx(
       valueKn: input.valueKn ?? null,
       notDeclared: input.notDeclared ?? false,
       authoredLang: input.authoredLang,
-      translationStatus: 'pending',
+      translationStatus,
       sourceUrl: input.sourceUrl,
       sourceType: input.sourceType,
       aiExtracted,
@@ -86,7 +149,7 @@ export async function publishCandidateFieldTx(
         valueKn: input.valueKn ?? null,
         notDeclared: input.notDeclared ?? false,
         authoredLang: input.authoredLang,
-        translationStatus: 'pending',
+        translationStatus,
         sourceUrl: input.sourceUrl,
         sourceType: input.sourceType,
         aiExtracted,
@@ -117,14 +180,18 @@ export async function publishCandidateFieldTx(
     sourceUrl: input.sourceUrl,
   });
 
-  return { id: field.id };
+  return { id: field.id, translationStatus };
 }
 
 /**
  * The single publish path for candidate report-card fields. Upserts the
  * field and writes the audit entry in one transaction: either both land or
  * neither does. After the transaction commits, kicks off (fire-and-forget)
- * machine translation for the field — Task 40 implements the real worker.
+ * machine translation for the field — but ONLY when
+ * {@link decideTranslationStatus} decided this publish is a `'pending'`
+ * (authored-value / source) change. A `'manual'` write (the curator hand-
+ * editing the OTHER language) or a status-preserving no-op re-publish must
+ * NOT start a translation attempt at all (Task 40; architecture §9).
  *
  * Thin wrapper around {@link publishCandidateFieldTx}: opens its own
  * top-level transaction and hands the tx handle down. Kept as the public
@@ -133,9 +200,11 @@ export async function publishCandidateFieldTx(
  * the Task 31 tx-refactor.
  */
 export async function publishCandidateField(actor: Actor, input: PublishCandidateFieldInput): Promise<void> {
-  const { id: fieldId } = await db.transaction((tx) => publishCandidateFieldTx(tx, actor, input));
+  const { id: fieldId, translationStatus } = await db.transaction((tx) => publishCandidateFieldTx(tx, actor, input));
 
-  translateFieldSoon({ table: 'candidate_fields', id: fieldId });
+  if (translationStatus === 'pending') {
+    translateFieldSoon({ table: 'candidate_fields', id: fieldId });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -377,9 +446,16 @@ export type PublishStanceInput = {
   authoredLang: 'en' | 'kn';
 };
 
-/** Upserts a candidate's stance on a ward issue, audited atomically; kicks off translation after commit (mirrors {@link publishCandidateField}). */
+/**
+ * Upserts a candidate's stance on a ward issue, audited atomically; kicks
+ * off translation after commit — but only when {@link decideTranslationStatus}
+ * (the same manual-override / source-change-regeneration rule
+ * {@link publishCandidateField} uses) decides this publish is a `'pending'`
+ * change, not a `'manual'` translation edit or a no-op re-publish (Task 40;
+ * architecture §9).
+ */
 export async function publishStance(actor: Actor, input: PublishStanceInput): Promise<void> {
-  const stanceId = await db.transaction(async (tx) => {
+  const { id: stanceId, translationStatus } = await db.transaction(async (tx) => {
     const [candidate] = await tx
       .select({ wardId: candidates.wardId })
       .from(candidates)
@@ -393,11 +469,13 @@ export async function publishStance(actor: Actor, input: PublishStanceInput): Pr
       .from(candidateStances)
       .where(and(eq(candidateStances.wardIssueId, input.wardIssueId), eq(candidateStances.candidateId, input.candidateId)));
 
+    const translationStatus = decideTranslationStatus(existing, input);
+
     const newValue = {
       valueEn: input.valueEn ?? null,
       valueKn: input.valueKn ?? null,
       authoredLang: input.authoredLang,
-      translationStatus: 'pending' as const,
+      translationStatus,
       sourceUrl: input.sourceUrl,
       sourceType: input.sourceType,
     };
@@ -434,8 +512,10 @@ export async function publishStance(actor: Actor, input: PublishStanceInput): Pr
       sourceUrl: input.sourceUrl,
     });
 
-    return row!.id;
+    return { id: row!.id, translationStatus };
   });
 
-  translateFieldSoon({ table: 'candidate_stances', id: stanceId });
+  if (translationStatus === 'pending') {
+    translateFieldSoon({ table: 'candidate_stances', id: stanceId });
+  }
 }

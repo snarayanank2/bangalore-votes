@@ -171,7 +171,7 @@ export async function resolveFlag(
   flagItemId: number,
   resolution: ResolveFlagResolution,
 ): Promise<void> {
-  const publishedFieldId = await db.transaction(async (tx) => {
+  const published = await db.transaction(async (tx) => {
     const [item] = await tx.select().from(flagItems).where(eq(flagItems.id, flagItemId)).for('update');
 
     if (!item || item.status !== 'pending') {
@@ -185,7 +185,7 @@ export async function resolveFlag(
       // resolution.publish's target type, once those publish helpers
       // exist) — this is not a runtime branch yet because there is only
       // one publish path to call.
-      const { id: fieldId } = await publishCandidateFieldTx(tx, actor, resolution.publish);
+      const { id: fieldId, translationStatus } = await publishCandidateFieldTx(tx, actor, resolution.publish);
 
       await tx
         .update(flagItems)
@@ -197,7 +197,7 @@ export async function resolveFlag(
         })
         .where(and(eq(flagItems.id, flagItemId), eq(flagItems.status, 'pending')));
 
-      return fieldId;
+      return { fieldId, translationStatus };
     }
 
     await tx
@@ -224,10 +224,12 @@ export async function resolveFlag(
   });
 
   // Mirrors publishCandidateField: only fire the (fire-and-forget)
-  // translation kickoff once the transaction has actually committed, and
-  // only on the accept path (a reject never publishes anything to
-  // translate).
-  if (publishedFieldId !== null) {
-    translateFieldSoon({ table: 'candidate_fields', id: publishedFieldId });
+  // translation kickoff once the transaction has actually committed, only
+  // on the accept path (a reject never publishes anything to translate),
+  // and only when the publish-path coordination (`decideTranslationStatus`,
+  // src/lib/publish.ts) decided this was a `'pending'` change — not a
+  // `'manual'` translation edit (Task 40; architecture §9).
+  if (published !== null && published.translationStatus === 'pending') {
+    translateFieldSoon({ table: 'candidate_fields', id: published.fieldId });
   }
 }
