@@ -110,7 +110,7 @@ const WHATSAPP_OTP_TEMPLATE_SID = process.env.TWILIO_OTP_TEMPLATE_SID ?? '';
  * trimmed only (kept simple per the task brief; a future task may add
  * E.164 normalization).
  */
-function normalizeDestination(destination: string): string {
+export function normalizeDestination(destination: string): string {
   const trimmed = destination.trim();
   return trimmed.includes('@') ? trimmed.toLowerCase() : trimmed;
 }

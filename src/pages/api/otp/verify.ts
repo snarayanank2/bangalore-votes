@@ -36,7 +36,7 @@ import { z } from 'zod';
 import { eq, or } from 'drizzle-orm';
 import { db } from '../../../db/client';
 import { users } from '../../../db/schema';
-import { verifyOtp } from '../../../lib/otp';
+import { normalizeDestination, verifyOtp } from '../../../lib/otp';
 import { createSession } from '../../../lib/session';
 import { getKnownSetting } from '../../../lib/settings';
 
@@ -85,9 +85,15 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return json({ error: 'destination and code are required' }, 400);
   }
 
-  const { destination, code, register } = parsed.data;
+  const { destination: destinationRaw, code, register } = parsed.data;
+  // Normalized to the SAME form otp_codes is keyed under (email-shaped ->
+  // lowercased+trimmed), so a user who registered as `Foo@Example.com` and
+  // later logs in as `foo@example.com` resolves to the same `users` row
+  // instead of a wrongful `registration_required` or a duplicate account
+  // (Task 25 review, one-account-per-contact).
+  const destination = normalizeDestination(destinationRaw);
 
-  const result = await verifyOtp(destination, code);
+  const result = await verifyOtp(destinationRaw, code);
   if (!result.ok) {
     return json({ ok: false, reason: result.reason });
   }

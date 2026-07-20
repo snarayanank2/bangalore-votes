@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { createHash } from 'node:crypto';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import * as schema from '../../src/db/schema';
 import { SESSION_SECRET } from '../../src/lib/session';
 
@@ -43,6 +43,7 @@ const D = {
   budget: 'otp-unit-budget-exhausted@example.com',
   whatsappNotConfigured: '+919000000001',
   suppressed: 'otp-unit-suppressed@example.com',
+  budgetNotConsumedOnCooldown: 'otp-unit-budget-not-consumed-on-cooldown@example.com',
   verifyAuth: 'otp-unit-verify-auth@example.com',
   verifyAddContact: 'otp-unit-verify-add-contact@example.com',
   verifyAttempts: 'otp-unit-verify-attempts@example.com',
@@ -92,6 +93,16 @@ async function insertFixtureRow(opts: {
 
 async function todayUtc(): Promise<string> {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Current value of today's global otp_send budget counter (0 if no row yet). */
+async function otpSendBudgetCount(): Promise<number> {
+  const day = await todayUtc();
+  const [row] = await db
+    .select({ count: schema.budgetCounters.count })
+    .from(schema.budgetCounters)
+    .where(and(eq(schema.budgetCounters.kind, 'otp_send'), eq(schema.budgetCounters.day, day)));
+  return row?.count ?? 0;
 }
 
 describe('src/lib/otp.ts', () => {
@@ -240,6 +251,20 @@ describe('src/lib/otp.ts', () => {
 
       const rows = await rowsFor(D.suppressed);
       expect(rows).toHaveLength(0);
+    });
+
+    it("a 1/minute-cooldown-blocked request ('already_sent') does NOT consume the global otp_send budget (cooldown-then-budget ordering, architecture §13 'cost amplification')", async () => {
+      await insertFixtureRow({ destination: D.budgetNotConsumedOnCooldown, code: '999999', createdAt: new Date() });
+
+      const before = await otpSendBudgetCount();
+      expect(before).toBe(0); // budgetCounters is cleared for 'otp_send' in beforeEach, so this is a known baseline
+
+      const status = await requestOtp(D.budgetNotConsumedOnCooldown, 'email', 'auth');
+      expect(status).toBe('already_sent');
+      expect(sendEmail).not.toHaveBeenCalled();
+
+      const after = await otpSendBudgetCount();
+      expect(after).toBe(before); // consumeBudget('otp_send', ...) was never reached
     });
   });
 

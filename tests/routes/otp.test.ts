@@ -9,7 +9,14 @@ import * as schema from '../../src/db/schema';
 // login/registration branch, consent-field persistence, one-account
 // enforcement, no-store/cookie shape) is what's under test here, not
 // requestOtp/verifyOtp's internals (covered by tests/unit/otp.test.ts).
-vi.mock('../../src/lib/otp', () => ({ requestOtp: vi.fn(), verifyOtp: vi.fn() }));
+// normalizeDestination is kept as the REAL implementation (not mocked): the
+// routes under test call it directly to align users.email/phone lookups and
+// inserts with how otp_codes is keyed (Task 25 review Fix 1) — mocking it
+// away would hide exactly the case-normalization bug this file also tests.
+vi.mock('../../src/lib/otp', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/otp')>();
+  return { ...actual, requestOtp: vi.fn(), verifyOtp: vi.fn() };
+});
 
 import { requestOtp, verifyOtp } from '../../src/lib/otp';
 import { POST as requestPOST } from '../../src/pages/api/otp/request';
@@ -40,8 +47,14 @@ const WARD = {
 const KNOWN_EMAIL = 'otp-route-known@example.com';
 const UNKNOWN_EMAIL = 'otp-route-unknown@example.com';
 const RACE_EMAIL = 'otp-route-race@example.com';
+// Task 25 review Fix 1/3 regression fixture: registered with mixed case, then
+// looked up/logged-in with a lowercase spelling of the SAME address. Stored
+// value is normalized (lowercased), so the fixture-cleanup list below tracks
+// the LOWERCASE form (what actually lands in `users.email`).
+const MIXED_CASE_EMAIL = 'MixedCase.OtpRoute.User@Example.com';
+const MIXED_CASE_EMAIL_LOWER = MIXED_CASE_EMAIL.toLowerCase();
 const CONSENT_VERSION = 'otp-route-test-consent-v1';
-const FIXTURE_EMAILS = [KNOWN_EMAIL, UNKNOWN_EMAIL, RACE_EMAIL];
+const FIXTURE_EMAILS = [KNOWN_EMAIL, UNKNOWN_EMAIL, RACE_EMAIL, MIXED_CASE_EMAIL_LOWER];
 
 function req(path: string, body: unknown): Request {
   return new Request(`http://localhost${path}`, {
@@ -316,6 +329,42 @@ describe('POST /api/otp/verify', () => {
 
     const rows = await db.select().from(schema.users).where(eq(schema.users.email, RACE_EMAIL));
     expect(rows).toHaveLength(1);
+  });
+
+  it('case-insensitive one-account-per-contact (Task 25 review Fix 1): registering with a MIXED-CASE email, then verifying again with the lowercase spelling of the SAME email, logs into the SAME account rather than registering a duplicate', async () => {
+    vi.mocked(verifyOtp).mockResolvedValue({ ok: true, userId: null });
+
+    const registerRes = await verifyPOST({
+      request: req('/api/otp/verify', {
+        destination: MIXED_CASE_EMAIL,
+        code: '123456',
+        register: { wardId: WARD.id, language: 'en', futureTools: false },
+      }),
+      cookies: cookiesWithSrc(undefined),
+    } as any);
+    expect(await registerRes.json()).toEqual({ ok: true, registered: true });
+
+    const [afterRegister] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, MIXED_CASE_EMAIL_LOWER));
+    expect(afterRegister).toBeDefined();
+    // Stored under the NORMALIZED (lowercased) form, not the mixed-case spelling submitted.
+    expect(afterRegister!.email).toBe(MIXED_CASE_EMAIL_LOWER);
+
+    // Same contact, lowercase spelling this time: must resolve to a LOGIN
+    // against the account just created, never `registration_required` and
+    // never a second `users` row.
+    const loginRes = await verifyPOST({
+      request: req('/api/otp/verify', { destination: MIXED_CASE_EMAIL_LOWER, code: '123456' }),
+      cookies: cookiesWithSrc(undefined),
+    } as any);
+    expect(await loginRes.json()).toEqual({ ok: true, registered: false });
+    expect(loginRes.headers.get('set-cookie')).toContain(`${SESSION_COOKIE}=`);
+
+    const rows = await db.select().from(schema.users).where(eq(schema.users.email, MIXED_CASE_EMAIL_LOWER));
+    expect(rows).toHaveLength(1); // still exactly one row: no duplicate account
+    expect(rows[0]!.id).toBe(afterRegister!.id); // same account, not a new one
   });
 
   describe('validation', () => {
