@@ -9,5 +9,11 @@ export default getViteConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     exclude: ['prototype/**', 'node_modules/**', 'dist/**'],
+    // All DB-backed tests share ONE Postgres database; running test files in
+    // parallel worker processes causes cross-file races (a temporary DDL rule
+    // in audit.test.ts breaks other files' INSERT...RETURNING with 0A000;
+    // fixture-id collisions; concurrent migrate()). Serialize test files.
+    fileParallelism: false,
+    poolOptions: { forks: { singleFork: true } },
   },
 });
