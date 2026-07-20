@@ -488,7 +488,14 @@
     "candidate.status.filed": "e7c1f91c1adb6fd342a80234476151b306002c9c6b643432b543ed1c79699f62",
     "candidate.status.contesting": "6cecd27343f793d66cbc006308d5a733f4a36f1961435d6aff3708a16a61db55",
     "candidate.status.rejected": "aea4a04a80426ed865ec2058b16854b9146166d22c1f3282a18f285941c42eba",
-    "candidate.status.withdrawn": "00c0b03fcfa2ac02fc0be8f640ccb282dc899197395335c38f2051f36f25d98b"
+    "candidate.status.withdrawn": "00c0b03fcfa2ac02fc0be8f640ccb282dc899197395335c38f2051f36f25d98b",
+    "compare.meta.title": "f5e722b534709cc26bb877b1e52e4d892f9111e41dccdee44195e8ace147d9ed",
+    "compare.meta.description": "c295faf0205df1680cff5c152cf7704f02739dfb91fbf0fd5e75a77d27bfd9ac",
+    "compare.pageHeading": "0081114a3c82513f97b1e19c48a720778d6f1f59bf206dc011276c4f5cc6a0b6",
+    "compare.table.caption": "30d8b2f22fe5376dc9e50b8dd67206747443a613753fb2dc236abfe27a22c696",
+    "compare.empty.awaited": "4c7ff9f22846b97c7a46a869b6ae1943ff0d79da4b6ece11d2db3869a3b39b8a",
+    "compare.empty.fact": "3cd46393c4bedd53fd79d0ddffc38759c1a1f1f45283c5d2d171a72f21310cca",
+    "compare.links.backToWard": "17f3068d077a0c453da5bab967e85fc60562ea878d2f18bc73c229344dff960c"
   },
   "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ.",
   "error.notFound.title": "ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ",
@@ -804,5 +811,12 @@
   "candidate.status.filed": "ಸಲ್ಲಿಸಲಾಗಿದೆ",
   "candidate.status.contesting": "ಸ್ಪರ್ಧಿಸುತ್ತಿದ್ದಾರೆ",
   "candidate.status.rejected": "ತಿರಸ್ಕರಿಸಲಾಗಿದೆ",
-  "candidate.status.withdrawn": "ಹಿಂಪಡೆಯಲಾಗಿದೆ"
+  "candidate.status.withdrawn": "ಹಿಂಪಡೆಯಲಾಗಿದೆ",
+  "compare.meta.title": "{wardName} — ಅಭ್ಯರ್ಥಿಗಳನ್ನು ಹೋಲಿಸಿ",
+  "compare.meta.description": "{wardName} ನಲ್ಲಿ ಸ್ಪರ್ಧಿಸುತ್ತಿರುವ ಪ್ರತಿಯೊಬ್ಬ ಅಭ್ಯರ್ಥಿಯನ್ನೂ ಅವರ ವರದಿ ಪತ್ರಗಳಲ್ಲಿರುವ ಅದೇ ವಿಷಯಗಳ ಮೇಲೆ ಅಕ್ಕಪಕ್ಕ ಹೋಲಿಸಿ.",
+  "compare.pageHeading": "ಅಭ್ಯರ್ಥಿಗಳನ್ನು ಹೋಲಿಸಿ",
+  "compare.table.caption": "ಅಭ್ಯರ್ಥಿ ಹೋಲಿಕೆ ಕೋಷ್ಟಕ",
+  "compare.empty.awaited": "ಹೋಲಿಸಲು ಇನ್ನೂ ಯಾವುದೇ ಅಭ್ಯರ್ಥಿಗಳಿಲ್ಲ. ನವೀಕರಣಗಳಿಗಾಗಿ ನೋಂದಾಯಿಸಿ, ಅವರು ಬಂದಾಗ ನಾವು ನಿಮಗೆ ತಿಳಿಸುತ್ತೇವೆ.",
+  "compare.empty.fact": "ಹೋಲಿಸಲು ಇನ್ನೂ ಯಾವುದೇ ಅಭ್ಯರ್ಥಿಗಳಿಲ್ಲ. ಅಭ್ಯರ್ಥಿ ನಾಮಪತ್ರಗಳು {date} ರಂದು ಆರಂಭವಾಗುತ್ತವೆ. ನವೀಕರಣಗಳಿಗಾಗಿ ನೋಂದಾಯಿಸಿ, ಅವರು ಬಂದಾಗ ನಾವು ನಿಮಗೆ ತಿಳಿಸುತ್ತೇವೆ.",
+  "compare.links.backToWard": "ವಾರ್ಡ್‌ಗೆ ಹಿಂತಿರುಗಿ"
 }
