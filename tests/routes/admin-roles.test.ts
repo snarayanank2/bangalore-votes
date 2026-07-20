@@ -278,6 +278,18 @@ describe('/admin, /admin/roles (Task 44)', () => {
       expect(audit).toBeDefined();
       expect(audit!.actorRole).toBe('admin');
     });
+
+    it('POST formAction=revoke targeting the caller\'s OWN id -> 400 friendly error, admin still admin (Task 44 review lockout guard)', async () => {
+      const form = formWithToken({ formAction: 'revoke', targetUserId: String(adminId), confirm: 'on' }, adminAuth.token);
+      const res = await run(RolesRoute, '/admin/roles', { method: 'POST', cookieValue: adminAuth.cookieValue, form });
+      expect(res.status).toBe(400);
+
+      const html = normalize(await res.text());
+      expect(html).toContain("can&#39;t remove your own admin access");
+
+      const [row] = await db.select({ role: schema.users.role }).from(schema.users).where(eq(schema.users.id, adminId));
+      expect(row?.role).toBe('admin');
+    });
   });
 
   describe('set scope + zone shortcut', () => {

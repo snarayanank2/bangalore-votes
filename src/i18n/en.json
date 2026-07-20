@@ -454,6 +454,8 @@
   "admin.roles.error.confirmRequired": "Confirm you understand the effect of this action before continuing.",
   "admin.roles.error.userNotFound": "No user found for that id or email.",
   "admin.roles.error.invalidWardId": "One or more ward ids don't exist. Check the list and try again.",
+  "admin.roles.error.cannotRevokeSelf": "You can't remove your own admin access. Ask another admin to do this.",
+  "admin.roles.error.cannotRevokeLastAdmin": "You can't remove the last admin. Grant another admin first.",
   "__hints": {
     "ward.candidates.meta.title": "Browser tab title for the candidates-in-ward list page (/ward/{id}/candidates, IA §3.3); {wardName} is the ward's name in the page's own language.",
     "ward.candidates.meta.description": "Meta description for the candidates-in-ward list page.",
@@ -632,6 +634,8 @@
     "admin.roles.manage.scope.wardIdsHelper": "Helper text under the per-curator ward-ids text field on the admin Roles page (Task 44, IA §6.2, PRD §10) — clarifies that submitting REPLACES the full stored scope (src/lib/admin.ts's setCuratorScope), it does not merge with what's currently saved (the zone shortcut below is the one thing that DOES merge, into this same field's value, at save time).",
     "admin.roles.manage.scope.zoneLabel": "Label on the per-curator zone-shortcut <select> (PRD §10, IA §6.2: 'a zone shortcut that expands to that zone's wards') — picking a zone here does not replace the typed ward-ids field; the route twin unions the zone's ward ids into it at save time. There is no stored 'zone scope' concept — only the resulting per-ward curator_scopes rows persist.",
     "admin.roles.manage.scope.confirmLabel": "Label on the REQUIRED confirmation checkbox above the per-curator Save-scope button (design-system.md §7.13) — {email} is that user's own email (or their numeric id if none is on file); saving REPLACES their entire ward scope (uncapped, PRD §14), not an incremental add.",
-    "admin.roles.error.invalidWardId": "Shown when the scope form's ward-ids text (plus any zone-expanded ids) includes an id that isn't a real wards.id — src/lib/admin.ts's setCuratorScope validates every id before writing anything, so this rejection leaves the previously-saved scope completely untouched."
+    "admin.roles.error.invalidWardId": "Shown when the scope form's ward-ids text (plus any zone-expanded ids) includes an id that isn't a real wards.id — src/lib/admin.ts's setCuratorScope validates every id before writing anything, so this rejection leaves the previously-saved scope completely untouched.",
+    "admin.roles.error.cannotRevokeSelf": "Lockout-prevention guard (Task 44 review) — shown when an admin submits revoke, or a grant that would demote an admin to curator, targeting their OWN user id. Never a 500: src/lib/admin.ts's assertNotSelfOrLastAdmin rejects before any write, so the caller stays admin. Another admin must perform the demotion instead.",
+    "admin.roles.error.cannotRevokeLastAdmin": "Lockout-prevention guard (Task 44 review) — shown when a revoke, or a grant that would demote an admin to curator, targets the last remaining ACTIVE admin (src/lib/admin.ts's assertNotSelfOrLastAdmin counts role='admin' AND status='active' rows inside the same transaction). Grant another admin the admin role first, then the original demotion can proceed."
   }
 }

@@ -36,6 +36,11 @@ function errorKey(err: unknown, fallbackKey: string): string {
   const msg = err instanceof Error ? err.message : '';
   if (msg === 'user_not_found') return 'admin.roles.error.userNotFound';
   if (msg === 'invalid_ward_id') return 'admin.roles.error.invalidWardId';
+  // Lockout-prevention guards (src/lib/admin.ts's assertNotSelfOrLastAdmin,
+  // Task 44 review) — thrown by both revokeRole and grantRole's one
+  // demote-an-admin path, so this mapping covers both formActions.
+  if (msg === 'cannot_revoke_self') return 'admin.roles.error.cannotRevokeSelf';
+  if (msg === 'cannot_revoke_last_admin') return 'admin.roles.error.cannotRevokeLastAdmin';
   return fallbackKey;
 }
 

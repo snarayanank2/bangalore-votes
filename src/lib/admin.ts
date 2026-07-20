@@ -37,11 +37,20 @@
  * non-curator/admin user — see `scopedWardIds`'s `role` parameter), and
  * `revokeRole` always clears scope on the way back down, so the two never
  * drift into a confusing state either way.
+ *
+ * LOCKOUT PREVENTION (Task 44 review): because this module is the root of
+ * the authorization chain and `readSession` re-reads `users.role` on every
+ * request, a self-demote or revoking the last admin would lock every admin
+ * out of `/admin/*` on the next request, recoverable only server-side via
+ * `scripts/seed-admin.ts`. `revokeRole` and `grantRole`'s one demote-an-
+ * admin path both run through `assertNotSelfOrLastAdmin` before writing —
+ * see that function's docstring for exactly what's guarded and the one
+ * accepted residual race (concurrent double-revoke).
  */
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { curatorScopes, eoiSubmissions, users, wards } from '../db/schema';
-import { writeAudit } from './audit';
+import { writeAudit, type Tx } from './audit';
 
 /** The actor shape every mutator below requires — same session shape `src/middleware.ts` puts on `locals.session`, narrowed to admin. */
 export type AdminActor = { userId: number; role: 'admin' };
@@ -65,6 +74,59 @@ function auditActor(actor: AdminActor) {
 }
 
 /**
+ * LOCKOUT-PREVENTION GUARD (Task 44 review — protects the root of the
+ * authorization chain). `readSession` (src/lib/session.ts) re-reads
+ * `users.role` on every request, so a self-demote or revoking the last
+ * admin locks EVERY admin out of `/admin/*` on the very next request, with
+ * recovery only possible server-side via `scripts/seed-admin.ts`. Called by
+ * both `revokeRole` and `grantRole` (the latter only on its one demote-an-
+ * admin path — see that function's docstring) before either applies its
+ * write, inside the same transaction as that write.
+ *
+ * Throws `'cannot_revoke_self'` if `targetUserId` is the calling admin's own
+ * id — an admin must never demote themselves in one action; another admin
+ * can still do it. Checked unconditionally (before even looking at
+ * `existing`), since a self-demote is never a legitimate action regardless
+ * of how many other admins exist.
+ *
+ * Throws `'cannot_revoke_last_admin'` if `existing` (the target's CURRENT
+ * row) is an active admin and removing them would leave the active-admin
+ * pool at zero — `count(*) from users where role='admin' and
+ * status='active'`, computed in the SAME transaction as the caller's
+ * subsequent write. A target whose own `status` isn't `'active'` (already
+ * banned/erased) never trips this: they aren't part of the pool being
+ * protected, so demoting them can't zero it out.
+ *
+ * RESIDUAL RISK (accepted, not fixed here): two concurrent transactions
+ * each revoking a DIFFERENT one of the last two admins can each read
+ * count=2 before either commits, so both could pass this check and the pair
+ * could still commit to zero admins. Admin churn is rare (PRD §14) and a
+ * table-wide lock to close this completely was judged not worth the added
+ * contention on every grant/revoke — the audit log + `scripts/seed-admin.ts`
+ * remain the backstop for this low-probability race.
+ */
+async function assertNotSelfOrLastAdmin(
+  tx: Tx,
+  actor: AdminActor,
+  targetUserId: number,
+  existing: { role: string; status: string },
+): Promise<void> {
+  if (targetUserId === actor.userId) {
+    throw new Error('cannot_revoke_self');
+  }
+
+  if (existing.role === 'admin' && existing.status === 'active') {
+    const [activeAdmins] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(eq(users.role, 'admin'), eq(users.status, 'active')));
+    if (Number(activeAdmins?.count ?? 0) <= 1) {
+      throw new Error('cannot_revoke_last_admin');
+    }
+  }
+}
+
+/**
  * Sets `targetUserId`'s role (citizen → curator/admin, or a lateral
  * curator ↔ admin move). Does NOT touch `curator_scopes` — a fresh
  * curator starts with zero wards until `setCuratorScope` is called
@@ -74,15 +136,30 @@ function auditActor(actor: AdminActor) {
  * everywhere scope is read, but the rows themselves aren't deleted here —
  * only `revokeRole` clears them).
  *
+ * DEMOTE-AN-ADMIN GUARD (Task 44 review): `role`'s only two values mean
+ * this function's only possible DEMOTION is an existing admin set to
+ * `'curator'` — every other combination (citizen/curator → curator/admin,
+ * or a same-role no-op) elevates or holds steady and is never a lockout
+ * risk. That one demote path runs through the exact same
+ * `assertNotSelfOrLastAdmin` guard `revokeRole` uses, so a self-demote or a
+ * last-admin demotion via `grantRole` is rejected exactly like it would be
+ * via `revokeRole` — there is no separate "demote via grant" bypass.
+ *
  * Throws `'user_not_found'` for a `targetUserId` with no `users` row.
+ * Throws `'cannot_revoke_self'` / `'cannot_revoke_last_admin'` for the
+ * demote-an-admin case described above — see `assertNotSelfOrLastAdmin`.
  */
 export async function grantRole(actor: AdminActor, targetUserId: number, role: 'curator' | 'admin'): Promise<void> {
   assertAdmin(actor);
 
   await db.transaction(async (tx) => {
-    const [existing] = await tx.select({ role: users.role }).from(users).where(eq(users.id, targetUserId));
+    const [existing] = await tx.select({ role: users.role, status: users.status }).from(users).where(eq(users.id, targetUserId));
     if (!existing) {
       throw new Error('user_not_found');
+    }
+
+    if (existing.role === 'admin' && role !== 'admin') {
+      await assertNotSelfOrLastAdmin(tx, actor, targetUserId, existing);
     }
 
     await tx.update(users).set({ role }).where(eq(users.id, targetUserId));
@@ -106,16 +183,24 @@ export async function grantRole(actor: AdminActor, targetUserId: number, role: '
  * expects to start from zero). Both the role update and the scope wipe
  * happen in one transaction with the audit write.
  *
+ * LOCKOUT-PREVENTION GUARD (Task 44 review): before applying the change,
+ * rejects with `'cannot_revoke_self'` (the caller revoking their own id) or
+ * `'cannot_revoke_last_admin'` (the target is the last active admin) — see
+ * `assertNotSelfOrLastAdmin`'s docstring for exactly what's checked and the
+ * one documented residual race.
+ *
  * Throws `'user_not_found'` for a `targetUserId` with no `users` row.
  */
 export async function revokeRole(actor: AdminActor, targetUserId: number): Promise<void> {
   assertAdmin(actor);
 
   await db.transaction(async (tx) => {
-    const [existing] = await tx.select({ role: users.role }).from(users).where(eq(users.id, targetUserId));
+    const [existing] = await tx.select({ role: users.role, status: users.status }).from(users).where(eq(users.id, targetUserId));
     if (!existing) {
       throw new Error('user_not_found');
     }
+
+    await assertNotSelfOrLastAdmin(tx, actor, targetUserId, existing);
 
     await tx.update(users).set({ role: 'citizen' }).where(eq(users.id, targetUserId));
     await tx.delete(curatorScopes).where(eq(curatorScopes.userId, targetUserId));

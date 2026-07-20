@@ -541,7 +541,9 @@
     "admin.roles.manage.scope.submit": "c28801f5bad60593588c3e1414cfe162306bca0a7c9bf79ad629527c9150c177",
     "admin.roles.error.confirmRequired": "83d4566af3879678e0e92939550282bb6c284d19025875650a387e0b13fb8f05",
     "admin.roles.error.userNotFound": "d33aaa9e5e64ffae4518cb4ea68221458d54dd8816f9885c67ce3f35c4befb84",
-    "admin.roles.error.invalidWardId": "2d566b9a220b4af254b72e78d90a5c4600ef7772b4686a9d6addaf6cbd2aecc7"
+    "admin.roles.error.invalidWardId": "2d566b9a220b4af254b72e78d90a5c4600ef7772b4686a9d6addaf6cbd2aecc7",
+    "admin.roles.error.cannotRevokeSelf": "99004192509516fa9211b7f9783af0393ecfb98c57893ec6bdab63a1ce9e7b81",
+    "admin.roles.error.cannotRevokeLastAdmin": "8f90ed9669b8286e12ac118ea4f869f80661e45583c32aaf90cec3d49381fd0d"
   },
   "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ.",
   "error.notFound.title": "ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ",
@@ -910,5 +912,7 @@
   "admin.roles.manage.scope.submit": "ವ್ಯಾಪ್ತಿಯನ್ನು ಉಳಿಸಿ",
   "admin.roles.error.confirmRequired": "ಮುಂದುವರಿಯುವ ಮೊದಲು ಈ ಕ್ರಿಯೆಯ ಪರಿಣಾಮವನ್ನು ನೀವು ಅರ್ಥಮಾಡಿಕೊಂಡಿದ್ದೀರಿ ಎಂಬುದನ್ನು ದೃಢೀಕರಿಸಿ.",
   "admin.roles.error.userNotFound": "ಆ ಐಡಿ ಅಥವಾ ಇಮೇಲ್‌ಗೆ ಯಾವುದೇ ಬಳಕೆದಾರ ಕಂಡುಬಂದಿಲ್ಲ.",
-  "admin.roles.error.invalidWardId": "ಒಂದು ಅಥವಾ ಹೆಚ್ಚು ವಾರ್ಡ್ ಐಡಿಗಳು ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ. ಪಟ್ಟಿಯನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ."
+  "admin.roles.error.invalidWardId": "ಒಂದು ಅಥವಾ ಹೆಚ್ಚು ವಾರ್ಡ್ ಐಡಿಗಳು ಅಸ್ತಿತ್ವದಲ್ಲಿಲ್ಲ. ಪಟ್ಟಿಯನ್ನು ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "admin.roles.error.cannotRevokeSelf": "ನಿಮ್ಮ ಸ್ವಂತ ನಿರ್ವಾಹಕ ಪ್ರವೇಶವನ್ನು ನೀವು ತೆಗೆದುಹಾಕಲಾಗುವುದಿಲ್ಲ. ಇದನ್ನು ಮಾಡಲು ಇನ್ನೊಬ್ಬ ನಿರ್ವಾಹಕರನ್ನು ಕೇಳಿ.",
+  "admin.roles.error.cannotRevokeLastAdmin": "ಕೊನೆಯ ನಿರ್ವಾಹಕರನ್ನು ನೀವು ತೆಗೆದುಹಾಕಲಾಗುವುದಿಲ್ಲ. ಮೊದಲು ಇನ್ನೊಬ್ಬ ನಿರ್ವಾಹಕರಿಗೆ ಅಧಿಕಾರ ನೀಡಿ."
 }
