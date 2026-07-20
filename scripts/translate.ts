@@ -212,15 +212,26 @@ async function callAnthropic(prompt: string): Promise<string> {
 }
 
 async function callClaudeCli(prompt: string): Promise<string> {
-  const { stdout } = await execFileAsync('claude', ['-p', prompt, '--max-turns', '1'], {
-    maxBuffer: 1024 * 1024 * 32,
-  });
-  return stdout.trim();
+  try {
+    const { stdout } = await execFileAsync('claude', ['-p', prompt, '--max-turns', '1'], {
+      maxBuffer: 1024 * 1024 * 32,
+      timeout: 120_000,
+    });
+    return stdout.trim();
+  } catch (err) {
+    // Distinguish non-zero exit codes from other errors
+    if (err instanceof Error && 'code' in err && typeof (err as any).code === 'number') {
+      throw new Error(
+        `translate: claude CLI exited with code ${(err as any).code}${(err as any).signal ? ` (signal ${(err as any).signal})` : ''}`,
+      );
+    }
+    throw err;
+  }
 }
 
 async function isClaudeCliAvailable(): Promise<boolean> {
   try {
-    await execFileAsync('claude', ['--version']);
+    await execFileAsync('claude', ['--version'], { timeout: 10_000 });
     return true;
   } catch {
     return false;

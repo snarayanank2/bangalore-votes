@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { writeFileSync, unlinkSync } from 'node:fs';
+import path from 'node:path';
 import { getPageContent } from '../../src/i18n/content';
 
 const ALL_SLUGS = [
@@ -65,5 +67,51 @@ describe('getPageContent()', () => {
   it('marks a genuine EN entry as not a fallback', () => {
     const entry = getPageContent('en', 'about');
     expect(entry?.fallback).toBe(false);
+  });
+
+  describe('KN-missing → EN-fallback path', () => {
+    const testFixtureName = '__test-fixture-fallback';
+    const testFixtureFile = path.join(
+      new URL('../../content/pages/en/', import.meta.url).pathname,
+      `${testFixtureName}.md`,
+    );
+
+    beforeAll(() => {
+      // Create a temporary EN fixture file. Since KN version won't exist, this
+      // tests the fallback→EN path. The `__test-fixture-fallback` name cannot
+      // collide with real slugs (which are alphanumeric/hyphens, not starting
+      // with `__`), and cleanup below ensures it doesn't persist or trigger
+      // staleness warnings.
+      const frontmatter = `---
+title: Test Fixture Fallback
+description: A temporary fixture for testing EN fallback when KN is missing
+---`;
+      const body = '\n# Test Content\n\nThis is a test fixture.';
+      writeFileSync(testFixtureFile, `${frontmatter}${body}`, 'utf-8');
+    });
+
+    afterAll(() => {
+      // Clean up the fixture unconditionally, even if tests fail.
+      try {
+        unlinkSync(testFixtureFile);
+      } catch {
+        // File may have already been deleted or not exist.
+      }
+    });
+
+    it('returns EN entry with fallback=true when KN file is missing', () => {
+      const knEntry = getPageContent('kn', testFixtureName);
+      expect(knEntry).not.toBeNull();
+      expect(knEntry?.lang).toBe('en');
+      expect(knEntry?.fallback).toBe(true);
+      expect(knEntry?.title).toBe('Test Fixture Fallback');
+    });
+
+    it('marks genuine EN entry (direct request) as not a fallback', () => {
+      const enEntry = getPageContent('en', testFixtureName);
+      expect(enEntry).not.toBeNull();
+      expect(enEntry?.fallback).toBe(false);
+      expect(enEntry?.lang).toBe('en');
+    });
   });
 });
