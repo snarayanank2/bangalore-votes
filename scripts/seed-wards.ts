@@ -83,6 +83,12 @@ export function loadWardRows(geojsonPath: string = DEFAULT_GEOJSON_PATH): WardRo
     const p = feature.properties;
     const featureRef = String(p.id ?? p.ward_id ?? '(unknown feature)');
 
+    // boundaryRef must come strictly from properties.id; throw if absent
+    const boundaryRefValue = String(p.id ?? '').trim();
+    if (!boundaryRefValue) {
+      throw new Error(`seed-wards: missing properties.id in feature (ward_id: ${p.ward_id})`);
+    }
+
     const corporationRaw = String(p.Corporation ?? '').trim().toLowerCase();
     if (!VALID_CORPORATIONS.has(corporationRaw)) {
       throw new Error(`seed-wards: unmapped Corporation value ${JSON.stringify(p.Corporation)} in feature ${featureRef}`);
@@ -108,7 +114,7 @@ export function loadWardRows(geojsonPath: string = DEFAULT_GEOJSON_PATH): WardRo
       nameKn,
       corporation: corporationRaw as WardRow['corporation'],
       zone,
-      boundaryRef: featureRef,
+      boundaryRef: boundaryRefValue,
     };
   });
 }
@@ -119,6 +125,8 @@ export async function seedWards(db: Db, geojsonPath?: string): Promise<number> {
 
   const ids = new Set(rows.map((r) => r.id));
   if (ids.size !== rows.length) {
+    // Guard protecting the composite-key scheme (corporation_id * 1000 + ward_id):
+    // catches any ward_id >= 1000 collision that would break key uniqueness.
     throw new Error(`seed-wards: duplicate composite ward ids detected (${rows.length} rows, ${ids.size} unique ids)`);
   }
 

@@ -20,7 +20,7 @@ import { and, eq } from 'drizzle-orm';
 import * as schema from '../src/db/schema';
 import type { Db } from '../src/db/client';
 
-const DEMO_PARTIES = ['Demo Party A', 'Demo Party B', 'Independent'];
+const DEMO_PARTIES = ['Demo Party A', 'Demo Party B', 'Demo Independent (FICTIONAL)'];
 
 export function assertNotProduction(env: NodeJS.ProcessEnv = process.env): void {
   if (env.NODE_ENV === 'production') {

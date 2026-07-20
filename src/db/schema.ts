@@ -28,7 +28,7 @@ export const sendStatusEnum = pgEnum('send_status', ['sent', 'failed', 'suppress
 export const budgetKindEnum = pgEnum('budget_kind', ['geocode', 'otp_send', 'news_query']);
 
 export const wards = pgTable('wards', {
-  id: integer('id').primaryKey(),                      // official ward number
+  id: integer('id').primaryKey(),                      // corporation_id*1000 + per-corporation ward number (no city-wide official number exists in source data — see scripts/seed-wards.ts)
   nameEn: text('name_en').notNull(),
   nameKn: text('name_kn').notNull(),                   // official bilingual data — never MT (arch §9)
   corporation: corporationEnum('corporation').notNull(),
