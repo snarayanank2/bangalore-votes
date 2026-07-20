@@ -25,9 +25,22 @@ import * as schema from '../../src/db/schema';
 vi.mock('../../src/lib/send/sendgrid', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }));
 vi.mock('../../src/lib/send/twilio', () => ({ sendWhatsAppTemplate: vi.fn(async () => ({ ok: true, status: 'sent' })) }));
 
+// Wraps (not replaces) the real `getKnownSetting` so a single test can splice
+// a genuinely concurrent competing INSERT into the narrow window between
+// `resolveOrRegister`'s own `findUserByContact` SELECT and its `INSERT INTO
+// users` — `getKnownSetting` is the one async call resolveOrRegister makes
+// in between, making it the natural injection point for a real, deterministic
+// race (see the "genuine DB-level race" test below). Every other call in this
+// file passes straight through to the real implementation.
+vi.mock('../../src/lib/settings', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/settings')>();
+  return { ...actual, getKnownSetting: vi.fn(actual.getKnownSetting) };
+});
+
 import { sendEmail } from '../../src/lib/send/sendgrid';
 import { resolveOrRegister } from '../../src/lib/auth-flow';
 import { requestOtp } from '../../src/lib/otp';
+import { getKnownSetting } from '../../src/lib/settings';
 import { SESSION_COOKIE } from '../../src/lib/session';
 
 if (!process.env.DATABASE_URL) {
@@ -186,5 +199,42 @@ describe('src/lib/auth-flow.ts resolveOrRegister', () => {
     const [row] = await db.select().from(schema.users).where(eq(schema.users.email, NEW_EMAIL));
     expect(row!.srcAttribution).toBeNull();
     expect(row!.language).toBe('kn');
+  });
+
+  it('a genuine DB-level race — a competing request registers the same contact between this call\'s lookup and its INSERT — resolves as a login for the race winner, not a 500 (Task 29 review: the wrapped 23505 gap)', async () => {
+    const code = await getRealCode(NEW_EMAIL);
+    await resolveOrRegister(NEW_EMAIL, code); // peek — registration_required, leaves the code valid
+
+    let winnerId: number | undefined;
+    const actualSettings = await vi.importActual<typeof import('../../src/lib/settings')>('../../src/lib/settings');
+    // `getKnownSetting` is the one thing resolveOrRegister awaits between its
+    // own `findUserByContact` (which has already returned nothing for
+    // NEW_EMAIL at this point) and its `INSERT INTO users` — injecting the
+    // competing insert here reproduces exactly what a second, truly
+    // concurrent request would do, and lets Postgres itself throw the real
+    // unique-violation (drizzle-orm wraps it in a `DrizzleQueryError`, so
+    // this exercises the genuine wrapped-error shape, not a hand-built one).
+    vi.mocked(getKnownSetting).mockImplementationOnce(async (key) => {
+      const [winner] = await db
+        .insert(schema.users)
+        .values({ email: NEW_EMAIL, homeWardId: WARD.id, role: 'citizen', status: 'active' })
+        .returning();
+      winnerId = winner!.id;
+      return actualSettings.getKnownSetting(key);
+    });
+
+    const result = await resolveOrRegister(NEW_EMAIL, code, { wardId: WARD.id, language: 'en', futureTools: false });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('unreachable');
+    // The race winner's account is logged in — this call did NOT create a
+    // second (or duplicate) account, and did NOT throw.
+    expect(result.registered).toBe(false);
+    expect(result.setCookie).toContain(`${SESSION_COOKIE}=`);
+
+    const rows = await db.select().from(schema.users).where(eq(schema.users.email, NEW_EMAIL));
+    expect(rows).toHaveLength(1); // exactly one users row for this contact
+    expect(rows[0]!.id).toBe(winnerId); // it's the winner's row, not a fresh duplicate
+    expect(rows[0]!.consentAt).toBeNull(); // never went through this call's own consent-writing insert
   });
 });

@@ -14,25 +14,9 @@
 import { desc, eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { flagItems, flagSubmissions, users, wards, type flagStatusEnum } from '../db/schema';
+import { isUniqueViolation } from './db-errors';
 import { normalizeDestination, requestOtp, verifyOtp, type OtpChannel } from './otp';
 import { retireActiveSet } from './votes';
-
-/** Postgres SQLSTATE for a unique-index violation (users.email/users.phone — one account per contact, PRD §10). */
-const PG_UNIQUE_VIOLATION = '23505';
-
-/**
- * drizzle-orm (0.45+) wraps every driver error thrown from a query in a
- * `DrizzleQueryError`, which does NOT copy the underlying driver error's
- * `.code` onto itself — the original `postgres` package error (with its
- * `.code`) is only reachable via `.cause`. Check both shapes so this still
- * works regardless of which layer the code ends up on.
- */
-function isUniqueViolation(err: unknown): boolean {
-  const code = (err as { code?: string })?.code;
-  if (code === PG_UNIQUE_VIOLATION) return true;
-  const causeCode = (err as { cause?: { code?: string } })?.cause?.code;
-  return causeCode === PG_UNIQUE_VIOLATION;
-}
 
 export interface AccountUser {
   id: number;

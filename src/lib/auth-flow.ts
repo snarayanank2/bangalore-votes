@@ -26,6 +26,7 @@
 import { eq, or } from 'drizzle-orm';
 import { db } from '../db/client';
 import { users } from '../db/schema';
+import { isUniqueViolation } from './db-errors';
 import { normalizeDestination, verifyOtp } from './otp';
 import { createSession } from './session';
 import { getKnownSetting } from './settings';
@@ -43,9 +44,6 @@ export type ResolveOrRegisterResult =
 
 /** Fallback only when `consent_wording_version` has never been set (should not happen past initial seed). */
 const DEFAULT_CONSENT_VERSION = 'v1';
-
-/** Postgres SQLSTATE for a unique-index violation (the one-account-per-contact race). */
-const PG_UNIQUE_VIOLATION = '23505';
 
 async function findUserByContact(destination: string) {
   const [row] = await db
@@ -107,7 +105,7 @@ export async function resolveOrRegister(
     const session = await createSession(created!.id);
     return { ok: true, registered: true, setCookie: session.setCookie };
   } catch (err: unknown) {
-    if ((err as { code?: string })?.code === PG_UNIQUE_VIOLATION) {
+    if (isUniqueViolation(err)) {
       // One-account-per-contact race: another request registered this exact
       // contact between our lookup above and this insert. Resolve as a
       // login for the winner rather than a duplicate or a 500.
