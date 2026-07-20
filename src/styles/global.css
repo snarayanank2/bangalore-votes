@@ -1,0 +1,166 @@
+/**
+ * Global styles — GBA Elections Citizen Platform
+ *
+ * One file for Astro layouts to import (`import '../styles/global.css'`);
+ * it pulls in the design tokens, then lays down a minimal reset, the
+ * three self-hosted type families (docs/design-system.md §5.1), and the
+ * cross-cutting accessibility/motion rules from §9-§10.
+ *
+ * Font files live in public/fonts/ (see scripts/copy-fonts.ts) — copied
+ * as-is from their @fontsource npm packages, not re-subset by hand.
+ */
+@import './tokens.css';
+
+/* -------------------------------------------------------------------------
+ * Self-hosted fonts (§5.1) — font-display: swap, no third-party CDN.
+ * Manrope and Noto Sans Kannada ship as variable woff2 (one file spans
+ * several weights); PT Sans has no upstream variable version, so its two
+ * weights are separate static files.
+ * ---------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Manrope';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500 800;
+  src: url('/fonts/manrope-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('/fonts/pt-sans-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'PT Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url('/fonts/pt-sans-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304,
+    U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Noto Sans Kannada';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400 800;
+  src: url('/fonts/noto-sans-kannada-kannada-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0951-0952, U+0964-0965, U+0C80-0CF3, U+1CD0, U+1CD2-1CD3, U+1CDA, U+1CF2,
+    U+1CF4, U+200C-200D, U+20B9, U+25CC, U+A830-A835;
+}
+
+/* -------------------------------------------------------------------------
+ * Minimal reset
+ * ---------------------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100vh;
+}
+
+img,
+picture,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+ul[role='list'],
+ol[role='list'] {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* -------------------------------------------------------------------------
+ * Body and heading defaults (§5.1, §5.2)
+ * ---------------------------------------------------------------------- */
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+}
+
+/* Sentence case everywhere (§5.4); Kannada has no case, so a design that
+   leans on caps degrades in half the product (§5.3). Never override this
+   per-component. */
+* {
+  text-transform: none;
+}
+
+/* -------------------------------------------------------------------------
+ * Accessibility floor (§10)
+ * ---------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+ * Motion (§9) — functional only; everything honors reduced-motion by
+ * dropping to opacity-only or no motion at all.
+ * ---------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
