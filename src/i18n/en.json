@@ -8,6 +8,8 @@
   "footer.press": "Press",
   "footer.terms": "Terms of use",
   "footer.privacy": "Privacy policy",
+  "footer.attribution": "Bangalore Votes, an Oorvani Foundation initiative",
+  "a11y.skipToContent": "Skip to main content",
   "common.registerForUpdates": "Register for updates",
   "common.receivingUpdates": "You're receiving updates",
   "common.flagError": "Flag an error",

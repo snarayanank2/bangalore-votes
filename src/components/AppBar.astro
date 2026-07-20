@@ -1,0 +1,135 @@
+---
+/**
+ * AppBar — design-system.md §7.1, information-architecture.md §1 (global
+ * elements). White, 56px, sticky. Left: text wordmark lockup (the real
+ * Open City-family logo asset is pending per design-system.md §12 — a
+ * text lockup with an aria-label stands in, no fake logo image). Right:
+ * the EN | ಕನ್ನಡ language toggle and the Sign in control.
+ *
+ * Cache-safety (architecture.md §5): this component never reads
+ * cookies/session — the Sign in control always renders the anonymous
+ * state server-side. Task 29's MeSlot island finds it via
+ * `data-me-slot` and swaps it client-side to "My account" for signed-in
+ * visitors, so the server-rendered HTML stays identical for every
+ * visitor and safe to cache.
+ */
+import { t, localePath, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  path: string;
+}
+
+const { lang, path } = Astro.props;
+
+// Fixed EN-then-ಕನ್ನಡ order regardless of current language (design-system.md
+// §7.1: "EN | ಕನ್ನಡ", each label always in its own script). The current
+// language renders as a styled, non-interactive segment; the other language
+// renders as the link that navigates to the same page in that language.
+const segments: Array<{ lang: Lang; label: string }> = [
+  { lang: 'en', label: 'EN' },
+  { lang: 'kn', label: 'ಕನ್ನಡ' },
+];
+---
+
+<header class="app-bar">
+  <div class="bar-inner">
+    <a class="logo" href={localePath(lang, '/')} aria-label="Bangalore Votes">Bangalore Votes</a>
+
+    <div class="controls">
+      <div class="lang-toggle" role="group" aria-label="Language">
+        {
+          segments.map((segment) =>
+            segment.lang === lang ? (
+              <span class="segment active" aria-current="true">
+                {segment.label}
+              </span>
+            ) : (
+              <a class="segment" href={localePath(segment.lang, path)}>
+                {segment.label}
+              </a>
+            ),
+          )
+        }
+      </div>
+
+      <a class="sign-in" href={localePath(lang, '/login')} data-me-slot>
+        {t(lang, 'nav.signIn')}
+      </a>
+    </div>
+  </div>
+</header>
+
+<style>
+  .app-bar {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: 56px;
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sticky);
+  }
+
+  .bar-inner {
+    max-width: var(--container-app);
+    height: 100%;
+    margin-inline: auto;
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+  }
+
+  .logo {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--color-primary);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .lang-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+  }
+
+  .segment {
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    border-radius: var(--radius-full);
+  }
+
+  .segment.active {
+    color: var(--color-primary);
+    background: var(--color-primary-surface);
+    font-weight: 700;
+  }
+
+  .sign-in {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: var(--space-2) var(--space-4);
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+    border: 1.5px solid var(--color-primary);
+    border-radius: var(--radius-sm);
+  }
+</style>

@@ -1,0 +1,83 @@
+---
+/**
+ * Footer — design-system.md §7.2, information-architecture.md §1. Forest
+ * background, the one dark surface in the system. Footer is the only route
+ * to the trust/legal pages (About, Voting guide, Data, Partner with us,
+ * Press, Terms, Privacy) plus the Oorvani Foundation attribution.
+ *
+ * Note: §7.2 calls for "white and lime text" on the forest background, but
+ * the semantic token set (tokens.css §2.2) has no lime/leaf text token —
+ * only --color-on-primary (white). Per this task's "semantic tokens only"
+ * constraint, all footer text uses --color-on-primary; a lime accent token
+ * would need a design decision + tokens.css addition first.
+ */
+import { t, localePath, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const links = [
+  { key: 'footer.about', path: '/about' },
+  { key: 'footer.votingGuide', path: '/voting-guide' },
+  { key: 'footer.data', path: '/data' },
+  { key: 'footer.partnerWithUs', path: '/partner-with-us' },
+  { key: 'footer.press', path: '/press' },
+  { key: 'footer.terms', path: '/terms' },
+  { key: 'footer.privacy', path: '/privacy' },
+] as const;
+---
+
+<footer class="site-footer">
+  <div class="footer-inner">
+    <nav aria-label="Footer">
+      <ul role="list" class="footer-links">
+        {
+          links.map((link) => (
+            <li>
+              <a href={localePath(lang, link.path)}>{t(lang, link.key)}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+    <p class="attribution">{t(lang, 'footer.attribution')}</p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+
+  .footer-inner {
+    max-width: var(--container-app);
+    margin-inline: auto;
+    padding: var(--space-8) var(--container-pad-x);
+  }
+
+  .footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
+    margin-bottom: var(--space-6);
+  }
+
+  .footer-links a {
+    color: var(--color-on-primary);
+    font-size: var(--text-sm);
+  }
+
+  /* a11y floor (§10): forest surfaces use the sun-yellow focus outline. */
+  .footer-links a:focus-visible,
+  .attribution:focus-visible {
+    outline-color: var(--color-accent);
+  }
+
+  .attribution {
+    font-size: var(--text-xs);
+  }
+</style>

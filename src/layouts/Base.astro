@@ -1,0 +1,117 @@
+---
+/**
+ * Base layout — every public page renders through this. Emits the full
+ * document shell: doctype/html/head (title, description, canonical,
+ * hreflang alternates, OG tags, font preloads, global stylesheet) and a
+ * body with the skip link, app bar, a `<main>` landmark for the page's own
+ * content, and the footer.
+ *
+ * CACHE-SAFETY (architecture.md §5, binding on every page that uses this
+ * layout): every server-generated absolute URL below (canonical, hreflang,
+ * og:url, og:image) is derived from the fixed configured origin
+ * (`Astro.site`, sourced from `SITE_ORIGIN` in astro.config.mjs) — NEVER
+ * from the request's Host header. This layout also never reads
+ * cookies/session, so the HTML it produces is identical for every
+ * visitor and safe for nginx's anonymous-page micro-cache. The Sign-in
+ * control (in AppBar) always renders the anonymous state; Task 29's
+ * MeSlot island swaps it client-side for signed-in visitors.
+ */
+import '../styles/global.css';
+import SkipLink from '../components/SkipLink.astro';
+import AppBar from '../components/AppBar.astro';
+import Footer from '../components/Footer.astro';
+import { localePath, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+  /**
+   * The page's root-relative, UNPREFIXED (English-canonical) route, e.g.
+   * `/ward/57` — the same value for both the `/ward/57` and `/kn/ward/57`
+   * variants of a page. Every language-specific URL below (canonical, the
+   * two hreflang alternates, AppBar's toggle/logo/sign-in links, Footer's
+   * links) is derived by passing this same `path` through
+   * `localePath(lang, path)` — never pass an already-`/kn`-prefixed path.
+   */
+  path: string;
+  ogImage?: string;
+  noindex?: boolean;
+}
+
+const { lang, title, description, path, ogImage, noindex = false } = Astro.props;
+
+// Astro.site is always configured (astro.config.mjs falls back to the
+// production origin when SITE_ORIGIN is unset) — the local fallback here
+// only satisfies strict typing (Astro.site: URL | undefined) and is never
+// reached against the request's Host.
+const siteOrigin = Astro.site ?? new URL('https://bangalore-votes.opencity.in');
+
+const canonicalHref = new URL(localePath(lang, path), siteOrigin).href;
+const enHref = new URL(localePath('en', path), siteOrigin).href;
+const knHref = new URL(localePath('kn', path), siteOrigin).href;
+const ogImageHref = ogImage ? new URL(ogImage, siteOrigin).href : undefined;
+const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+
+    <link rel="canonical" href={canonicalHref} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="kn" href={knHref} />
+    <link rel="alternate" hreflang="x-default" href={enHref} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalHref} />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content={ogLocale} />
+    {ogImageHref && <meta property="og:image" content={ogImageHref} />}
+
+    {
+      lang === 'en' ? (
+        <>
+          <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="/fonts/manrope-latin-wght-normal.woff2"
+            crossorigin
+          />
+          <link
+            rel="preload"
+            as="font"
+            type="font/woff2"
+            href="/fonts/pt-sans-latin-400-normal.woff2"
+            crossorigin
+          />
+        </>
+      ) : (
+        <link
+          rel="preload"
+          as="font"
+          type="font/woff2"
+          href="/fonts/noto-sans-kannada-kannada-wght-normal.woff2"
+          crossorigin
+        />
+      )
+    }
+
+    <!-- Google Analytics snippet mounts here (Task 62) — intentionally absent for now. -->
+  </head>
+  <body>
+    <SkipLink lang={lang} />
+    <AppBar lang={lang} path={path} />
+    <main id="main-content">
+      <slot />
+    </main>
+    <Footer lang={lang} />
+  </body>
+</html>
