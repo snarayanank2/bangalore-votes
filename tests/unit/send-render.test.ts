@@ -48,8 +48,8 @@ describe('src/lib/send/render.ts renderMessage', () => {
   describe('OTP', () => {
     it('email EN: {{1}}=code in both subject and body', () => {
       const rendered = renderMessage('OTP', 'en', 'email', { code: '482913' });
-      expect(rendered.subject).toBe('Your Bangalore Votes verification code: 482913');
-      expect(rendered.body).toContain('**482913**');
+      expect(rendered.subject).toBe('Your Bangalore Votes verification code: `482913`');
+      expect(rendered.body).toContain('**`482913`**');
       expect(rendered.templateSid).toBeUndefined();
     });
 
@@ -67,8 +67,8 @@ describe('src/lib/send/render.ts renderMessage', () => {
 
     it('email KN: {{1}}=code in subject and body', () => {
       const rendered = renderMessage('OTP', 'kn', 'email', { code: '333444' });
-      expect(rendered.subject).toBe('ನಿಮ್ಮ Bangalore Votes ಪರಿಶೀಲನಾ ಸಂಕೇತ: 333444');
-      expect(rendered.body).toContain('**333444**');
+      expect(rendered.subject).toBe('ನಿಮ್ಮ Bangalore Votes ಪರಿಶೀಲನಾ ಸಂಕೇತ: `333444`');
+      expect(rendered.body).toContain('**`333444`**');
     });
 
     it('missing code throws missing_var', () => {

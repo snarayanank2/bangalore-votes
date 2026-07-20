@@ -70,9 +70,9 @@ export const templates: Record<TemplateCode, Record<Lang, TemplateEntry>> = {
         vars: ['code'],
       },
       email: {
-        subjectTemplate: 'Your Bangalore Votes verification code: {{1}}',
+        subjectTemplate: 'Your Bangalore Votes verification code: `{{1}}`',
         bodyTemplate:
-          'Your verification code is **{{1}}**.\n\n' +
+          'Your verification code is **`{{1}}`**.\n\n' +
           "This code expires in 10 minutes. If you didn't request this, you can safely ignore this email — nobody can access your account without it.\n\n" +
           '— Bangalore Votes, an Oorvani Foundation initiative',
         vars: ['code'],
@@ -86,9 +86,9 @@ export const templates: Record<TemplateCode, Record<Lang, TemplateEntry>> = {
         vars: ['code'],
       },
       email: {
-        subjectTemplate: 'ನಿಮ್ಮ Bangalore Votes ಪರಿಶೀಲನಾ ಸಂಕೇತ: {{1}}',
+        subjectTemplate: 'ನಿಮ್ಮ Bangalore Votes ಪರಿಶೀಲನಾ ಸಂಕೇತ: `{{1}}`',
         bodyTemplate:
-          'ನಿಮ್ಮ ಪರಿಶೀಲನಾ ಸಂಕೇತ **{{1}}**.\n\n' +
+          'ನಿಮ್ಮ ಪರಿಶೀಲನಾ ಸಂಕೇತ **`{{1}}`**.\n\n' +
           'ಈ ಸಂಕೇತ 10 ನಿಮಿಷಗಳಲ್ಲಿ ಅವಧಿ ಮುಗಿಯುತ್ತದೆ. ನೀವು ಇದನ್ನು ಕೋರದಿದ್ದರೆ, ಈ ಇಮೇಲ್ ಅನ್ನು ನಿರ್ಲಕ್ಷಿಸಬಹುದು — ಈ ಸಂಕೇತವಿಲ್ಲದೆ ಯಾರೂ ನಿಮ್ಮ ಖಾತೆಯನ್ನು ಪ್ರವೇಶಿಸಲಾಗುವುದಿಲ್ಲ.\n\n' +
           '— Bangalore Votes, ಒಂದು Oorvani Foundation ಉಪಕ್ರಮ',
         vars: ['code'],
