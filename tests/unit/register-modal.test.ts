@@ -28,6 +28,7 @@ type RegisterLoginModalModule = typeof import('../../src/islands/RegisterLoginMo
 
 const MSGS = {
   whatsappNudge: 'We could not reach you on WhatsApp — try email instead.',
+  sendFailed: "We couldn't send a code to that address. Please try again.",
   errorInvalid: 'That code is incorrect. Try again.',
   errorExpired: 'That code has expired. Request a new one.',
   errorLocked: 'Too many incorrect attempts. Request a new code.',
@@ -77,6 +78,7 @@ const MODAL_HTML = `
     </div>
 
     <span hidden data-msg-whatsapp-nudge>${MSGS.whatsappNudge}</span>
+    <span hidden data-msg-send-failed>${MSGS.sendFailed}</span>
     <span hidden data-msg-error-invalid>${MSGS.errorInvalid}</span>
     <span hidden data-msg-error-expired>${MSGS.errorExpired}</span>
     <span hidden data-msg-error-locked>${MSGS.errorLocked}</span>
@@ -214,6 +216,24 @@ describe('RegisterLoginModal island (src/islands/RegisterLoginModal.ts)', () => 
       const banner = document.querySelector('[data-rl-banner]') as HTMLElement;
       expect(banner.hidden).toBe(false);
       expect(banner.textContent).toBe(MSGS.whatsappNudge);
+    });
+
+    it('an email destination that gets send_failed shows a generic send_failed message and stays on step 1', async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ status: 'send_failed' }));
+      openRegisterLogin({});
+
+      const destinationInput = document.querySelector<HTMLInputElement>('input[name="destination"]')!;
+      destinationInput.value = 'citizen@example.com';
+      submit(formStep(1));
+      await flush();
+
+      const [, init] = fetchMock.mock.calls[0]!;
+      expect(JSON.parse(init.body).channel).toBe('email');
+      expect(formStep(1).hidden).toBe(false);
+      expect(formStep(2).hidden).toBe(true);
+      const banner = document.querySelector('[data-rl-banner]') as HTMLElement;
+      expect(banner.hidden).toBe(false);
+      expect(banner.textContent).toBe(MSGS.sendFailed);
     });
 
     it('verify -> {ok:true, registered:false} calls onSuccess and does NOT reload (gated-action resume-in-place)', async () => {

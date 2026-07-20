@@ -50,6 +50,7 @@ const D = {
   verifyExpired: 'otp-unit-verify-expired@example.com',
   verifyUnknown: 'otp-unit-verify-unknown@example.com',
   verifyPeek: 'otp-unit-verify-peek@example.com',
+  verifyProbe: 'otp-unit-verify-probe-lock@example.com',
 };
 
 const ALL_DESTINATIONS = Object.values(D);
@@ -346,6 +347,30 @@ describe('src/lib/otp.ts', () => {
       // longer an unconsumed row for this destination.
       const third = await verifyOtp(D.verifyPeek, code);
       expect(third).toEqual({ ok: false, reason: 'invalid' });
+    });
+
+    it('a WRONG code in consume:false (probe) mode still increments attempts and locks at 5 (security: probe cannot be abused for unlimited guesses)', async () => {
+      const correctCode = '777777';
+      const wrongCode = '000000';
+      await insertFixtureRow({ destination: D.verifyProbe, code: correctCode });
+
+      // Five wrong attempts with consume:false should all increment attempts.
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const result = await verifyOtp(D.verifyProbe, wrongCode, { consume: false });
+        expect(result).toEqual({ ok: false, reason: 'invalid' });
+        const [row] = await rowsFor(D.verifyProbe);
+        expect(row!.attempts).toBe(attempt);
+      }
+
+      // 5th wrong attempt -> locked.
+      const fifth = await verifyOtp(D.verifyProbe, wrongCode, { consume: false });
+      expect(fifth).toEqual({ ok: false, reason: 'locked' });
+      const [rowAfterFifth] = await rowsFor(D.verifyProbe);
+      expect(rowAfterFifth!.attempts).toBe(5);
+
+      // 6th attempt with the CORRECT code is still locked (invalidated).
+      const sixth = await verifyOtp(D.verifyProbe, correctCode, { consume: true });
+      expect(sixth).toEqual({ ok: false, reason: 'locked' });
     });
   });
 

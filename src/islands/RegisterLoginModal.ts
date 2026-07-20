@@ -66,6 +66,7 @@ interface Elements {
   languageSelect: HTMLSelectElement;
   futureToolsCheckbox: HTMLInputElement;
   msgWhatsappNudge: string;
+  msgSendFailed: string;
   msgErrorInvalid: string;
   msgErrorExpired: string;
   msgErrorLocked: string;
@@ -136,6 +137,7 @@ function findElements(root: ParentNode): Elements | null {
     languageSelect,
     futureToolsCheckbox,
     msgWhatsappNudge: text(dialog, '[data-msg-whatsapp-nudge]'),
+    msgSendFailed: text(dialog, '[data-msg-send-failed]'),
     msgErrorInvalid: text(dialog, '[data-msg-error-invalid]'),
     msgErrorExpired: text(dialog, '[data-msg-error-expired]'),
     msgErrorLocked: text(dialog, '[data-msg-error-locked]'),
@@ -221,8 +223,12 @@ async function onSubmitContact(event: SubmitEvent): Promise<void> {
   setSubmitDisabled(els.form1, true);
   try {
     const data = await postJson<RequestOtpResponse>('/api/otp/request', { destination, channel });
-    if (channel === 'whatsapp' && data.status === 'send_failed') {
-      showBanner(els.msgWhatsappNudge);
+    if (data.status === 'send_failed') {
+      if (channel === 'whatsapp') {
+        showBanner(els.msgWhatsappNudge);
+      } else {
+        showBanner(els.msgSendFailed);
+      }
       return;
     }
     clearBanner();

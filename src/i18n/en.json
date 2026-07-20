@@ -100,6 +100,7 @@
   "auth.step1.submit": "Send code",
   "auth.step1.sent": "We've sent a 6-digit code. Enter it below.",
   "auth.step1.whatsappNudge": "We couldn't reach you on WhatsApp right now — try an email address instead.",
+  "auth.step1.sendFailed": "We couldn't send a code to that address. Please try again.",
   "auth.step1.error.required": "Enter an email address or WhatsApp number.",
   "auth.step2.codeLabel": "6-digit code",
   "auth.step2.submit": "Verify",
