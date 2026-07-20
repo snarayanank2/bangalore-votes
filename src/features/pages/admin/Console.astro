@@ -1,0 +1,122 @@
+---
+/**
+ * `/admin` (Task 44, information-architecture.md §6.1) — the admin
+ * console's governance home: a brief overview (curator/admin/pending-EOI
+ * counts) plus navigation to every admin sub-area. Deliberately mostly
+ * navigation, not a dashboard — see `src/lib/admin.ts`'s `loadConsoleStats`
+ * docstring.
+ *
+ * Only "Roles & access" links to a real page today (this task). Manage
+ * users (Task 45), Partners & coverage (Task 46), and Audit log (Task 47)
+ * have no route yet — listed as coming soon rather than linking to a 404
+ * or faking a page, same convention as the Task 34 curator dashboard's
+ * "coming soon" quick links (see src/features/pages/curator/Dashboard.astro).
+ *
+ * No `/kn/` twin (internal tooling, noindex — see AdminLayout's
+ * docstring); rendered in the signed-in admin's own saved `users.language`.
+ */
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Card from '../../../components/Card.astro';
+import { t, type Lang } from '../../../i18n';
+import type { ConsoleStats } from '../../../lib/admin';
+
+interface Props {
+  lang: Lang;
+  stats: ConsoleStats;
+}
+
+const { lang, stats } = Astro.props;
+---
+
+<AdminLayout lang={lang} title={t(lang, 'admin.console.meta.title')} description={t(lang, 'admin.console.meta.description')}>
+  <div class="admin-page">
+    <h1>{t(lang, 'admin.console.heading')}</h1>
+
+    <Card>
+      <h2>{t(lang, 'admin.console.overview.heading')}</h2>
+      <dl class="stat-list">
+        <div>
+          <dt>{t(lang, 'admin.console.overview.curators')}</dt>
+          <dd>{stats.curatorCount}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'admin.console.overview.admins')}</dt>
+          <dd>{stats.adminCount}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'admin.console.overview.pendingEoi')}</dt>
+          <dd>{stats.pendingEoiCount}</dd>
+        </div>
+      </dl>
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'admin.console.nav.heading')}</h2>
+      <ul class="nav-list">
+        <li>
+          <a href="/admin/roles">{t(lang, 'admin.console.nav.roles')}</a>
+        </li>
+        <li class="nav-list-pending">{t(lang, 'admin.console.nav.usersComingSoon')}</li>
+        <li class="nav-list-pending">{t(lang, 'admin.console.nav.partnersComingSoon')}</li>
+        <li class="nav-list-pending">{t(lang, 'admin.console.nav.auditComingSoon')}</li>
+      </ul>
+    </Card>
+  </div>
+</AdminLayout>
+
+<style>
+  .admin-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .admin-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .admin-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .stat-list {
+    margin: 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .stat-list div {
+    display: contents;
+  }
+
+  .stat-list dt {
+    font-weight: 700;
+    color: var(--color-text-muted);
+  }
+
+  .stat-list dd {
+    margin: 0;
+  }
+
+  .nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .nav-list-pending {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+</style>

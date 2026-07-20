@@ -1,0 +1,70 @@
+---
+/**
+ * AdminLayout — the document shell for `/admin/*` (Task 44,
+ * design-system.md §7.13 "Curator and admin surfaces"). Same rationale as
+ * `CuratorLayout.astro` (which this deliberately mirrors rather than
+ * shares a base with, so the two internal-tooling shells can diverge
+ * independently — e.g. an admin-only top-nav — without one editing the
+ * other's file): no `/kn/` twin exists for `/admin/*` routes (internal
+ * tooling, rendered in the signed-in admin's OWN saved `users.language`,
+ * see `src/lib/curator.ts`'s `loadCuratorLang`, reused here), so this is
+ * NOT `src/layouts/Base.astro` (whose language-toggle link assumes a real
+ * `/kn/<path>` twin exists) and skips Base's canonical/hreflang tags and
+ * anonymous-visitor widgets (Register/Login, Flag, Vote modals) — none of
+ * those apply to an already-authenticated admin session.
+ *
+ * `noindex` is unconditional (every admin page always is —
+ * `src/middleware.ts` also stamps `X-Robots-Tag: noindex` as a second
+ * layer, and `/admin` is in its `NOINDEX_PREFIXES` list).
+ */
+import '../styles/global.css';
+import SkipLink from '../components/SkipLink.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+}
+
+const { lang, title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <SkipLink lang={lang} />
+    <header class="admin-bar">
+      <a class="wordmark" href="/admin">{t(lang, 'admin.layout.wordmark')}</a>
+    </header>
+    <main id="main-content">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style>
+  .admin-bar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding-inline: var(--container-pad-x);
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .wordmark {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+</style>

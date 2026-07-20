@@ -1,0 +1,22 @@
+---
+/**
+ * `/admin` — see src/features/pages/admin/Console.astro for the full
+ * explanation. This route twin owns the HTTP concerns a plain component
+ * cannot: no-store (an admin overview must never be cached) and resolving
+ * the render language from the signed-in admin's OWN saved preference (no
+ * `/kn/` twin — see src/layouts/AdminLayout.astro).
+ *
+ * src/middleware.ts already 403s any non-admin session and redirects an
+ * anonymous request to /login before this ever runs.
+ */
+import Console from '../../features/pages/admin/Console.astro';
+import { loadConsoleStats } from '../../lib/admin';
+import { loadCuratorLang } from '../../lib/curator';
+
+const session = Astro.locals.session!;
+const [stats, lang] = await Promise.all([loadConsoleStats(), loadCuratorLang(session.userId)]);
+
+Astro.response.headers.set('cache-control', 'no-store');
+---
+
+<Console lang={lang} stats={stats} />
