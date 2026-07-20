@@ -311,7 +311,19 @@
   "curator.candidateEdit.affidavit.ecUrlHelper": "Must be an official eci.gov.in or ceo.karnataka.gov.in link.",
   "curator.candidateEdit.affidavit.ecUrlSubmit": "Fetch from EC link",
   "curator.candidateEdit.newsLinks.heading": "News links",
-  "curator.candidateEdit.newsLinks.note": "Suggested and approved news links — coming in a later update.",
+  "curator.candidateEdit.newsLinks.existingHeading": "Current links",
+  "curator.candidateEdit.newsLinks.noneYet": "No news links yet.",
+  "curator.candidateEdit.newsLinks.approvedBadge": "Approved",
+  "curator.candidateEdit.newsLinks.suggestedBadge": "Suggested — not yet public",
+  "curator.candidateEdit.newsLinks.approveSubmit": "Approve",
+  "curator.candidateEdit.newsLinks.addHeading": "Add a link",
+  "curator.candidateEdit.newsLinks.urlLabel": "URL",
+  "curator.candidateEdit.newsLinks.titleLabel": "Title",
+  "curator.candidateEdit.newsLinks.addSubmit": "Add link",
+  "curator.candidateEdit.newsLinks.error.titleRequired": "Enter a title for this link.",
+  "curator.candidateEdit.newsLinks.error.urlInvalid": "Enter a valid web link, starting with http:// or https://.",
+  "curator.candidateEdit.newsLinks.error.duplicateUrl": "This link has already been added for this candidate.",
+  "curator.candidateEdit.newsLinks.error.notFound": "That link could not be found for this candidate.",
   "curator.candidateEdit.error.nameRequired": "Enter the candidate's name (English).",
   "curator.candidateEdit.error.partyRequired": "Enter the candidate's party (English).",
   "curator.candidateEdit.error.statusInvalid": "Choose a valid status.",
@@ -465,6 +477,8 @@
     "curator.candidateEdit.wardLine": "Small ward-name line under the H1 on both the edit and new-candidate pages — {ward} is the ward's name in the curator's own saved UI language.",
     "curator.candidateEdit.core.statusWarning": "Static (always-visible, no-JS) warning next to the lifecycle status <select> — a STATUS transition clears the ward's sign-off (architecture §6, PRD §9.1); this is not conditional on JS detecting a change.",
     "curator.candidateEdit.affidavit.note": "Placeholder note where the affidavit upload + AI-extraction UI (Task 37) will mount — this task deliberately does not implement extraction.",
-    "curator.candidateEdit.newsLinks.note": "Placeholder note where the news-links list UI (Task 38) will mount — this task deliberately does not implement it."
+    "curator.candidateEdit.newsLinks.suggestedBadge": "Badge shown next to an auto-suggested (origin 'auto', status 'suggested') news link on the curator editor — signals the link is NOT yet visible to the public until a curator approves it (PRD §5.2: nothing publishes unapproved).",
+    "curator.candidateEdit.newsLinks.existingHeading": "Sub-heading above the list of a candidate's news links (both suggested and approved) on the curator editor.",
+    "curator.candidateEdit.newsLinks.addHeading": "Sub-heading above the 'add a link' form on the curator editor's news-links panel."
   }
 }

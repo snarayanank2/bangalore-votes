@@ -8,7 +8,8 @@
  *   - the SCOPE CHECK (`canEditWard`) against the candidate's ward -> 403
  *     for a curator not scoped to it;
  *   - dispatching the core-edit / per-field POSTs via the hidden
- *     `formAction` field (`core`, or `field:{fieldKey}`), and the resulting
+ *     `formAction` field (`core`, `field:{fieldKey}`, `affidavit`,
+ *     `news_link_add`, `news_link_approve`), and the resulting
  *     redirect/re-render/400 status;
  *   - no-store on every response.
  */
@@ -19,10 +20,13 @@ import {
   handleCandidateAffidavitPublish,
   handleCandidateCorePublish,
   handleCandidateFieldPublish,
+  handleNewsLinkAdd,
+  handleNewsLinkApprove,
   loadCandidateForEdit,
   loadCuratorLang,
   type ReportCardFieldKey,
 } from '../../../lib/curator';
+import { listNewsLinks } from '../../../lib/news';
 
 const session = Astro.locals.session!;
 const actor = { userId: session.userId, role: session.role as 'curator' | 'admin' };
@@ -87,12 +91,34 @@ if (Astro.request.method === 'POST') {
     }
     message = { kind: 'error', key: outcome.key };
     responseStatus = 400;
+  } else if (formAction === 'news_link_add') {
+    const outcome = await handleNewsLinkAdd(actor, candidateId, form);
+    if (outcome.kind === 'saved') {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/curator/candidate/${candidateId}`, 'cache-control': 'no-store' },
+      });
+    }
+    message = { kind: 'error', key: outcome.key };
+    responseStatus = 400;
+  } else if (formAction === 'news_link_approve') {
+    const outcome = await handleNewsLinkApprove(actor, candidateId, form);
+    if (outcome.kind === 'saved') {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/curator/candidate/${candidateId}`, 'cache-control': 'no-store' },
+      });
+    }
+    message = { kind: 'error', key: outcome.key };
+    responseStatus = 400;
   } else {
     return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
   }
 
   candidate = (await loadCandidateForEdit(candidateId))!;
 }
+
+const newsLinks = await listNewsLinks(candidateId);
 
 Astro.response.headers.set('cache-control', 'no-store');
 Astro.response.status = responseStatus;
@@ -105,5 +131,6 @@ Astro.response.status = responseStatus;
   wardNameEn={candidate.wardNameEn}
   wardNameKn={candidate.wardNameKn}
   candidate={candidate}
+  newsLinks={newsLinks}
   message={message}
 />

@@ -31,6 +31,7 @@ import {
   auditLog,
   candidateAffidavits,
   candidateFields,
+  candidateNewsLinks,
   candidates,
   curatorScopes,
   flagItems,
@@ -52,6 +53,7 @@ import { storeMedia, type MediaStoreErrorCode } from './media';
 import { checkDefaultLimit } from './rate-limit';
 import { fetchAffidavitFromEc, type AffidavitFetchErrorCode } from './affidavit-fetch';
 import { extractAffidavitFields } from './extract';
+import { addNewsLink, approveNewsLink } from './news';
 import type { Lang } from '../i18n';
 import type { Role } from './session';
 
@@ -859,4 +861,74 @@ export async function handleCandidateAffidavitPublish(
   }
 
   return { kind: 'saved', extractionFailed };
+}
+
+// ---------------------------------------------------------------------------
+// News links (Task 38; PRD §5.2 "News & coverage"; architecture §7) — the
+// `formAction=news_link_add` / `formAction=news_link_approve` forms on
+// `/curator/candidate/{id}`. The engine (write-time http(s) validation,
+// curator-added-vs-auto-suggested lifecycles, the public `approvedOnly`
+// guard) lives in src/lib/news.ts; these two handlers only own the
+// FormData parsing + the extra scope-hop guard described below.
+// ---------------------------------------------------------------------------
+
+export type NewsLinkOutcome = { kind: 'saved' } | { kind: 'validation_error'; key: string };
+
+/**
+ * Handles the "add a link" form. A curator-added link publishes directly
+ * (src/lib/news.ts's `addNewsLink`) — no approval step. `url`/`title` are
+ * re-validated here for a nicer inline error message; `addNewsLink` itself
+ * re-validates the URL independently regardless (defense in depth — see
+ * its docstring).
+ */
+export async function handleNewsLinkAdd(actor: CuratorActor, candidateId: number, form: FormData): Promise<NewsLinkOutcome> {
+  const url = String(form.get('url') ?? '').trim();
+  const title = String(form.get('title') ?? '').trim();
+
+  if (!title) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.newsLinks.error.titleRequired' };
+  }
+  if (!url || !isHttpUrl(url)) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.newsLinks.error.urlInvalid' };
+  }
+
+  try {
+    await addNewsLink(actor, candidateId, url, title);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'duplicate_url') {
+      return { kind: 'validation_error', key: 'curator.candidateEdit.newsLinks.error.duplicateUrl' };
+    }
+    throw err;
+  }
+
+  return { kind: 'saved' };
+}
+
+/**
+ * Handles the "approve" form on a `suggested` link. `approveNewsLink`
+ * itself trusts its caller on ward-scope (see that function's docstring) —
+ * the SCOPE-HOP GUARD here is what makes that trust safe: the page has
+ * already 403'd for a curator out of scope for `candidateId`'s ward, but
+ * without this extra check a curator could still POST an arbitrary
+ * `linkId` belonging to a DIFFERENT (out-of-scope) candidate alongside
+ * this in-scope candidate's URL. Re-selecting the link and confirming its
+ * `candidateId` matches the page's `candidateId` before calling
+ * `approveNewsLink` closes that gap.
+ */
+export async function handleNewsLinkApprove(actor: CuratorActor, candidateId: number, form: FormData): Promise<NewsLinkOutcome> {
+  const linkId = Number(form.get('linkId'));
+  if (!Number.isInteger(linkId)) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.newsLinks.error.notFound' };
+  }
+
+  const [link] = await db
+    .select({ candidateId: candidateNewsLinks.candidateId })
+    .from(candidateNewsLinks)
+    .where(eq(candidateNewsLinks.id, linkId));
+  if (!link || link.candidateId !== candidateId) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.newsLinks.error.notFound' };
+  }
+
+  await approveNewsLink(actor, linkId);
+  return { kind: 'saved' };
 }
