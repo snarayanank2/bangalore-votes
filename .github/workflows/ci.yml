@@ -17,6 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
+      - run: npm run translate -- --check
       - run: npm run typecheck
       - run: npm run migrate     # no-op until M1; real runner lands in Task 4
       - run: npm test
