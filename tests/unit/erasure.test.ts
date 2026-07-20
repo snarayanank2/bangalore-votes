@@ -406,9 +406,19 @@ describe('src/lib/erasure.ts (Task 45)', () => {
     });
 
     it('matches by exact numeric id', async () => {
+      // Scoped to this test's OWN fixture row rather than asserting the
+      // result array is exactly [searchByEmailId] / reading rows[0]: per
+      // searchUsers' docstring, a numeric query is unioned with substring
+      // matches on email/phone BY DESIGN ("an admin typing digits gets
+      // every row that could plausibly mean"), so other users elsewhere
+      // in the shared test DB whose email/phone happens to contain this
+      // id's digits as a substring can legitimately also match and sort
+      // ahead of it — that's not a bug in searchUsers, so this assertion
+      // must not depend on being the only/first match.
       const rows = await searchUsers(String(searchByEmailId));
-      expect(rows.map((r) => r.id)).toEqual([searchByEmailId]);
-      expect(rows[0]?.homeWardNameEn).toBe(WARD.nameEn);
+      const row = rows.find((r) => r.id === searchByEmailId);
+      expect(row).toBeDefined();
+      expect(row?.homeWardNameEn).toBe(WARD.nameEn);
     });
 
     it('matches by email substring, case-insensitively', async () => {
@@ -422,8 +432,14 @@ describe('src/lib/erasure.ts (Task 45)', () => {
     });
 
     it('includes a flagSubmissionCount (0 for a user with no flags)', async () => {
+      // Same scoping rationale as the "matches by exact numeric id" test
+      // above: find this test's own fixture row rather than assuming it's
+      // rows[0] — an unrelated user elsewhere in the shared test DB whose
+      // email/phone substring-matches this numeric query can legitimately
+      // sort first without affecting THIS user's (correctly zero) count.
       const rows = await searchUsers(String(searchByEmailId));
-      expect(rows[0]?.flagSubmissionCount).toBe(0);
+      const row = rows.find((r) => r.id === searchByEmailId);
+      expect(row?.flagSubmissionCount).toBe(0);
     });
 
     it('returns [] for no match', async () => {
