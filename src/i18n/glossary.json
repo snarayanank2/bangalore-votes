@@ -1,0 +1,18 @@
+{
+  "ward": { "kn": "ವಾರ್ಡ್" },
+  "corporator": { "kn": "ಕಾರ್ಪೊರೇಟರ್", "review": true, "note": "Common transliteration in Kannada media; alternative 'ಪಾಲಿಕೆ ಸದಸ್ಯ' (corporation member) is more literal but less used colloquially — confirm with a native-speaker reviewer." },
+  "affidavit": { "kn": "ಅಫಿಡವಿಟ್" },
+  "report card": { "kn": "ವರದಿ ಪತ್ರ", "note": "Not a literal translation of 'report card' — this is the term for the candidate summary page (architecture §9)." },
+  "polling booth": { "kn": "ಮತಗಟ್ಟೆ" },
+  "electoral roll": { "kn": "ಮತದಾರರ ಪಟ್ಟಿ" },
+  "voter ID": { "kn": "ಮತದಾರರ ಗುರುತಿನ ಚೀಟಿ", "review": true, "note": "Also commonly seen as transliterated 'ವೋಟರ್ ಐಡಿ' in casual usage — confirm which form citizens recognize faster." },
+  "Bengaluru North": { "kn": "ಬೆಂಗಳೂರು ಉತ್ತರ" },
+  "Bengaluru South": { "kn": "ಬೆಂಗಳೂರು ದಕ್ಷಿಣ" },
+  "Bengaluru East": { "kn": "ಬೆಂಗಳೂರು ಪೂರ್ವ" },
+  "Bengaluru West": { "kn": "ಬೆಂಗಳೂರು ಪಶ್ಚಿಮ" },
+  "Bengaluru Central": { "kn": "ಬೆಂಗಳೂರು ಕೇಂದ್ರ", "review": true, "note": "'ಕೇಂದ್ರ' (center) vs 'ಮಧ್ಯ' (middle) — confirm which reads as the official corporation name in Kannada." },
+  "BJP": { "kn": "ಬಿಜೆಪಿ" },
+  "INC": { "kn": "ಕಾಂಗ್ರೆಸ್", "note": "Kannada media refers to the party as 'ಕಾಂಗ್ರೆಸ್' (Congress), not an INC acronym." },
+  "JD(S)": { "kn": "ಜೆಡಿಎಸ್" },
+  "AAP": { "kn": "ಆಪ್", "review": true, "note": "Short transliterated form used in Kannada media; full name 'ಆಮ್ ಆದ್ಮಿ ಪಕ್ಷ' may be preferred on first mention — confirm house style." }
+}

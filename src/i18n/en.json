@@ -1,0 +1,24 @@
+{
+  "nav.signIn": "Sign in",
+  "nav.account": "My account",
+  "footer.about": "About this project",
+  "footer.votingGuide": "Voting guide",
+  "footer.data": "Our data & sources",
+  "footer.partnerWithUs": "Partner with us",
+  "footer.press": "Press",
+  "footer.terms": "Terms of use",
+  "footer.privacy": "Privacy policy",
+  "common.registerForUpdates": "Register for updates",
+  "common.receivingUpdates": "You're receiving updates",
+  "common.flagError": "Flag an error",
+  "common.voteTop3": "Vote your top 3",
+  "common.notDeclared": "Not declared",
+  "common.source.affidavit": "From affidavit",
+  "common.source.curator": "Compiled by our team",
+  "common.source.aiExtracted": "AI-extracted",
+  "__hints": {
+    "common.notDeclared": "Shown in place of a candidate field the candidate has not filled in — neutral, not accusatory.",
+    "common.source.curator": "Distinguish from official/affidavit sources — this is our editorial team's compiled context, not a government document.",
+    "common.flagError": "Action label on the button citizens tap to report incorrect info on any field."
+  }
+}
