@@ -77,6 +77,20 @@ function findAnchorTag(html: string, marker: string): string {
   throw new Error(`findAnchorTag: no <a> tag containing "${marker}" found`);
 }
 
+/**
+ * Extracts each `<li>...</li>` from the VotingGuide `<ol class="step-list">`
+ * structural checklist, in document order — lets a test bind a step's
+ * label text to ITS OWN href (adjacency), not just assert both appear
+ * somewhere on the page (which wouldn't catch a step wired to the wrong
+ * link, e.g. all 6 steps accidentally pointing at the same href).
+ */
+function extractStepListItems(html: string): string[] {
+  const olMatch = html.match(/<ol class="step-list">([\s\S]*?)<\/ol>/);
+  if (!olMatch) throw new Error('extractStepListItems: no <ol class="step-list"> found');
+  const liRe = /<li>([\s\S]*?)<\/li>/g;
+  return [...olMatch[1].matchAll(liRe)].map((m) => m[1]);
+}
+
 function normalize(html: string): string {
   return html
     .replace(/\s+data-astro-cid-\w+/g, '')
@@ -269,6 +283,52 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       }
       const rootLinks = html.match(/href="\/kn\/"/g) ?? [];
       expect(rootLinks.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('each step in the structural checklist binds ITS OWN label to ITS OWN href (EN) — not just "both appear somewhere"', async () => {
+      const { html } = await renderPage(VotingGuide, 'en', '/voting-guide');
+      const items = extractStepListItems(html);
+      expect(items).toHaveLength(6);
+
+      // Ordered [label, href] pairs matching VotingGuide.astro's `steps` array
+      // exactly (src/i18n/en.json `votingGuide.steps.*`).
+      const expected: Array<[string, string]> = [
+        ["Check you", '/check-registration'], // "Check you're on the roll" — split at the apostrophe below.
+        ['Enrol or transfer your registration', '/voting-guide/voter-id'],
+        ['Find your ward', '/'],
+        ['Read about the candidates', '/'],
+        ['Find your booth', '/voting-guide/find-booth'],
+        ['Vote on election day', '/voting-guide/how-to-vote'],
+      ];
+
+      expected.forEach(([label, href], i) => {
+        const li = items[i];
+        expect(li, `step ${i + 1} <li> should contain its own label "${label}"`).toContain(label);
+        expect(li, `step ${i + 1} <li> should link to its own href "${href}"`).toContain(`href="${href}"`);
+      });
+    });
+
+    it('each step in the structural checklist binds ITS OWN label to ITS OWN href (kn) — not just "both appear somewhere"', async () => {
+      const { html } = await renderPage(VotingGuide, 'kn', '/voting-guide');
+      const items = extractStepListItems(html);
+      expect(items).toHaveLength(6);
+
+      // Ordered [label, href] pairs matching VotingGuide.astro's `steps` array
+      // exactly (src/i18n/kn.json `votingGuide.steps.*`).
+      const expected: Array<[string, string]> = [
+        ['ನೀವು ಪಟ್ಟಿಯಲ್ಲಿ ಇದ್ದೀರಾ ಎಂದು ಪರಿಶೀಲಿಸಿ', '/kn/check-registration'],
+        ['ನಿಮ್ಮ ನೋಂದಣಿಯನ್ನು ನೋಂದಾಯಿಸಿ ಅಥವಾ ವರ್ಗಾಯಿಸಿ', '/kn/voting-guide/voter-id'],
+        ['ನಿಮ್ಮ ವಾರ್ಡ್ ಹುಡುಕಿ', '/kn/'],
+        ['ಅಭ್ಯರ್ಥಿಗಳ ಬಗ್ಗೆ ಓದಿ', '/kn/'],
+        ['ನಿಮ್ಮ ಮತಗಟ್ಟೆ ಹುಡುಕಿ', '/kn/voting-guide/find-booth'],
+        ['ಚುನಾವಣೆಯ ದಿನ ಮತ ಚಲಾಯಿಸಿ', '/kn/voting-guide/how-to-vote'],
+      ];
+
+      expected.forEach(([label, href], i) => {
+        const li = items[i];
+        expect(li, `step ${i + 1} <li> should contain its own label "${label}"`).toContain(label);
+        expect(li, `step ${i + 1} <li> should link to its own href "${href}"`).toContain(`href="${href}"`);
+      });
     });
 
     it('renders DeadlineBanner near the steps when roll_deadline is set in the future', async () => {

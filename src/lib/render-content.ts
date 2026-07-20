@@ -49,9 +49,15 @@ function stripHtmlComments(markdown: string): string {
   return markdown.replace(HTML_COMMENT_RE, '');
 }
 
-/** True for a link this renderer should localize: root-relative, not a bare `#fragment`. */
+/**
+ * True for a link this renderer should localize: root-relative, not a bare
+ * `#fragment`, and NOT protocol-relative (`//evil.example.com` starts with
+ * `/` too, but is an external URL — treating it as internal would run it
+ * through `localePath()` and mangle it into `/kn//evil.example.com`-style
+ * nonsense instead of leaving it untouched like any other external href).
+ */
 function isInternalHref(href: string): boolean {
-  return href.startsWith('/');
+  return href.startsWith('/') && !href.startsWith('//');
 }
 
 function buildRenderer(lang: Lang) {

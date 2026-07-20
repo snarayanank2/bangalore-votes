@@ -36,6 +36,14 @@ describe('renderContentHtml (src/lib/render-content.ts)', () => {
     expect(renderContentHtml(md, 'en')).toContain('href="https://example.com/path"');
     expect(renderContentHtml(md, 'kn')).toContain('href="https://example.com/path"');
   });
+
+  it('treats a protocol-relative link (`//example.com`) as external, not internal — never rewritten to /kn//...', () => {
+    const md = '[ext](//example.com/path)';
+    expect(renderContentHtml(md, 'en')).toContain('href="//example.com/path"');
+    const kn = renderContentHtml(md, 'kn');
+    expect(kn).toContain('href="//example.com/path"');
+    expect(kn).not.toContain('/kn//example.com');
+  });
 });
 
 describe('splitMarkdownSections (src/lib/render-content.ts)', () => {
