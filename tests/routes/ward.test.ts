@@ -163,23 +163,27 @@ describe('Ward result page (/ward/{id}, /kn/ward/{id}) — IA §3.2, PRD §5.1',
   });
 
   describe('WardMap island + no-JS fallback', () => {
-    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, and MeSlot scripts (Tasks 27/28/32/33) — no others', async () => {
+    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, MeSlot, and ?src attribution scripts (Tasks 27/28/32/33/49) — no others', async () => {
       const html = normalize(await (await renderWard('en', WARD.id)).text());
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
       // See tests/routes/home.test.ts's equivalent assertion — every page
       // now also carries Base.astro's global Register/Login modal, Flag
       // modal (Task 32, src/components/FlagModal.astro), Vote modal (Task
-      // 33, src/components/VoteModal.astro), and MeSlot (Task 28,
-      // src/islands/MeSlot.ts) scripts.
-      expect(scriptOpenTags).toHaveLength(5);
-      for (const tag of scriptOpenTags) {
-        expect(tag).toMatch(/type="module"/);
-      }
+      // 33, src/components/VoteModal.astro), MeSlot (Task 28,
+      // src/islands/MeSlot.ts), and the inline `?src` attribution writer
+      // (Task 49, src/lib/attribution.ts — deliberately not type="module",
+      // architecture §13) scripts.
+      expect(scriptOpenTags).toHaveLength(6);
+      const moduleScripts = scriptOpenTags.filter((tag) => tag.includes('type="module"'));
+      const inlineScripts = scriptOpenTags.filter((tag) => !tag.includes('type="module"'));
+      expect(moduleScripts).toHaveLength(5);
+      expect(inlineScripts).toHaveLength(1);
       expect(html).toMatch(/Ward\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
       expect(html).toMatch(/FlagModal\.astro\?astro&type=script/);
       expect(html).toMatch(/VoteModal\.astro\?astro&type=script/);
       expect(html).toMatch(/Base\.astro\?astro&type=script/);
+      expect(html).toMatch(/bv_src/);
     });
 
     it('renders the map container with the boundary URL and a no-JS fallback text', async () => {

@@ -50,6 +50,19 @@
  * (this component's own script) wires it to this one dialog. Same
  * cache-safety note: self-contained, dialog always starts closed, never
  * reads cookies/session.
+ *
+ * The `?src` attribution cookie writer (Task 49, architecture §5/§13, PRD
+ * §5.12) is rendered ONCE here too, in `<head>`, on every page —
+ * `src/lib/attribution.ts#ATTRIBUTION_SCRIPT_SOURCE`, one of exactly two
+ * CSP-allowed nonce'd inline scripts (the other is GA, Task 62). The
+ * server never reads `?src` or branches the page on it (the cache key
+ * ignores the query string entirely); the script reads `location.search`
+ * client-side and writes the `bv_src` cookie the registration endpoint
+ * later reads. This is the one place this layout's markup embeds a
+ * per-request value (`Astro.locals.cspNonce`, from `src/middleware.ts`) —
+ * still cache-safe: nginx's microcache stores the whole response
+ * (headers + body) as one unit, so a cached page's baked-in nonce always
+ * matches that same cached response's CSP header.
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
@@ -59,6 +72,7 @@ import RegisterLoginModal from '../components/RegisterLoginModal.astro';
 import FlagModal from '../components/FlagModal.astro';
 import VoteModal from '../components/VoteModal.astro';
 import { localePath, type Lang } from '../i18n';
+import { ATTRIBUTION_SCRIPT_SOURCE } from '../lib/attribution';
 
 interface Props {
   lang: Lang;
@@ -90,6 +104,15 @@ const enHref = new URL(localePath('en', path), siteOrigin).href;
 const knHref = new URL(localePath('kn', path), siteOrigin).href;
 const ogImageHref = ogImage ? new URL(ogImage, siteOrigin).href : undefined;
 const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
+
+// Per-request CSP nonce (architecture §13, src/middleware.ts) for the ONE
+// of the two allowed inline scripts rendered below (the other is GA, Task
+// 62). This does NOT break this layout's cache-safety: nginx's microcache
+// stores the full response (headers + body) as one unit per the TTL window
+// (architecture §5), so every visitor served from a given cache entry gets
+// the SAME nonce in both the cached CSP header and this cached markup —
+// they never need to match a freshly-generated value on a cache HIT.
+const cspNonce = Astro.locals.cspNonce;
 ---
 
 <!doctype html>
@@ -97,6 +120,16 @@ const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      ?src attribution cookie writer (architecture §5/§13, PRD §5.12) —
+      src/lib/attribution.ts. Runs first, in <head>, before any interaction.
+      Reads location.search client-side ONLY; the server never branches on
+      ?src, so this markup (aside from the nonce attribute itself, see
+      cspNonce above) is identical for every visitor — the query-blind
+      nginx cache is safe. One of exactly two CSP-allowed inline scripts
+      (the other is GA, Task 62); no unsafe-inline.
+    -->
+    <script nonce={cspNonce} is:inline set:html={ATTRIBUTION_SCRIPT_SOURCE} />
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
