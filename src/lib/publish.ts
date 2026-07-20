@@ -22,16 +22,17 @@ export type PublishCandidateFieldInput = {
  * caller that must publish a field atomically alongside other writes of its
  * own (Task 31's `resolveFlag` — publish the field AND mark the flag item
  * accepted in one transaction) can do so without nesting a second top-level
- * `db.transaction()`. Returns the field's id; does NOT kick off translation
- * — that only happens once the whole transaction has actually committed
- * (see `publishCandidateField` below), otherwise a rolled-back publish
- * could still enqueue a translation for a field that was never written.
+ * `db.transaction()`. Returns the field's id (candidate_fields.id); does NOT
+ * kick off translation — that only happens once the whole transaction has
+ * actually committed (see `publishCandidateField` below, and Task 31's
+ * `resolveFlag` accept path), otherwise a rolled-back publish could still
+ * enqueue a translation for a field that was never written.
  */
 export async function publishCandidateFieldTx(
   tx: Tx,
   actor: Actor,
   input: PublishCandidateFieldInput,
-): Promise<number> {
+): Promise<{ id: number }> {
   const [existing] = await tx
     .select()
     .from(candidateFields)
@@ -114,7 +115,7 @@ export async function publishCandidateFieldTx(
     sourceUrl: input.sourceUrl,
   });
 
-  return field.id;
+  return { id: field.id };
 }
 
 /**
@@ -130,7 +131,7 @@ export async function publishCandidateFieldTx(
  * the Task 31 tx-refactor.
  */
 export async function publishCandidateField(actor: Actor, input: PublishCandidateFieldInput): Promise<void> {
-  const fieldId = await db.transaction((tx) => publishCandidateFieldTx(tx, actor, input));
+  const { id: fieldId } = await db.transaction((tx) => publishCandidateFieldTx(tx, actor, input));
 
   translateFieldSoon({ table: 'candidate_fields', id: fieldId });
 }

@@ -189,7 +189,7 @@ export const flagItems = pgTable('flag_items', {          // deduped queue item 
   resolvedBy: integer('resolved_by'),
   resolvedAt: timestamp('resolved_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-}, (t) => [uniqueIndex('flag_dedupe_uq').on(t.targetRef, t.status)]);
+}, (t) => [uniqueIndex('flag_dedupe_uq').on(t.targetRef).where(sql`status = 'pending'`)]);
 
 export const flagSubmissions = pgTable('flag_submissions', {
   id: serial('id').primaryKey(),

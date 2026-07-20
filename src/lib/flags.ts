@@ -5,16 +5,20 @@
  *
  * DEDUPE (PRD §6.3): "multiple flags on the same field collapse into ONE
  * queue item with a count; resolving resolves every collapsed flag at
- * once, same outcome + reason". The schema encodes this as a partial
- * unique index, `flag_dedupe_uq` on `(target_ref, status)` — at most one
- * PENDING `flag_items` row per `target_ref` at any time. Every citizen
- * submission for the same `targetRef` finds-or-creates that one pending
- * item and appends its own `flag_submissions` row; the item's submission
- * count IS the "count" the queue UI shows. Because the unique index is
- * scoped to `(target_ref, status)` rather than `target_ref` alone, a fresh
- * flag on a target whose prior item was already resolved (accepted or
- * rejected) opens a brand-new pending item — the resolved item and the
- * new pending one coexist; resolution history is never overwritten.
+ * once, same outcome + reason". The schema encodes this as a PARTIAL
+ * unique index, `flag_dedupe_uq` on `target_ref` WHERE `status = 'pending'`
+ * — at most one PENDING `flag_items` row per `target_ref` at any time, but
+ * any number of already-resolved (accepted/rejected) rows for that same
+ * `target_ref` are allowed to coexist (a full composite index on
+ * `(target_ref, status)` would wrongly also forbid two rows sharing the
+ * SAME non-pending status, e.g. a second reject after flag→reject→flag→
+ * reject on the same target). Every citizen submission for the same
+ * `targetRef` finds-or-creates that one pending item and appends its own
+ * `flag_submissions` row; the item's submission count IS the "count" the
+ * queue UI shows. A fresh flag on a target whose prior item was already
+ * resolved (accepted or rejected) opens a brand-new pending item — the
+ * resolved item(s) and the new pending one coexist; resolution history is
+ * never overwritten.
  *
  * RACE (two submitters flagging the same never-before-flagged target at
  * the same instant): both find no pending row and both attempt to INSERT
@@ -34,6 +38,7 @@ import { flagItems, flagSubmissions } from '../db/schema';
 import { writeAudit, type Tx } from './audit';
 import { isUniqueViolation } from './db-errors';
 import { publishCandidateFieldTx, type PublishCandidateFieldInput } from './publish';
+import { translateFieldSoon } from './translate-runtime';
 
 export type FlagTargetType = 'candidate_field' | 'ward_field' | 'ward_issue';
 
@@ -146,13 +151,33 @@ export async function submitFlag(userId: number, input: SubmitFlagInput): Promis
  * once (PRD §6.3) — the outcome/reason lives on `flag_items`, and every
  * `flag_submissions` row for this item points at it, so there is no
  * per-submission update to make.
+ *
+ * RE-RESOLVE GUARD: an item can only be resolved once. The transaction
+ * opens by re-selecting the flag_item row `FOR UPDATE` — this locks the
+ * row against any concurrent resolveFlag call on the same id for the
+ * duration of the transaction, and lets us assert `status === 'pending'`
+ * BEFORE doing any publish work. If the item is no longer pending (already
+ * accepted or rejected — including by a call that's racing us and wins the
+ * lock first), this throws `flag_already_resolved` and rolls back: no
+ * publish, no audit write, no status flip. Without this, two concurrent
+ * accepts on the same item could both publish (double-publish), or an
+ * accept followed by a reject could flip an already-published item's
+ * status to `rejected` while leaving the publish in place. The UPDATE
+ * statements additionally carry `status = 'pending'` in their WHERE clause
+ * as defense in depth (belt-and-suspenders alongside the row lock).
  */
 export async function resolveFlag(
   actor: { userId: number; role: 'curator' | 'admin' },
   flagItemId: number,
   resolution: ResolveFlagResolution,
 ): Promise<void> {
-  await db.transaction(async (tx) => {
+  const publishedFieldId = await db.transaction(async (tx) => {
+    const [item] = await tx.select().from(flagItems).where(eq(flagItems.id, flagItemId)).for('update');
+
+    if (!item || item.status !== 'pending') {
+      throw new Error('flag_already_resolved');
+    }
+
     if (resolution.accept) {
       // Task 31 scope: accept only supports candidate_field targets, via
       // the shared publish core. ward_field/ward_issue accept-publish
@@ -160,7 +185,7 @@ export async function resolveFlag(
       // resolution.publish's target type, once those publish helpers
       // exist) — this is not a runtime branch yet because there is only
       // one publish path to call.
-      await publishCandidateFieldTx(tx, actor, resolution.publish);
+      const { id: fieldId } = await publishCandidateFieldTx(tx, actor, resolution.publish);
 
       await tx
         .update(flagItems)
@@ -170,29 +195,39 @@ export async function resolveFlag(
           resolvedBy: actor.userId,
           resolvedAt: new Date(),
         })
-        .where(eq(flagItems.id, flagItemId));
-    } else {
-      const [item] = await tx.select().from(flagItems).where(eq(flagItems.id, flagItemId));
+        .where(and(eq(flagItems.id, flagItemId), eq(flagItems.status, 'pending')));
 
-      await tx
-        .update(flagItems)
-        .set({
-          status: 'rejected',
-          resolutionReason: resolution.reason,
-          resolvedBy: actor.userId,
-          resolvedAt: new Date(),
-        })
-        .where(eq(flagItems.id, flagItemId));
-
-      await writeAudit(tx, {
-        actor,
-        action: 'flag_reject',
-        entityType: 'flag',
-        entityId: String(flagItemId),
-        wardId: item?.wardId ?? null,
-        oldValue: item ? { status: item.status } : null,
-        newValue: { status: 'rejected', reason: resolution.reason },
-      });
+      return fieldId;
     }
+
+    await tx
+      .update(flagItems)
+      .set({
+        status: 'rejected',
+        resolutionReason: resolution.reason,
+        resolvedBy: actor.userId,
+        resolvedAt: new Date(),
+      })
+      .where(and(eq(flagItems.id, flagItemId), eq(flagItems.status, 'pending')));
+
+    await writeAudit(tx, {
+      actor,
+      action: 'flag_reject',
+      entityType: 'flag',
+      entityId: String(flagItemId),
+      wardId: item.wardId,
+      oldValue: { status: item.status },
+      newValue: { status: 'rejected', reason: resolution.reason },
+    });
+
+    return null;
   });
+
+  // Mirrors publishCandidateField: only fire the (fire-and-forget)
+  // translation kickoff once the transaction has actually committed, and
+  // only on the accept path (a reject never publishes anything to
+  // translate).
+  if (publishedFieldId !== null) {
+    translateFieldSoon({ table: 'candidate_fields', id: publishedFieldId });
+  }
 }

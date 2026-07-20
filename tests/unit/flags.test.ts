@@ -1,11 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../../src/db/schema';
-import { submitFlag, resolveFlag } from '../../src/lib/flags';
 import { randomUUID } from 'node:crypto';
+
+vi.mock('../../src/lib/translate-runtime', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/lib/translate-runtime')>();
+  return { ...actual, translateFieldSoon: vi.fn() };
+});
+
+import { translateFieldSoon } from '../../src/lib/translate-runtime';
+import { submitFlag, resolveFlag } from '../../src/lib/flags';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -265,7 +272,7 @@ describe('flags.ts — deduped flag queue + transactional resolution (Task 31)',
     }
   });
 
-  it('a NEW flag on a previously-REJECTED targetRef opens a fresh pending item (partial unique index on (targetRef,status))', async () => {
+  it('a NEW flag on a previously-REJECTED targetRef opens a fresh pending item (partial unique index on targetRef WHERE status=pending)', async () => {
     const targetRef = targetRefFor('education');
 
     const original = await submitFlag(submitterAId, {
@@ -350,5 +357,154 @@ describe('flags.ts — deduped flag queue + transactional resolution (Task 31)',
       .from(schema.flagSubmissions)
       .where(eq(schema.flagSubmissions.flagItemId, a.flagItemId));
     expect(submissions).toHaveLength(2);
+  });
+
+  it('flag -> reject -> flag -> reject (TWO full reject cycles on the same targetRef) does not 23505 (partial index fix)', async () => {
+    const targetRef = targetRefFor('double_reject_cycle');
+
+    const round1 = await submitFlag(submitterAId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'First round concern.',
+    });
+    await resolveFlag({ userId: 4204, role: 'admin' }, round1.flagItemId, {
+      accept: false,
+      reason: 'Checked once, claim stands.',
+    });
+
+    // Second full cycle on the SAME targetRef: with the old FULL composite
+    // unique index on (target_ref, status), this second reject would try
+    // to insert a second (targetRef, 'rejected') row and hit an unhandled
+    // 23505 — that's the bug this fix closes.
+    const round2 = await submitFlag(submitterBId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'Second round, raised again.',
+    });
+    expect(round2.flagItemId).not.toBe(round1.flagItemId);
+
+    await expect(
+      resolveFlag({ userId: 4204, role: 'admin' }, round2.flagItemId, {
+        accept: false,
+        reason: 'Checked again, still stands.',
+      }),
+    ).resolves.toBeUndefined();
+
+    const items = await db.select().from(schema.flagItems).where(eq(schema.flagItems.targetRef, targetRef));
+    expect(items).toHaveLength(2);
+    const first = items.find((i) => i.id === round1.flagItemId);
+    const second = items.find((i) => i.id === round2.flagItemId);
+    expect(first!.status).toBe('rejected');
+    expect(second!.status).toBe('rejected');
+    expect(second!.resolutionReason).toBe('Checked again, still stands.');
+  });
+
+  it('double resolveFlag ACCEPT on the same item: the second call throws and does NOT publish a second time', async () => {
+    const targetRef = targetRefFor('double_accept');
+
+    const { flagItemId } = await submitFlag(submitterAId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'Approachability claim is stale.',
+    });
+
+    const publishInput = {
+      candidateId,
+      fieldKey: 'approachability',
+      valueEn: 'Holds a weekly ward clinic.',
+      sourceUrl: 'https://example.org/approachability-source',
+      sourceType: 'curator' as const,
+      authoredLang: 'en' as const,
+    };
+
+    await resolveFlag({ userId: 4205, role: 'curator' }, flagItemId, { accept: true, publish: publishInput });
+
+    const auditRowsAfterFirst = await db
+      .select()
+      .from(schema.auditLog)
+      .where(and(eq(schema.auditLog.entityType, 'candidate_field'), eq(schema.auditLog.entityId, `${candidateId}:approachability`)));
+    const publishCountAfterFirst = auditRowsAfterFirst.filter((r) => r.action === 'publish').length;
+    expect(publishCountAfterFirst).toBe(1);
+
+    await expect(
+      resolveFlag({ userId: 4205, role: 'curator' }, flagItemId, { accept: true, publish: publishInput }),
+    ).rejects.toThrow('flag_already_resolved');
+
+    const auditRowsAfterSecond = await db
+      .select()
+      .from(schema.auditLog)
+      .where(and(eq(schema.auditLog.entityType, 'candidate_field'), eq(schema.auditLog.entityId, `${candidateId}:approachability`)));
+    const publishCountAfterSecond = auditRowsAfterSecond.filter((r) => r.action === 'publish').length;
+    expect(publishCountAfterSecond).toBe(publishCountAfterFirst);
+
+    const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, flagItemId));
+    expect(item!.status).toBe('accepted');
+  });
+
+  it('resolveFlag on an already-rejected item throws and does not change state', async () => {
+    const targetRef = targetRefFor('resolve_after_reject');
+
+    const { flagItemId } = await submitFlag(submitterAId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'Some concern.',
+    });
+
+    await resolveFlag({ userId: 4206, role: 'admin' }, flagItemId, {
+      accept: false,
+      reason: 'Verified, claim stands.',
+    });
+
+    await expect(
+      resolveFlag({ userId: 4206, role: 'admin' }, flagItemId, {
+        accept: false,
+        reason: 'Trying to re-resolve.',
+      }),
+    ).rejects.toThrow('flag_already_resolved');
+
+    const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, flagItemId));
+    expect(item!.status).toBe('rejected');
+    expect(item!.resolutionReason).toBe('Verified, claim stands.');
+  });
+
+  it('resolveFlag ACCEPT calls translateFieldSoon({table:"candidate_fields", id}) after the transaction commits', async () => {
+    const targetRef = targetRefFor('translate_parity');
+
+    const { flagItemId } = await submitFlag(submitterAId, {
+      wardId: WARD_ID,
+      targetType: 'candidate_field',
+      targetRef,
+      detail: 'Cases claim needs updating.',
+    });
+
+    vi.mocked(translateFieldSoon).mockClear();
+
+    await resolveFlag(
+      { userId: 4207, role: 'curator' },
+      flagItemId,
+      {
+        accept: true,
+        publish: {
+          candidateId,
+          fieldKey: 'cases_translate_parity',
+          valueEn: 'No pending cases as of this term.',
+          sourceUrl: 'https://example.org/cases-source',
+          sourceType: 'curator',
+          authoredLang: 'en',
+        },
+      },
+    );
+
+    const [field] = await db
+      .select()
+      .from(schema.candidateFields)
+      .where(and(eq(schema.candidateFields.candidateId, candidateId), eq(schema.candidateFields.fieldKey, 'cases_translate_parity')));
+
+    expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(translateFieldSoon)).toHaveBeenCalledWith({ table: 'candidate_fields', id: field!.id });
   });
 });
