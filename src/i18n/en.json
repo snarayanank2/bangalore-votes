@@ -57,6 +57,15 @@
   "ward.links.candidates": "Candidates in this ward",
   "ward.links.issues": "Ward issues & voting",
   "ward.notFound.fact": "Ward not found.",
+  "ward.issues.meta.title": "{wardName} — Ward issues & voting",
+  "ward.issues.meta.description": "Local issues, candidate stances, and citizen voting results for {wardName}.",
+  "ward.issues.subheading": "Issues & voting",
+  "ward.issues.empty.fact": "Issues for this ward have not been added yet.",
+  "ward.issues.empty.nextStep": "Check back closer to the nomination period — curators are compiling the key issues for this ward.",
+  "ward.issues.list.label": "Ward issues",
+  "ward.issues.item.stancesLabel": "Candidate stances",
+  "ward.issues.results.label": "Citizen issue-vote results",
+  "ward.issues.results.heading": "How residents rank these issues",
   "__hints": {
     "common.notDeclared": "Shown in place of a candidate field the candidate has not filled in — neutral, not accusatory.",
     "common.source.curator": "Distinguish from official/affidavit sources — this is our editorial team's compiled context, not a government document.",
@@ -91,6 +100,15 @@
     "ward.links.label": "aria-label on the ward result page's nav of links to the candidates/issues/voting-guide subpages.",
     "ward.links.candidates": "Link label on the ward result page to /ward/{id}/candidates (IA §3.3).",
     "ward.links.issues": "Link label on the ward result page to /ward/{id}/issues (IA §3.6).",
-    "ward.notFound.fact": "Defensive-only fallback fact (EmptyState) if Ward.astro is ever reached with an id its own route twin failed to 404 for — not a path any test exercises (the twins 404 first)."
+    "ward.notFound.fact": "Defensive-only fallback fact (EmptyState) if Ward.astro is ever reached with an id its own route twin failed to 404 for — not a path any test exercises (the twins 404 first).",
+    "ward.issues.meta.title": "Browser tab title for the ward issues page (/ward/{id}/issues); {wardName} is the ward's name in the page's own language.",
+    "ward.issues.meta.description": "Meta description for the ward issues page.",
+    "ward.issues.subheading": "Small label under the ward name on the ward issues page H1, matching the ward result page's corporation-label treatment.",
+    "ward.issues.empty.fact": "EmptyState fact when a ward has no curator-defined issues yet (PRD §13.1 Phase 1 — issues/voting ship before candidate data).",
+    "ward.issues.empty.nextStep": "EmptyState next-step text paired with ward.issues.empty.fact.",
+    "ward.issues.list.label": "aria-label on the ward issues page's list of curator-defined issues.",
+    "ward.issues.item.stancesLabel": "aria-label on the list of candidate stances shown under each issue (IA §3.6) — omitted when an issue has no stances yet.",
+    "ward.issues.results.label": "aria-label on the public issue-vote results section (IssueBars) — ranked order with percentage shares only, no raw counts (PRD §5.5).",
+    "ward.issues.results.heading": "Visible heading above the public issue-vote results (IssueBars)."
   }
 }

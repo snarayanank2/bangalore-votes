@@ -76,7 +76,16 @@
     "ward.links.label": "350c8668fd539d08732d768a53335834632a6fce048ba8c436364ddbcc1528e5",
     "ward.links.candidates": "7ee8c946225f7c0bebc62cd839bb7d0aaec12e06e997fa0b0da767e293eff5f1",
     "ward.links.issues": "f3e9ec51d5b86da075300638a0a67bac48cd5690623857eb2b39815e5261729f",
-    "ward.notFound.fact": "0a9c0d871927e037e81a4394389a17f26e46468acb7e538c9348c89fba40dac8"
+    "ward.notFound.fact": "0a9c0d871927e037e81a4394389a17f26e46468acb7e538c9348c89fba40dac8",
+    "ward.issues.meta.title": "1da74ca403057d517e94dbfd45be4d5eee1817eda539f3662464ccfcb96d6c73",
+    "ward.issues.meta.description": "09e7667cedde7f571474074b0604f2d43fbc1f729c5931864ce1f3e8353c94d2",
+    "ward.issues.subheading": "83077a416935edaafbd4e6787fe335ebf2608252a7f1b29fa2e0559dc0b4a9e9",
+    "ward.issues.empty.fact": "6b26328b1283ea0fd31f0a62eb0b50474911f36c48586abe2f3cacee2c1f170b",
+    "ward.issues.empty.nextStep": "93f77e26e5e6903d1617e1b48f9cd4a92eb4dfbf8509d3162d53fd196618cc13",
+    "ward.issues.list.label": "e292d7a2b424e13c8f76c7743c2aa0b59a3bad059a0372b2d886fc742d71f324",
+    "ward.issues.item.stancesLabel": "6e2652d6203c65dcdc75c2f1efdc25e8f845131270cf4a0633e42f2681cfa883",
+    "ward.issues.results.label": "2e1d82ac77d584467d49a04a9f2cc806a1d49aa8c75b2c890c54b9d9e1e49be4",
+    "ward.issues.results.heading": "ee66d54c77e5a9b5a1b4b719a90490020ac12b0fb163d59b766b8ea75591098a"
   },
   "common.deadlineBanner.defaultLabel": "ನೋಂದಣಿ ಮುಚ್ಚಲು ಇನ್ನು",
   "common.deadlineBanner.daysLeft": "{days} ದಿನಗಳು ಬಾಕಿ",
@@ -116,5 +125,14 @@
   "ward.links.label": "ಈ ವಾರ್ಡ್ ಕುರಿತು ಹೆಚ್ಚಿನ ಮಾಹಿತಿ",
   "ward.links.candidates": "ಈ ವಾರ್ಡ್‌ನಲ್ಲಿ ಅಭ್ಯರ್ಥಿಗಳು",
   "ward.links.issues": "ವಾರ್ಡ್ ಸಮಸ್ಯೆಗಳು ಮತ್ತು ಮತದಾನ",
-  "ward.notFound.fact": "ವಾರ್ಡ್ ಕಂಡುಬಂದಿಲ್ಲ."
+  "ward.notFound.fact": "ವಾರ್ಡ್ ಕಂಡುಬಂದಿಲ್ಲ.",
+  "ward.issues.meta.title": "{wardName} — ವಾರ್ಡ್ ಸಮಸ್ಯೆಗಳು ಮತ್ತು ಮತದಾನ",
+  "ward.issues.meta.description": "{wardName} ಗಾಗಿ ಸ್ಥಳೀಯ ಸಮಸ್ಯೆಗಳು, ಅಭ್ಯರ್ಥಿಗಳ ನಿಲುವುಗಳು ಮತ್ತು ನಾಗರಿಕರ ಮತದಾನ ಫಲಿತಾಂಶಗಳು.",
+  "ward.issues.subheading": "ಸಮಸ್ಯೆಗಳು ಮತ್ತು ಮತದಾನ",
+  "ward.issues.empty.fact": "ಈ ವಾರ್ಡ್‌ಗಾಗಿ ಸಮಸ್ಯೆಗಳನ್ನು ಇನ್ನೂ ಸೇರಿಸಲಾಗಿಲ್ಲ.",
+  "ward.issues.empty.nextStep": "ನಾಮಪತ್ರ ಸಲ್ಲಿಕೆ ಅವಧಿ ಹತ್ತಿರವಾದಾಗ ಮತ್ತೆ ಪರಿಶೀಲಿಸಿ — ಕ್ಯುರೇಟರ್‌ಗಳು ಈ ವಾರ್ಡ್‌ನ ಪ್ರಮುಖ ಸಮಸ್ಯೆಗಳನ್ನು ಸಂಗ್ರಹಿಸುತ್ತಿದ್ದಾರೆ.",
+  "ward.issues.list.label": "ವಾರ್ಡ್ ಸಮಸ್ಯೆಗಳು",
+  "ward.issues.item.stancesLabel": "ಅಭ್ಯರ್ಥಿಗಳ ನಿಲುವುಗಳು",
+  "ward.issues.results.label": "ನಾಗರಿಕರ ಸಮಸ್ಯೆ-ಮತದಾನ ಫಲಿತಾಂಶಗಳು",
+  "ward.issues.results.heading": "ನಿವಾಸಿಗಳು ಈ ಸಮಸ್ಯೆಗಳನ್ನು ಹೇಗೆ ಶ್ರೇಣೀಕರಿಸುತ್ತಾರೆ"
 }
