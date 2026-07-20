@@ -1,0 +1,43 @@
+---
+/**
+ * 500 — generic server-error page, Task 23. Astro's custom error page is a
+ * single top-level file (no localized twin the framework will actually
+ * invoke on an unhandled SSR error — unlike 404, i18n routing doesn't
+ * extend to this one), so this is EN-only per the task brief.
+ *
+ * DEPENDENCY-LIGHT BY DESIGN: this page must still render correctly if the
+ * failure that got a visitor here was a database outage or a settings-read
+ * failure — so, unlike every other page in this repo, it deliberately does
+ * NOT import the database client, the database schema, or the app-settings
+ * reader. Only Base (styles/app-bar/footer) + i18n's in-memory string
+ * tables + static hrefs. tests/routes/error-pages.test.ts asserts this
+ * structurally by grepping this file's own source for those imports.
+ */
+import Base from '../layouts/Base.astro';
+import EmptyState from '../components/EmptyState.astro';
+import Button from '../components/Button.astro';
+import { t, localePath } from '../i18n';
+
+const title = t('en', 'error.serverError.title');
+const body = t('en', 'error.serverError.body');
+
+Astro.response.status = 500;
+---
+
+<Base lang="en" title={title} description={body} path="/500" noindex={true}>
+  <EmptyState fact={title} nextStep={body}>
+    <div class="links">
+      <Button variant="primary" href={localePath('en', '/')} lang="en">
+        {t('en', 'error.backHome')}
+      </Button>
+    </div>
+  </EmptyState>
+</Base>
+
+<style>
+  .links {
+    display: flex;
+    justify-content: center;
+    margin-block-start: var(--space-4);
+  }
+</style>

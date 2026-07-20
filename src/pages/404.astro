@@ -1,0 +1,22 @@
+---
+/**
+ * 404 (EN) — thin route twin over src/features/pages/NotFound.astro (see
+ * src/features/pages/README.md). Astro auto-invokes this file for any
+ * unmatched EN route, AND a dynamic route that ends its own request early
+ * with `return new Response(null, { status: 404 })` (e.g.
+ * src/pages/ward/[id].astro) falls through to this page for its body.
+ *
+ * Astro special-cases a top-level src/pages/404.astro to already respond
+ * 404 for its own genuinely-unmatched-URL case, but NOT for the
+ * `new Response(null, { status: 404 })` fallthrough case above — that
+ * inbound Response's status is what the client actually sees; this page's
+ * own `Astro.response.status` assignment below only affects requests
+ * where Astro renders 404.astro directly. Setting it explicitly here makes
+ * the intent unambiguous either way and costs nothing.
+ */
+import NotFound from '../features/pages/NotFound.astro';
+
+Astro.response.status = 404;
+---
+
+<NotFound lang="en" />

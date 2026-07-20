@@ -1,0 +1,65 @@
+---
+/**
+ * Friendly 404 (`/404`, `/kn/404`) — Task 23.
+ *
+ * The actual HTTP 404 status is set by the two thin route twins
+ * (src/pages/404.astro, src/pages/kn/404.astro), NOT here — a component
+ * rendered as a page's slot child can't end the response with a custom
+ * status (see src/pages/ward/[id].astro's header comment for the same
+ * rule). This component is purely the visitor-facing content: a short
+ * "we couldn't find that page" message plus three helpful links back
+ * (Home, Voting guide, Check registration) so a dead/stale link doesn't
+ * strand a citizen.
+ *
+ * CACHE-SAFETY / robustness: no DB, no app_settings, no cookie/session
+ * read — only Base + static i18n strings + static hrefs, so this page
+ * renders fine even during a DB outage and is safe under the anonymous
+ * micro-cache. noindex is always on (Base's noindex prop) — a 404 page
+ * must never be indexed.
+ *
+ * hreflang: Base's default alternates are kept (not suppressed) — the
+ * fixed path "/404" isn't a real page a search engine could reach as a
+ * canonical destination anyway, and noindex already keeps this page (and
+ * its alternates) out of the index, so there's no separate case to guard
+ * here. See the task-23 report for this explicit call.
+ */
+import Base from '../../layouts/Base.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import Button from '../../components/Button.astro';
+import { t, localePath, type Lang } from '../../i18n';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+
+const title = t(lang, 'error.notFound.title');
+const body = t(lang, 'error.notFound.body');
+---
+
+<Base lang={lang} title={title} description={body} path="/404" noindex={true}>
+  <EmptyState fact={title} nextStep={body}>
+    <div class="links">
+      <Button variant="primary" href={localePath(lang, '/')} lang={lang}>
+        {t(lang, 'error.backHome')}
+      </Button>
+      <Button variant="secondary" href={localePath(lang, '/voting-guide')} lang={lang}>
+        {t(lang, 'footer.votingGuide')}
+      </Button>
+      <Button variant="secondary" href={localePath(lang, '/check-registration')} lang={lang}>
+        {t(lang, 'home.shortcuts.checkRegistration.title')}
+      </Button>
+    </div>
+  </EmptyState>
+</Base>
+
+<style>
+  .links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-3);
+    margin-block-start: var(--space-4);
+  }
+</style>

@@ -86,6 +86,11 @@
   "ward.issues.results.label": "Citizen issue-vote results",
   "ward.issues.results.heading": "How residents rank these issues",
   "legal.courtesyNote": "This is a courtesy translation. The English version of this page is the legally controlling text.",
+  "error.notFound.title": "Page not found",
+  "error.notFound.body": "We couldn't find that page. It may have been moved, or the link may be out of date.",
+  "error.serverError.title": "Something went wrong",
+  "error.serverError.body": "We're having trouble loading this page right now. Please try again in a moment.",
+  "error.backHome": "Back to home",
   "__hints": {
     "common.opensInNewTab": "aria-label on the external-link glyph next to a guided link-out button (design-system.md §7.13) — the glyph itself, not visually-hidden companion text.",
     "common.officialLinkPending": "Visible note shown next to a guided link-out button whose official URL has not been filled into app_settings yet (dependency register §4.8) — never invent a URL, show this instead.",
@@ -149,6 +154,11 @@
     "ward.issues.item.stancesLabel": "aria-label on the list of candidate stances shown under each issue (IA §3.6) — omitted when an issue has no stances yet.",
     "ward.issues.results.label": "aria-label on the public issue-vote results section (IssueBars) — ranked order with percentage shares only, no raw counts (PRD §5.5).",
     "ward.issues.results.heading": "Visible heading above the public issue-vote results (IssueBars).",
-    "legal.courtesyNote": "Courtesy-translation notice (PRD §5.16) shown ONLY on the Kannada /terms and /privacy pages, never on English or /about — states the English version of the legal page is the legally controlling text and the Kannada version is a courtesy translation. Rendered as a notice Banner at the top of the page."
+    "legal.courtesyNote": "Courtesy-translation notice (PRD §5.16) shown ONLY on the Kannada /terms and /privacy pages, never on English or /about — states the English version of the legal page is the legally controlling text and the Kannada version is a courtesy translation. Rendered as a notice Banner at the top of the page.",
+    "error.notFound.title": "Task 23 — <title> and EmptyState 'fact' on the friendly 404 page (/404, /kn/404). Also used as the page's meta description alongside error.notFound.body, matching the ward.notFound.fact pattern.",
+    "error.notFound.body": "EmptyState 'next-step' text on the 404 page, under error.notFound.title.",
+    "error.serverError.title": "Task 23 — <title> and EmptyState 'fact' on the generic 500 error page (/500) — this page must render with zero DB/settings dependency, so keep this static and short.",
+    "error.serverError.body": "EmptyState 'next-step' text on the 500 page, under error.serverError.title.",
+    "error.backHome": "Link label back to '/' from both the 404 and 500 pages."
   }
 }

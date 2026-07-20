@@ -1,0 +1,11 @@
+---
+/**
+ * 404 (KN) — see src/pages/404.astro's header comment; Astro serves this
+ * twin for unmatched routes under /kn/.
+ */
+import NotFound from '../../features/pages/NotFound.astro';
+
+Astro.response.status = 404;
+---
+
+<NotFound lang="kn" />

@@ -172,7 +172,17 @@
     "votingGuide.steps.readCandidates": "f5f8a01149f7473e9515929c09f8a4fb8ab6ee903e6c419274382e051a5b32a1",
     "votingGuide.steps.findBooth": "d850e25f02d2ed49d48b2247aa3bda036e4f90c383c0c244c303a63290803cb2",
     "votingGuide.steps.vote": "56ec54219990c36e070522ce666505333d15412d2d969857c3550ccc7cedcf19",
-    "legal.courtesyNote": "4ca44437691438ff4e8e6a454889ab859bc74eaa07da43f9a06ddbec90b76516"
+    "legal.courtesyNote": "4ca44437691438ff4e8e6a454889ab859bc74eaa07da43f9a06ddbec90b76516",
+    "error.notFound.title": "a469ab4ca4e55bf547566e9ebfa1b809c933207e9d558156bc0c4252b17533fe",
+    "error.notFound.body": "e19c62dc1654776cb6e71817ea93d204176bb414dbde4accff15049cbcfc7ad9",
+    "error.serverError.title": "ab827e3fe17da220a9a652087a35d20adda002aa4df887c5d813b2b1e95228f9",
+    "error.serverError.body": "e85de4467755a4419347728b1f3905f39bd552b4fc0979ef5847fa46644d9393",
+    "error.backHome": "76c5505ff2e27ef40a7fd1df3c1ee5bfbbffb1dc240e00ba1ec64ef9234743f9"
   },
-  "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ."
+  "legal.courtesyNote": "ಇದು ಸೌಜನ್ಯ ಅನುವಾದವಾಗಿದೆ. ಈ ಪುಟದ ಇಂಗ್ಲಿಷ್ ಆವೃತ್ತಿಯು ಕಾನೂನುಬದ್ಧವಾಗಿ ನಿಯಂತ್ರಿಸುವ ಪಠ್ಯವಾಗಿದೆ.",
+  "error.notFound.title": "ಪುಟ ಕಂಡುಬಂದಿಲ್ಲ",
+  "error.notFound.body": "ಆ ಪುಟವನ್ನು ನಮಗೆ ಕಂಡುಹಿಡಿಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ. ಅದನ್ನು ಬೇರೆಡೆಗೆ ಸ್ಥಳಾಂತರಿಸಿರಬಹುದು, ಅಥವಾ ಲಿಂಕ್ ಹಳೆಯದಾಗಿರಬಹುದು.",
+  "error.serverError.title": "ಏನೋ ತಪ್ಪಾಗಿದೆ",
+  "error.serverError.body": "ಈ ಪುಟವನ್ನು ಈಗ ಲೋಡ್ ಮಾಡುವಲ್ಲಿ ನಮಗೆ ತೊಂದರೆಯಾಗುತ್ತಿದೆ. ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯದ ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
+  "error.backHome": "ಮುಖಪುಟಕ್ಕೆ ಹಿಂತಿರುಗಿ"
 }
