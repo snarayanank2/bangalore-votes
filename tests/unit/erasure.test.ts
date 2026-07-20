@@ -429,5 +429,42 @@ describe('src/lib/erasure.ts (Task 45)', () => {
     it('returns [] for no match', async () => {
       expect(await searchUsers('nobody-erasure-test-search@example.com')).toEqual([]);
     });
+
+    it('escapes ilike wildcards: literal % in search does not match broadly', async () => {
+      // Create two users: one with % in email, one without
+      const userId1 = await upsertUser('search-with-percent%@example.com');
+      const userId2 = await upsertUser('search-without-percent@example.com');
+      extraFixtureIds.push(userId1, userId2);
+
+      // Searching for literal '%' should only match the user with % in their email
+      const results = await searchUsers('%');
+      const matchedIds = results.map((r) => r.id);
+      expect(matchedIds).toContain(userId1);
+      expect(matchedIds).not.toContain(userId2);
+    });
+
+    it('escapes ilike wildcards: literal _ in search does not match broadly', async () => {
+      // Create two users: one with _ in email, one without
+      const userId1 = await upsertUser('search_with_underscore@example.com');
+      const userId2 = await upsertUser('searchwithoutunderscore@example.com');
+      extraFixtureIds.push(userId1, userId2);
+
+      // Searching for literal '_' should only match the user with _ in their email
+      const results = await searchUsers('_');
+      const matchedIds = results.map((r) => r.id);
+      expect(matchedIds).toContain(userId1);
+      expect(matchedIds).not.toContain(userId2);
+    });
+
+    it('escapes ilike wildcards: literal backslash in search is handled correctly', async () => {
+      // Create a user with backslash in email (unlikely but test defensively)
+      const userId1 = await upsertUser('search\\backslash@example.com');
+      extraFixtureIds.push(userId1);
+
+      // Searching for literal backslash should match that user
+      const results = await searchUsers('\\');
+      const matchedIds = results.map((r) => r.id);
+      expect(matchedIds).toContain(userId1);
+    });
   });
 });

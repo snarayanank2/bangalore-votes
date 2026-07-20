@@ -88,7 +88,7 @@
  * when it was created), but deleting on every ban call, not just once, is
  * what actually removes the row rather than leaving a dead one behind.
  */
-import { and, eq, ilike, inArray, or, sql } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { flagSubmissions, otpCodes, sessions, users, wards } from '../db/schema';
 import { writeAudit, type Tx } from './audit';
@@ -296,7 +296,14 @@ export async function searchUsers(queryRaw: string): Promise<UserSearchRow[]> {
   const query = queryRaw.trim();
   if (!query) return [];
 
-  const conditions = [ilike(users.email, `%${query}%`), ilike(users.phone, `%${query}%`)];
+  // Escape ilike wildcards: backslash must be escaped first, then % and _
+  const escapedQuery = query.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
+  const pattern = `%${escapedQuery}%`;
+
+  const conditions = [
+    sql`${users.email} ILIKE ${pattern} ESCAPE '\\'`,
+    sql`${users.phone} ILIKE ${pattern} ESCAPE '\\'`,
+  ];
   if (/^\d+$/.test(query)) {
     conditions.push(eq(users.id, Number(query)));
   }

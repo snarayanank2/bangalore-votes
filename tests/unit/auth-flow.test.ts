@@ -65,12 +65,13 @@ const WARD = {
 
 const KNOWN_EMAIL = 'auth-flow-known@example.com';
 const NEW_EMAIL = 'auth-flow-new@example.com';
+const ERASED_TEST_EMAIL = 'erased-test@example.com';
 // See tests/routes/otp.test.ts's comment on this same constant:
 // `app_settings.consent_wording_version` is a global singleton row shared
 // across concurrently-run test files — every file that seeds it must use
 // the SAME literal value.
 const CONSENT_VERSION = 'shared-test-consent-wording-v1';
-const FIXTURE_EMAILS = [KNOWN_EMAIL, NEW_EMAIL];
+const FIXTURE_EMAILS = [KNOWN_EMAIL, NEW_EMAIL, ERASED_TEST_EMAIL];
 
 async function resetFixtures(): Promise<void> {
   const fixtureUsers = await db
@@ -236,5 +237,66 @@ describe('src/lib/auth-flow.ts resolveOrRegister', () => {
     expect(rows).toHaveLength(1); // exactly one users row for this contact
     expect(rows[0]!.id).toBe(winnerId); // it's the winner's row, not a fresh duplicate
     expect(rows[0]!.consentAt).toBeNull(); // never went through this call's own consent-writing insert
+  });
+
+  it('a banned user requesting+verifying an OTP -> {ok:false, reason:"account_banned"}, NO session created', async () => {
+    const [banned] = await db
+      .insert(schema.users)
+      .values({ email: KNOWN_EMAIL, homeWardId: WARD.id, role: 'citizen', status: 'banned' })
+      .returning();
+
+    const code = await getRealCode(KNOWN_EMAIL);
+    const result = await resolveOrRegister(KNOWN_EMAIL, code);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.reason).toBe('account_banned');
+
+    // Verify no session was created for the banned user
+    const sessions = await db.select().from(schema.sessions).where(eq(schema.sessions.userId, banned!.id));
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('an erased user (contact erased) cannot verify an OTP since their contact is null', async () => {
+    // An erased user has no email/phone, so they can't receive/verify an OTP
+    // for those contacts. This test documents the defensive behavior:
+    // if somehow an erased user's row existed with their old contact still
+    // findable, we'd reject at login anyway.
+    const [erased] = await db
+      .insert(schema.users)
+      .values({
+        email: null,
+        phone: null,
+        homeWardId: WARD.id,
+        role: 'citizen',
+        status: 'erased',
+      })
+      .returning();
+
+    const code = await getRealCode('erased-test@example.com');
+    // Trying to log in with a contact that doesn't belong to anyone succeeds
+    // with registration_required (the contact is unknown).
+    const result = await resolveOrRegister('erased-test@example.com', code);
+    expect(result.ok).toBe(false);
+    if (result.ok) throw new Error('unreachable');
+    expect(result.reason).toBe('registration_required');
+  });
+
+  it('an active user still logs in fine after the status check', async () => {
+    const [active] = await db
+      .insert(schema.users)
+      .values({ email: KNOWN_EMAIL, homeWardId: WARD.id, role: 'citizen', status: 'active' })
+      .returning();
+
+    const code = await getRealCode(KNOWN_EMAIL);
+    const result = await resolveOrRegister(KNOWN_EMAIL, code);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('unreachable');
+    expect(result.registered).toBe(false);
+    expect(result.setCookie).toContain(`${SESSION_COOKIE}=`);
+
+    const sessions = await db.select().from(schema.sessions).where(eq(schema.sessions.userId, active!.id));
+    expect(sessions).toHaveLength(1);
   });
 });

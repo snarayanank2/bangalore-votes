@@ -38,7 +38,7 @@ export interface RegisterPayload {
 }
 
 export type ResolveOrRegisterResult =
-  | { ok: false; reason: 'expired' | 'invalid' | 'locked' }
+  | { ok: false; reason: 'expired' | 'invalid' | 'locked' | 'account_banned' }
   | { ok: false; reason: 'registration_required' }
   | { ok: true; registered: boolean; setCookie: string };
 
@@ -74,6 +74,9 @@ export async function resolveOrRegister(
   if (!verified.ok) return verified;
 
   if (existing) {
+    if (existing.status !== 'active') {
+      return { ok: false, reason: 'account_banned' };
+    }
     const session = await createSession(existing.id);
     return { ok: true, registered: false, setCookie: session.setCookie };
   }
@@ -111,6 +114,9 @@ export async function resolveOrRegister(
       // login for the winner rather than a duplicate or a 500.
       const winner = await findUserByContact(destination);
       if (winner) {
+        if (winner.status !== 'active') {
+          return { ok: false, reason: 'account_banned' };
+        }
         const session = await createSession(winner.id);
         return { ok: true, registered: false, setCookie: session.setCookie };
       }
