@@ -624,19 +624,23 @@ async function parseCandidateCoreForm(
  * the ward's sign-off atomically IF `status` actually changed (see that
  * function's docstring) — this handler doesn't need to know or care which
  * case applies.
+ *
+ * INVARIANT: status is validated BEFORE parseCandidateCoreForm runs, so an
+ * invalid status → 400 with NO media row created and NO rate-limit consumed.
  */
 export async function handleCandidateCorePublish(
   actor: CuratorActor,
   candidateId: number,
   form: FormData,
 ): Promise<CandidateCoreOutcome> {
-  const parsed = await parseCandidateCoreForm(actor, form);
-  if (!parsed.ok) return { kind: 'validation_error', key: parsed.key };
-
+  // Validate status FIRST, before any expensive operations like photo storage
   const status = String(form.get('status') ?? '') as CandidateStatus;
   if (!CANDIDATE_STATUSES.includes(status)) {
     return { kind: 'validation_error', key: 'curator.candidateEdit.error.statusInvalid' };
   }
+
+  const parsed = await parseCandidateCoreForm(actor, form);
+  if (!parsed.ok) return { kind: 'validation_error', key: parsed.key };
 
   await publishCandidateCore(actor, {
     candidateId,

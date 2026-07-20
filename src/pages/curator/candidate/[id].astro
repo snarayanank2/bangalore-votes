@@ -29,12 +29,12 @@ const actor = { userId: session.userId, role: session.role as 'curator' | 'admin
 const idParam = Astro.params.id;
 const candidateId = Number(idParam);
 if (!idParam || !Number.isInteger(candidateId)) {
-  return new Response(null, { status: 404 });
+  return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
 }
 
 let candidate = await loadCandidateForEdit(candidateId);
 if (!candidate) {
-  return new Response(null, { status: 404 });
+  return new Response(null, { status: 404, headers: { 'cache-control': 'no-store' } });
 }
 
 const inScope = await canEditWard(session.userId, session.role, candidate.wardId);

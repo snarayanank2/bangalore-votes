@@ -23,7 +23,7 @@ import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import * as schema from '../../src/db/schema';
 import { SESSION_COOKIE, createSession } from '../../src/lib/session';
@@ -474,6 +474,36 @@ describe('/curator/candidate/{id}, /curator/candidate/new (Task 36) — IA §5.4
       const [after] = await db.select().from(schema.candidates).where(eq(schema.candidates.id, candidateA));
       expect(after?.nameEn).toBe(before?.nameEn);
       expect(after?.photoMediaId).toBe(before?.photoMediaId);
+    });
+
+    it('a valid photo with an INVALID status -> 400, no media row created, no rate-limit consumed (orphaned-media invariant)', async () => {
+      const [before] = await db.select().from(schema.candidates).where(eq(schema.candidates.id, candidateA));
+      const [mediaCountBefore] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.media);
+
+      const form = coreForm(
+        { nameEn: 'Should Not Apply Either', partyEn: 'Independent', status: 'bogus' },
+        curatorAuth.token,
+      );
+      form.set('photo', new File([PNG_BYTES], 'photo.png', { type: 'image/png' }));
+
+      const res = await run(CandidateEditRoute, `/curator/candidate/${candidateA}`, {
+        method: 'POST',
+        cookieValue: curatorAuth.cookieValue,
+        params: { id: String(candidateA) },
+        form,
+      });
+      expect(res.status).toBe(400);
+
+      const [after] = await db.select().from(schema.candidates).where(eq(schema.candidates.id, candidateA));
+      expect(after?.nameEn).toBe(before?.nameEn);
+      expect(after?.photoMediaId).toBe(before?.photoMediaId);
+
+      const [mediaCountAfter] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.media);
+      expect(mediaCountAfter?.count).toBe(mediaCountBefore?.count);
     });
   });
 
