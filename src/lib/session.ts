@@ -72,7 +72,6 @@ function resolveSessionSecret(): string {
     );
   }
 
-  // eslint-disable-next-line no-console -- intentional, one-time, loud dev warning
   console.warn(
     '[session] SESSION_SECRET is not set; using a fixed, publicly-known ' +
       'development secret. This is INSECURE and must never happen in ' +
