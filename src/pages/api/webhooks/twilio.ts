@@ -1,0 +1,118 @@
+/**
+ * POST /api/webhooks/twilio — Twilio status/inbound-message webhook.
+ *
+ * Two things this endpoint does, both gated on a verified `X-Twilio-Signature`:
+ *  - inbound opt-out keywords (STOP/STOPALL/UNSUBSCRIBE/CANCEL/END/QUIT) on
+ *    the WhatsApp `Body` -> permanent `whatsapp` suppression for the sender
+ *    (architecture.md §7 "suppressions honoured before every send").
+ *  - delivery-status callbacks (`MessageStatus`/`SmsStatus`) -> logged only,
+ *    never a suppression write.
+ *
+ * AUTH: signature only, no session/CSRF (Task 53; middleware exempts
+ * `/api/webhooks/*`, see src/middleware.ts). Twilio's request-signing
+ * scheme: HMAC-SHA1, base64-encoded, keyed by `TWILIO_AUTH_TOKEN`, over the
+ * exact public URL Twilio was configured to POST to, with every POST
+ * param — sorted alphabetically by name — appended as `name` + `value`
+ * (no separators) directly onto that URL string. Compared to the
+ * `X-Twilio-Signature` header with `crypto.timingSafeEqual`.
+ *
+ * URL RECONSTRUCTION / DEPLOYMENT ASSUMPTION: Twilio signs the URL it was
+ * literally configured with, so we must reconstruct that exact string
+ * server-side. Behind nginx (Task 62 sets `X-Forwarded-Proto`), we build
+ * `${proto}://${host}${pathname}` from `X-Forwarded-Proto` (falling back to
+ * `https`) and the `Host` header, plus `new URL(request.url).pathname` for
+ * the path. THIS ONLY MATCHES IF THE TWILIO CONSOLE'S CONFIGURED WEBHOOK
+ * URL IS EXACTLY `https://<host><pathname>` with NO query string — Task
+ * 62/63 nginx config and the Twilio console webhook URL must agree on this
+ * (no trailing slash mismatch, no `?extra=params` appended in the console).
+ *
+ * FAIL-CLOSED (security-critical): missing/empty `TWILIO_AUTH_TOKEN`,
+ * missing `X-Twilio-Signature` header, or a computed signature that
+ * doesn't match (including a length mismatch, checked before
+ * `timingSafeEqual` so it never throws) -> 403, nothing written.
+ */
+import type { APIRoute } from 'astro';
+import crypto from 'node:crypto';
+import { addSuppression } from '../../../lib/suppressions';
+import { normalizeDestination } from '../../../lib/otp';
+import { logEvent } from '../../../lib/log';
+
+const SIGNATURE_HEADER = 'x-twilio-signature';
+
+const NO_STORE = { 'cache-control': 'no-store' } as const;
+
+const STOP_KEYWORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
+
+function forbidden(): Response {
+  return new Response(null, { status: 403, headers: NO_STORE });
+}
+
+function ok(): Response {
+  return new Response(null, { status: 200, headers: NO_STORE });
+}
+
+/** Reconstructs the public URL Twilio was configured with — see module docstring. */
+function reconstructUrl(request: Request): string {
+  const proto = request.headers.get('x-forwarded-proto') ?? 'https';
+  const host = request.headers.get('host') ?? '';
+  const pathname = new URL(request.url).pathname;
+  return `${proto}://${host}${pathname}`;
+}
+
+function expectedSignature(authToken: string, url: string, params: URLSearchParams): string {
+  const sortedNames = [...params.keys()].sort();
+  let signedString = url;
+  for (const name of sortedNames) {
+    signedString += name + (params.get(name) ?? '');
+  }
+  return crypto.createHmac('sha1', authToken).update(signedString, 'utf8').digest('base64');
+}
+
+function signaturesMatch(expected: string, actual: string): boolean {
+  const expectedBuf = Buffer.from(expected, 'utf8');
+  const actualBuf = Buffer.from(actual, 'utf8');
+  if (expectedBuf.length !== actualBuf.length) return false;
+  return crypto.timingSafeEqual(expectedBuf, actualBuf);
+}
+
+export const POST: APIRoute = async ({ request }) => {
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const signatureHeader = request.headers.get(SIGNATURE_HEADER);
+
+  if (!authToken || !signatureHeader) {
+    return forbidden();
+  }
+
+  const formData = await request.formData();
+  const params = new URLSearchParams();
+  for (const [key, value] of formData.entries()) {
+    if (typeof value === 'string') params.append(key, value);
+  }
+
+  const url = reconstructUrl(request);
+  const expected = expectedSignature(authToken, url, params);
+
+  if (!signaturesMatch(expected, signatureHeader)) {
+    return forbidden();
+  }
+
+  const body = params.get('Body');
+  if (body !== null && STOP_KEYWORDS.has(body.trim().toUpperCase())) {
+    const from = params.get('From') ?? '';
+    const stripped = from.startsWith('whatsapp:') ? from.slice('whatsapp:'.length) : from;
+    const normalized = normalizeDestination(stripped);
+    if (normalized) {
+      await addSuppression(normalized, 'whatsapp', 'stop');
+    }
+    return ok();
+  }
+
+  const status = params.get('MessageStatus') ?? params.get('SmsStatus');
+  if (status !== null) {
+    // PRIVACY: never log the contact — only the opaque delivery status.
+    logEvent('whatsapp_delivery_status', { status });
+    return ok();
+  }
+
+  return ok();
+};
