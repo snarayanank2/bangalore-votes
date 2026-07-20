@@ -210,8 +210,23 @@ export async function requestOtp(
  * destination; `null` there means "new contact, take the registration
  * path"). Never throws on a bad/absent/expired/locked code — those are
  * ordinary `{ok:false, reason}` results.
+ *
+ * `opts.consume` (default `true`): whether a CORRECT match marks the code
+ * consumed. The Register/Login flow (Task 27, `src/lib/auth-flow.ts`'s
+ * `resolveOrRegister`) calls this twice for an unknown contact: once to
+ * decide known-vs-unknown (`consume: false` — a "peek", since the client's
+ * confirm step is about to resubmit the exact same code moments later with
+ * the registration payload) and once to actually finish the flow
+ * (`consume: true`). A WRONG code always increments `attempts` regardless
+ * of `consume` — that counter protects against guessing, not replay, and
+ * must advance on every peek exactly like a real attempt.
  */
-export async function verifyOtp(destinationRaw: string, code: string): Promise<VerifyOtpResult> {
+export async function verifyOtp(
+  destinationRaw: string,
+  code: string,
+  opts?: { consume?: boolean },
+): Promise<VerifyOtpResult> {
+  const consume = opts?.consume ?? true;
   const destination = normalizeDestination(destinationRaw);
 
   const [row] = await db
@@ -233,6 +248,8 @@ export async function verifyOtp(destinationRaw: string, code: string): Promise<V
     return { ok: false, reason: newAttempts >= MAX_VERIFY_ATTEMPTS ? 'locked' : 'invalid' };
   }
 
-  await db.update(otpCodes).set({ consumedAt: new Date() }).where(eq(otpCodes.id, row.id));
+  if (consume) {
+    await db.update(otpCodes).set({ consumedAt: new Date() }).where(eq(otpCodes.id, row.id));
+  }
   return { ok: true, userId: row.userId ?? null };
 }

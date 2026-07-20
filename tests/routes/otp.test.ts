@@ -53,7 +53,14 @@ const RACE_EMAIL = 'otp-route-race@example.com';
 // the LOWERCASE form (what actually lands in `users.email`).
 const MIXED_CASE_EMAIL = 'MixedCase.OtpRoute.User@Example.com';
 const MIXED_CASE_EMAIL_LOWER = MIXED_CASE_EMAIL.toLowerCase();
-const CONSENT_VERSION = 'otp-route-test-consent-v1';
+// `app_settings.consent_wording_version` is a GLOBAL singleton row (one
+// key, one value) — every test file that seeds it in `beforeAll` upserts
+// the SAME row, and vitest runs test files concurrently, so every file
+// touching this key must agree on one shared literal (never a
+// per-file-unique value) or whichever file's `beforeAll` runs last wins,
+// intermittently failing the others. Shared with tests/unit/auth-flow.test.ts
+// and tests/routes/login.test.ts (Task 27) — keep all three in sync.
+const CONSENT_VERSION = 'shared-test-consent-wording-v1';
 const FIXTURE_EMAILS = [KNOWN_EMAIL, UNKNOWN_EMAIL, RACE_EMAIL, MIXED_CASE_EMAIL_LOWER];
 
 function req(path: string, body: unknown): Request {

@@ -365,7 +365,11 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(externalLinks.length).toBe(2);
       expect(html).toContain('Fill Form 6 online');
       expect(html).toContain('Fill Form 8 online');
-      expect((html.match(/rel="noopener noreferrer"/g) ?? []).length).toBe(2);
+      // Every page also carries Base.astro's global Register/Login modal
+      // (Task 27), whose step-3 consent sentence links to /terms and
+      // /privacy with the SAME rel — so the page-wide count is these two
+      // guided link-out buttons PLUS those two, not just 2.
+      expect((html.match(/rel="noopener noreferrer"/g) ?? []).length).toBe(4);
     });
 
     it('renders DeadlineBanner when roll_deadline is set in the future', async () => {
@@ -429,11 +433,12 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(kn.html).toContain('<form method="post" action="/kn/voting-guide/find-booth"');
     });
 
-    it('emits exactly one <script> tag — the BoothLookup island', async () => {
+    it('emits its own BoothLookup island script, plus Base.astro\'s global Register/Login modal script (Task 27) — no others', async () => {
       const { html } = await renderPage(FindBooth, 'en', '/voting-guide/find-booth');
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
-      expect(scriptOpenTags).toHaveLength(1);
+      expect(scriptOpenTags).toHaveLength(2);
       expect(html).toMatch(/FindBooth\.astro\?astro&type=script/);
+      expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
     });
 
     it('the always-visible guided link-out to the official EC booth finder is present on a plain GET (no-JS fallback)', async () => {

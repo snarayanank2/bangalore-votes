@@ -110,15 +110,19 @@ describe('Home page (/, /kn/) — IA §3.1, PRD §5.1/§5.7', () => {
       expect(knHtml).toContain(`<link rel="alternate" hreflang="kn" href="${SITE_ORIGIN}/kn/">`);
     });
 
-    it('emits exactly one <script> tag — the WardLookup island', async () => {
+    it('emits its own WardLookup island script, plus Base.astro\'s global Register/Login modal script (Task 27) — no others', async () => {
       const html = await renderHome('en');
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
-      expect(scriptOpenTags).toHaveLength(1);
-      // Dev-mode/container rendering emits a `src`-referenced module (for
-      // HMR) rather than inlining the bundled script — either way it must
-      // point at this page's own WardLookup island, not some other script.
-      expect(scriptOpenTags[0]).toMatch(/type="module"/);
+      // Every module script must be one of these two globally-expected
+      // sources: this page's own WardLookup island, or the Register/Login
+      // modal Base.astro renders on every page (src/components/
+      // RegisterLoginModal.astro) — never a stray/unexpected third script.
+      expect(scriptOpenTags).toHaveLength(2);
+      for (const tag of scriptOpenTags) {
+        expect(tag).toMatch(/type="module"/);
+      }
       expect(html).toMatch(/Home\.astro\?astro&type=script/);
+      expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
     });
   });
 

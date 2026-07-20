@@ -1,0 +1,33 @@
+---
+/**
+ * `/kn/login` — Kannada twin, see src/pages/login.astro for the full
+ * explanation.
+ */
+import Login from '../../features/pages/Login.astro';
+import { handleLoginPost, initialLoginState, type LoginRenderState } from '../../lib/login-flow';
+
+let state: LoginRenderState = initialLoginState(Astro.url.searchParams.get('next'));
+
+if (Astro.request.method === 'POST') {
+  Astro.response.headers.set('cache-control', 'no-store');
+
+  const form = await Astro.request.formData();
+  const srcAttribution = Astro.cookies.get('bv_src')?.value ?? null;
+  const outcome = await handleLoginPost(form, srcAttribution);
+
+  if (outcome.kind === 'redirect') {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: outcome.location,
+        'Set-Cookie': outcome.setCookie,
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  state = outcome.state;
+}
+---
+
+<Login lang="kn" state={state} />

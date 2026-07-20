@@ -49,6 +49,7 @@ const D = {
   verifyAttempts: 'otp-unit-verify-attempts@example.com',
   verifyExpired: 'otp-unit-verify-expired@example.com',
   verifyUnknown: 'otp-unit-verify-unknown@example.com',
+  verifyPeek: 'otp-unit-verify-peek@example.com',
 };
 
 const ALL_DESTINATIONS = Object.values(D);
@@ -322,6 +323,29 @@ describe('src/lib/otp.ts', () => {
     it('an unknown destination (no otp_codes rows at all) -> {ok:false, reason:"invalid"}', async () => {
       const result = await verifyOtp(D.verifyUnknown, '555555');
       expect(result).toEqual({ ok: false, reason: 'invalid' });
+    });
+
+    it('{consume:false} ("peek", Task 27 auth-flow.ts) matches the code but leaves it unconsumed, so a SECOND verify with the same code still succeeds', async () => {
+      const code = '666666';
+      await insertFixtureRow({ destination: D.verifyPeek, code });
+
+      const peek = await verifyOtp(D.verifyPeek, code, { consume: false });
+      expect(peek).toEqual({ ok: true, userId: null });
+
+      const [row] = await rowsFor(D.verifyPeek);
+      expect(row!.consumedAt).toBeNull(); // NOT consumed by the peek
+
+      // The default (consume:true) call finalizes it — same code, still valid.
+      const final = await verifyOtp(D.verifyPeek, code);
+      expect(final).toEqual({ ok: true, userId: null });
+
+      const [rowAfter] = await rowsFor(D.verifyPeek);
+      expect(rowAfter!.consumedAt).not.toBeNull();
+
+      // A THIRD call with the same (now-consumed) code fails: there is no
+      // longer an unconsumed row for this destination.
+      const third = await verifyOtp(D.verifyPeek, code);
+      expect(third).toEqual({ ok: false, reason: 'invalid' });
     });
   });
 

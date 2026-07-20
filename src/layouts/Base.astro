@@ -15,11 +15,21 @@
  * visitor and safe for nginx's anonymous-page micro-cache. The Sign-in
  * control (in AppBar) always renders the anonymous state; Task 29's
  * MeSlot island swaps it client-side for signed-in visitors.
+ *
+ * The Register/Login modal (Task 27, IA §7.1) is rendered ONCE here, on
+ * every page, so it's always reachable from the AppBar's "Sign in" control
+ * and from any ward page's "Register for updates" slot without each of
+ * those pages needing to know about it. Its own markup/behavior are
+ * self-contained (src/components/RegisterLoginModal.astro,
+ * src/islands/RegisterLoginModal.ts); it never changes the server-rendered
+ * HTML per visitor (the dialog always starts closed), so it doesn't affect
+ * this layout's cache-safety.
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
 import AppBar from '../components/AppBar.astro';
 import Footer from '../components/Footer.astro';
+import RegisterLoginModal from '../components/RegisterLoginModal.astro';
 import { localePath, type Lang } from '../i18n';
 
 interface Props {
@@ -113,5 +123,6 @@ const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
       <slot />
     </main>
     <Footer lang={lang} />
+    <RegisterLoginModal lang={lang} />
   </body>
 </html>

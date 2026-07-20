@@ -1,0 +1,219 @@
+---
+/**
+ * `/login` (`/kn/login`) — information-architecture.md §7.1, PRD §10.
+ *
+ * The NO-JS / deep-link fallback for the Register/Login modal
+ * (src/islands/RegisterLoginModal.ts) — a real server-rendered multi-step
+ * `<form>` doing the SAME flow with standard POSTs. Purely presentational:
+ * all step-dispatch/account-resolution logic lives in
+ * src/lib/login-flow.ts (`handleLoginPost`/`initialLoginState`), called by
+ * the route twins (src/pages/login.astro, src/pages/kn/login.astro) — a
+ * redirect on success can only happen at the page level (see
+ * src/pages/ward/[id].astro's header comment for why), so this component
+ * never attempts one; it only ever renders one of the three steps.
+ *
+ * Each step's `<form>` carries the values the NEXT step needs as hidden
+ * fields — `next` (already validated same-origin-relative), and for step 2
+ * `destination`/`channel`, and for step 3 those plus the OTP `code` itself
+ * (reused per `resolveOrRegister`'s peek-then-consume contract,
+ * src/lib/auth-flow.ts) — so the flow survives a fully stateless
+ * request/response cycle with no session yet to lean on.
+ *
+ * Step 3 has NO separate "I am 18 or older" checkbox and no separate
+ * consent checkbox: PRD §10 makes registering itself the consent act, and
+ * the required 18+ assertion is part of the consent SENTENCE, not a
+ * checkbox. The ONE checkbox on this page is the optional,
+ * unchecked-by-default "future civic tools" opt-in.
+ *
+ * noindex: true belt-and-braces (src/middleware.ts already sends
+ * X-Robots-Tag: noindex for every /login response).
+ */
+import Base from '../../layouts/Base.astro';
+import FormField from '../../components/FormField.astro';
+import Button from '../../components/Button.astro';
+import Banner from '../../components/Banner.astro';
+import { t, localePath, type Lang } from '../../i18n';
+import type { LoginRenderState } from '../../lib/login-flow';
+
+interface Props {
+  lang: Lang;
+  state: LoginRenderState;
+}
+
+const { lang, state } = Astro.props;
+const errorText = state.error ? t(lang, state.error) : undefined;
+---
+
+<Base
+  lang={lang}
+  title={t(lang, 'auth.meta.title')}
+  description={t(lang, 'auth.meta.description')}
+  path="/login"
+  noindex={true}
+>
+  <div class="login-page">
+    <h1>{t(lang, 'auth.modal.title')}</h1>
+
+    {errorText && (
+      <Banner kind="error" lang={lang}>
+        {errorText}
+      </Banner>
+    )}
+
+    {
+      state.step === 1 && (
+        <form method="post" novalidate>
+          <input type="hidden" name="step" value="1" />
+          <input type="hidden" name="next" value={state.next} />
+          <FormField label={t(lang, 'auth.step1.contactLabel')} name="destination" type="text" required lang={lang} />
+          <p class="helper">{t(lang, 'auth.step1.helper')}</p>
+          <Button type="submit" variant="primary" lang={lang}>
+            {t(lang, 'auth.step1.submit')}
+          </Button>
+        </form>
+      )
+    }
+
+    {
+      state.step === 2 && (
+        <form method="post" novalidate>
+          <input type="hidden" name="step" value="2" />
+          <input type="hidden" name="next" value={state.next} />
+          <input type="hidden" name="destination" value={state.destination} />
+          <input type="hidden" name="channel" value={state.channel} />
+          <p>{t(lang, 'auth.step1.sent')}</p>
+          <div class="form-field">
+            <label class="form-label" for="login-code">
+              {t(lang, 'auth.step2.codeLabel')}
+            </label>
+            <input
+              id="login-code"
+              class="form-input"
+              name="code"
+              type="text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              required
+            />
+          </div>
+          <Button type="submit" variant="primary" lang={lang}>
+            {t(lang, 'auth.step2.submit')}
+          </Button>
+        </form>
+      )
+    }
+
+    {
+      state.step === 3 && (
+        <form method="post" novalidate>
+          <input type="hidden" name="step" value="3" />
+          <input type="hidden" name="next" value={state.next} />
+          <input type="hidden" name="destination" value={state.destination} />
+          <input type="hidden" name="channel" value={state.channel} />
+          <input type="hidden" name="code" value={state.code} />
+          <div class="form-field">
+            <label class="form-label" for="login-ward">
+              {t(lang, 'auth.step3.wardLabel')}
+            </label>
+            <input id="login-ward" class="form-input" name="wardId" type="number" required />
+          </div>
+          <div class="form-field">
+            <label class="form-label" for="login-language">
+              {t(lang, 'auth.step3.languageLabel')}
+            </label>
+            <select id="login-language" class="form-input" name="language">
+              <option value="en">{t(lang, 'auth.step3.languageOption.en')}</option>
+              <option value="kn">{t(lang, 'auth.step3.languageOption.kn')}</option>
+            </select>
+          </div>
+          <p class="consent">
+            {t(lang, 'auth.step3.consentSentence')}{' '}
+            <a href={localePath(lang, '/terms')} target="_blank" rel="noopener noreferrer">
+              {t(lang, 'auth.step3.termsLink')}
+            </a>
+            {' · '}
+            <a href={localePath(lang, '/privacy')} target="_blank" rel="noopener noreferrer">
+              {t(lang, 'auth.step3.privacyLink')}
+            </a>
+          </p>
+          <label class="checkbox">
+            <input type="checkbox" name="futureTools" />
+            {t(lang, 'auth.step3.futureTools')}
+          </label>
+          <Button type="submit" variant="primary" lang={lang}>
+            {t(lang, 'auth.step3.submit')}
+          </Button>
+        </form>
+      )
+    }
+  </div>
+</Base>
+
+<style>
+  .login-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+  }
+
+  .login-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0 0 var(--space-6);
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 24rem;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .form-label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .form-input {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .form-input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-color: var(--color-primary);
+  }
+
+  .helper {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .consent {
+    margin: 0;
+    font-size: var(--text-sm);
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+  }
+</style>

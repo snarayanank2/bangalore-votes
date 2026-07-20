@@ -1,0 +1,35 @@
+---
+/**
+ * `/login` — see src/features/pages/Login.astro for the full flow
+ * explanation. This route twin (like src/pages/ward/[id].astro) owns the
+ * one thing a child Astro component cannot do: return a custom Response
+ * (here, the 302 redirect + Set-Cookie on a successful login/registration).
+ */
+import Login from '../features/pages/Login.astro';
+import { handleLoginPost, initialLoginState, type LoginRenderState } from '../lib/login-flow';
+
+let state: LoginRenderState = initialLoginState(Astro.url.searchParams.get('next'));
+
+if (Astro.request.method === 'POST') {
+  Astro.response.headers.set('cache-control', 'no-store');
+
+  const form = await Astro.request.formData();
+  const srcAttribution = Astro.cookies.get('bv_src')?.value ?? null;
+  const outcome = await handleLoginPost(form, srcAttribution);
+
+  if (outcome.kind === 'redirect') {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: outcome.location,
+        'Set-Cookie': outcome.setCookie,
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  state = outcome.state;
+}
+---
+
+<Login lang="en" state={state} />
