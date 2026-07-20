@@ -1,0 +1,184 @@
+/**
+ * The single session/CSRF/authorization/cache-safety enforcement point
+ * (architecture.md §7, §13; PRD §7). Every request passes through here
+ * before any page/API route runs. SECURITY-CRITICAL: this is where roles
+ * and curator route-classes are gated, where unsafe methods are checked for
+ * cross-site origin, and where the cache-safety invariant (public GETs never
+ * set a cookie — architecture §5) is upheld by simple omission: this module
+ * never calls `cookies.set`/`cookies.delete` at all, on any route.
+ *
+ * LOCALS produced for every request: `{ lang, session, user, csrfToken,
+ * cspNonce }` (typed in src/env.d.ts). `session` is `{userId, role} | null`
+ * from src/lib/session.ts#readSession — never a DB write from a cookie
+ * itself (readSession's sliding-expiry write, if any, is a `sessions` row
+ * update, not a `Set-Cookie`).
+ *
+ * ROUTE CLASSES:
+ *  - PUBLIC: everything NOT under /account, /curator, /admin, /api, /login,
+ *    /media. Never blocked here; no guard, no CSRF check. (`/partner/*` is
+ *    public in this sense — anonymous, no session read — but still gets the
+ *    SEO noindex header below; those are independent concerns.)
+ *  - /account/*, /curator/*, /admin/*: authenticated form routes. GET (and
+ *    every other method) requires a session; wrong role -> 403; no session
+ *    -> redirect to `/login?next=<validated relative path>`. Unsafe methods
+ *    additionally require a valid synchronizer CSRF token (src/lib/csrf.ts).
+ *    Per-ward curator scope (`canEditWard`, src/lib/authz.ts) is NOT checked
+ *    here — the middleware only knows the route class, not which ward a
+ *    specific edit targets; that's checked where the ward id is known
+ *    (Task 34/36/39 call `canEditWard` directly).
+ *  - /api/webhooks/*: exempt from the Origin/Sec-Fetch-Site check (no
+ *    session, no CSRF token — vendor POSTs are signature-verified instead,
+ *    Task 53) and from every route guard above.
+ *  - /api/otp/*: NOT exempt from the Origin/Sec-Fetch-Site check (still
+ *    enforced), but exempt from the synchronizer-token requirement (no
+ *    session exists yet to bind one to).
+ *  - every other /api/*: Origin/Sec-Fetch-Site check applies; no
+ *    synchronizer token requirement (JSON APIs rely on Origin check +
+ *    SameSite cookies + their own session check, not a form-embedded
+ *    token — Task 31/33).
+ *
+ * UNSAFE METHODS (POST/PUT/DELETE/PATCH), non-webhook: rejected 403 unless
+ * `Sec-Fetch-Site` is `same-origin`/`none`, OR (when that header is absent)
+ * `Origin` equals this deployment's own origin (`SITE_ORIGIN`/`Astro.site`).
+ * If NEITHER header is present the request is rejected — modern browsers
+ * always send at least one of these on a cross-document or fetch POST, so
+ * an absent pair is itself a signal something is off (a hand-crafted
+ * request, an ancient/misbehaving client), and this design deliberately
+ * favours failing closed (architecture §13: "forged curator publishes are
+ * the worst outcome this design can produce").
+ */
+import { defineMiddleware } from 'astro:middleware';
+import { randomBytes } from 'node:crypto';
+import { readSession, SESSION_COOKIE, type Role } from './lib/session';
+import { issueCsrfToken, checkCsrfToken, CSRF_FIELD_NAME } from './lib/csrf';
+import { isSameOriginRelative } from './lib/authz';
+
+const UNSAFE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
+
+/** True for `pathname === prefix` or `pathname` under `prefix/…`. Never a bare substring match (`/partner` must not match `/partner-with-us`). */
+function isUnder(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`);
+}
+
+function isUnderAny(pathname: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => isUnder(pathname, p));
+}
+
+const AUTH_FORM_PREFIXES = ['/account', '/curator', '/admin'];
+const NOINDEX_PREFIXES = ['/partner', '/account', '/curator', '/admin', '/login'];
+
+function forbidden(): Response {
+  return new Response('Forbidden', { status: 403 });
+}
+
+function redirectToLogin(currentPathAndQuery: string): Response {
+  const next = isSameOriginRelative(currentPathAndQuery);
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `/login?next=${encodeURIComponent(next)}` },
+  });
+}
+
+/**
+ * Same-origin check for an unsafe-method request. `siteOrigin` is this
+ * deployment's own origin string (e.g. `https://bangalore-votes.opencity.in`).
+ */
+function passesOriginCheck(request: Request, siteOrigin: string): boolean {
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite) return secFetchSite === 'same-origin' || secFetchSite === 'none';
+
+  const origin = request.headers.get('origin');
+  if (origin) return origin === siteOrigin;
+
+  // Neither header present: fail closed rather than guess.
+  return false;
+}
+
+/** Extracts the synchronizer token from a form-encoded (or JSON) mutating request WITHOUT consuming the original body — downstream route handlers still need to read it. */
+async function extractCsrfToken(request: Request): Promise<string | null> {
+  const contentType = request.headers.get('content-type') ?? '';
+  try {
+    const clone = request.clone();
+    if (contentType.includes('application/json')) {
+      const body = (await clone.json()) as Record<string, unknown> | null;
+      const value = body?.[CSRF_FIELD_NAME];
+      return typeof value === 'string' ? value : null;
+    }
+    // application/x-www-form-urlencoded or multipart/form-data.
+    const form = await clone.formData();
+    const value = form.get(CSRF_FIELD_NAME);
+    return typeof value === 'string' ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The raw `sessions.id` portion of the `bv_session` cookie value (`id.hmac`) — what `issueCsrfToken`/`checkCsrfToken` bind the synchronizer token to. Safe to trust here without re-checking the HMAC ourselves: this is only ever read after `readSession` already returned non-null for this exact cookie value, i.e. after the HMAC was verified in constant time. */
+function sessionIdFromCookieValue(cookieValue: string): string {
+  return cookieValue.split('.')[0] ?? '';
+}
+
+export const onRequest = defineMiddleware(async (context, next) => {
+  const { request, url, cookies, locals, site } = context;
+  const pathname = url.pathname;
+  const method = request.method.toUpperCase();
+
+  // --- locals: lang, session, csrfToken, cspNonce -------------------------
+  locals.lang = pathname === '/kn' || pathname.startsWith('/kn/') ? 'kn' : 'en';
+
+  const cookieValue = cookies.get(SESSION_COOKIE)?.value;
+  const session = cookieValue ? await readSession(cookieValue) : null;
+  locals.session = session;
+  locals.user = session;
+
+  locals.csrfToken = session && cookieValue ? issueCsrfToken(sessionIdFromCookieValue(cookieValue)) : '';
+  locals.cspNonce = randomBytes(16).toString('base64');
+
+  const respond = (response: Response): Response => {
+    if (isUnderAny(pathname, NOINDEX_PREFIXES)) {
+      const headers = new Headers(response.headers);
+      headers.set('X-Robots-Tag', 'noindex');
+      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+    }
+    return response;
+  };
+
+  const isWebhook = isUnder(pathname, '/api/webhooks');
+
+  // --- unsafe-method Origin/Sec-Fetch-Site check --------------------------
+  if (UNSAFE_METHODS.has(method) && !isWebhook) {
+    const siteOrigin = (site ?? new URL(process.env.SITE_ORIGIN ?? 'https://bangalore-votes.opencity.in')).origin;
+    if (!passesOriginCheck(request, siteOrigin)) {
+      return respond(forbidden());
+    }
+  }
+
+  // --- route guards: /account/*, /curator/*, /admin/* ---------------------
+  const role: Role | undefined = session?.role;
+
+  if (isUnder(pathname, '/account')) {
+    if (!session) return respond(redirectToLogin(pathname + url.search));
+  }
+  if (isUnder(pathname, '/curator')) {
+    if (!session) return respond(redirectToLogin(pathname + url.search));
+    if (role !== 'curator' && role !== 'admin') return respond(forbidden());
+  }
+  if (isUnder(pathname, '/admin')) {
+    if (!session) return respond(redirectToLogin(pathname + url.search));
+    if (role !== 'admin') return respond(forbidden());
+  }
+
+  // --- synchronizer CSRF token: unsafe methods on authenticated form routes
+  if (UNSAFE_METHODS.has(method) && isUnderAny(pathname, AUTH_FORM_PREFIXES)) {
+    // Route guards above already ensured `session`/`cookieValue` are set for
+    // any request reaching this point on these prefixes.
+    const sessionId = sessionIdFromCookieValue(cookieValue!);
+    const token = await extractCsrfToken(request);
+    if (!checkCsrfToken(sessionId, token)) {
+      return respond(forbidden());
+    }
+  }
+
+  const response = await next();
+  return respond(response);
+});
