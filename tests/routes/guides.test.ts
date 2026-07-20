@@ -433,12 +433,13 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(kn.html).toContain('<form method="post" action="/kn/voting-guide/find-booth"');
     });
 
-    it('emits its own BoothLookup island script, plus Base.astro\'s global Register/Login modal script (Task 27) — no others', async () => {
+    it('emits its own BoothLookup island script, plus Base.astro\'s global Register/Login modal and MeSlot scripts (Tasks 27/28) — no others', async () => {
       const { html } = await renderPage(FindBooth, 'en', '/voting-guide/find-booth');
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
-      expect(scriptOpenTags).toHaveLength(2);
+      expect(scriptOpenTags).toHaveLength(3);
       expect(html).toMatch(/FindBooth\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
+      expect(html).toMatch(/Base\.astro\?astro&type=script/);
     });
 
     it('the always-visible guided link-out to the official EC booth finder is present on a plain GET (no-JS fallback)', async () => {

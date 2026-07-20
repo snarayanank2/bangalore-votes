@@ -11,9 +11,9 @@
  * its own `onSuccess` callback — the attempted action resumes exactly where
  * it left off, with NO page reload and NO URL change, when `onSuccess` is
  * given. A plain "Sign in" (no attempted action, so no `onSuccess`) falls
- * back to `location.reload()` so the app bar picks up the signed-in state
- * (Task 29's MeSlot island does this properly later; a full reload is an
- * acceptable placeholder for now — see the task brief).
+ * back to `location.reload()` so the app bar picks up the signed-in state —
+ * a reload re-runs Task 28's MeSlot island from scratch, which is simpler
+ * and just as correct as trying to trigger an in-place re-swap from here.
  *
  * STEPS (design-system.md §7.9 — single input per step):
  *   1. contact (email or WhatsApp number; channel inferred from the value)
@@ -365,8 +365,9 @@ declare global {
  *   - `[data-register-slot]` (a ward page's "Register for updates" button,
  *     src/features/pages/Ward.astro / WardIssues.astro) -> prefills the
  *     ward from that element's `data-ward-id`, and reloads on success so
- *     the slot picks up the "Receiving updates" state (a full MeSlot-driven
- *     in-place update is Task 29's job).
+ *     the slot picks up the "Receiving updates" state via Task 28's
+ *     MeSlot island (src/islands/MeSlot.ts), which runs again on the
+ *     reloaded page.
  *
  * Also exposes `window.bvOpenRegisterLogin` so any OTHER island (the
  * Flag/Vote modals, Tasks 32/33) can open this exact modal with its own

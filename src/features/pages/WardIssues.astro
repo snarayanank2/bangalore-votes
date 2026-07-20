@@ -20,8 +20,11 @@
  * results are themselves global per-ward state (same aggregate for
  * everyone), so nothing on this page varies by visitor. Task 33 mounts the
  * Cast issue vote modal against `data-vote-action`/`data-ward-id`, and
- * Task 28's MeSlot island swaps the register-for-updates control the same
- * way it does on Ward.astro.
+ * Task 28's MeSlot island (src/islands/MeSlot.ts) swaps the
+ * register-for-updates control the same way it does on Ward.astro, and
+ * lightly marks `data-vote-action` with `data-already-voted` when this ward
+ * is the signed-in visitor's active issue-vote-set ward (for Task 33's
+ * modal to read — a hint, not a full swap).
  *
  * No-raw-counts guarantee (PRD §5.5): `issueResults` (src/lib/votes.ts)
  * never returns a count field, and `<IssueBars>` is called with
@@ -176,6 +179,7 @@ const description = ward ? t(lang, 'ward.issues.meta.description', { wardName })
             lang={lang}
             data-register-slot
             data-ward-id={wardId}
+            data-msg-receiving-updates={t(lang, 'common.receivingUpdates')}
           >
             {t(lang, 'common.registerForUpdates')}
           </Button>

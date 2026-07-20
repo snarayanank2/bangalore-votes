@@ -13,7 +13,7 @@
  * from the request's Host header. This layout also never reads
  * cookies/session, so the HTML it produces is identical for every
  * visitor and safe for nginx's anonymous-page micro-cache. The Sign-in
- * control (in AppBar) always renders the anonymous state; Task 29's
+ * control (in AppBar) always renders the anonymous state; Task 28's
  * MeSlot island swaps it client-side for signed-in visitors.
  *
  * The Register/Login modal (Task 27, IA §7.1) is rendered ONCE here, on
@@ -24,6 +24,13 @@
  * src/islands/RegisterLoginModal.ts); it never changes the server-rendered
  * HTML per visitor (the dialog always starts closed), so it doesn't affect
  * this layout's cache-safety.
+ *
+ * MeSlot (Task 28, src/islands/MeSlot.ts) is mounted ONCE here too, for the
+ * same reason: every page has the app-bar Sign-in/Account slot, so every
+ * page needs the island that personalizes it. It makes exactly ONE
+ * `/api/me` call per page load and swaps that (and, where present, a ward
+ * page's register-for-updates slot / vote-action hint) client-side — never
+ * server-side, which is what keeps this layout's HTML cache-safe.
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
@@ -124,5 +131,9 @@ const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
     </main>
     <Footer lang={lang} />
     <RegisterLoginModal lang={lang} />
+    <script>
+      import { initMeSlot } from '../islands/MeSlot';
+      initMeSlot();
+    </script>
   </body>
 </html>

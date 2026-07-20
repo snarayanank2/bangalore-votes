@@ -8,10 +8,13 @@
  *
  * Cache-safety (architecture.md §5): this component never reads
  * cookies/session — the Sign in control always renders the anonymous
- * state server-side. Task 29's MeSlot island finds it via
- * `data-me-slot` and swaps it client-side to "My account" for signed-in
- * visitors, so the server-rendered HTML stays identical for every
- * visitor and safe to cache.
+ * state server-side. Task 28's MeSlot island (src/islands/MeSlot.ts) finds
+ * it via `data-me-slot` and swaps it client-side to an "Account" link for
+ * signed-in visitors, so the server-rendered HTML stays identical for every
+ * visitor and safe to cache. `data-msg-account` carries the already-
+ * localized label MeSlot uses for that swap (same convention as
+ * src/islands/WardLookup.ts's `data-msg-*` attributes — no client-side i18n
+ * table import).
  */
 import { t, localePath, type Lang } from '../i18n';
 
@@ -53,7 +56,7 @@ const segments: Array<{ lang: Lang; label: string }> = [
         }
       </div>
 
-      <a class="sign-in" href={localePath(lang, '/login')} data-me-slot>
+      <a class="sign-in" href={localePath(lang, '/login')} data-me-slot data-msg-account={t(lang, 'nav.account')}>
         {t(lang, 'nav.signIn')}
       </a>
     </div>

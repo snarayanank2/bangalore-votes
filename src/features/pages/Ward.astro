@@ -18,9 +18,10 @@
  * ANONYMOUS "Register for updates" control, in its full enabled style
  * (design-system.md §7.8 — gated actions never render disabled) — the same
  * markup for every visitor regardless of auth state. Task 28's MeSlot
- * island finds it via `data-register-slot`/`data-ward-id` and swaps it
- * client-side to "Receiving updates" (own home ward) or removes it (any
- * other ward) — see IA §3.2 and PRD §5.1.
+ * island (src/islands/MeSlot.ts) finds it via `data-register-slot`/
+ * `data-ward-id` and swaps it client-side to "Receiving updates" (own home
+ * ward, using the `data-msg-receiving-updates` label below) or removes it
+ * (any other ward) — see IA §3.2 and PRD §5.1.
  *
  * Boundary map URL: geo.ts's `wardBoundaryUrl(wardId)` resolves a ward id to
  * its `/data/gba.geojson#<ref>` URL by looking `wardId` up in the *static
@@ -86,6 +87,7 @@ const description = ward ? t(lang, 'ward.meta.description', { wardName, wardId }
             lang={lang}
             data-register-slot
             data-ward-id={wardId}
+            data-msg-receiving-updates={t(lang, 'common.receivingUpdates')}
           >
             {t(lang, 'common.registerForUpdates')}
           </Button>

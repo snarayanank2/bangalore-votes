@@ -163,17 +163,19 @@ describe('Ward result page (/ward/{id}, /kn/ward/{id}) — IA §3.2, PRD §5.1',
   });
 
   describe('WardMap island + no-JS fallback', () => {
-    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login modal script (Task 27) — no others', async () => {
+    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login modal and MeSlot scripts (Tasks 27/28) — no others', async () => {
       const html = normalize(await (await renderWard('en', WARD.id)).text());
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
       // See tests/routes/home.test.ts's equivalent assertion — every page
-      // now also carries Base.astro's global Register/Login modal script.
-      expect(scriptOpenTags).toHaveLength(2);
+      // now also carries Base.astro's global Register/Login modal AND
+      // MeSlot (Task 28, src/islands/MeSlot.ts) scripts.
+      expect(scriptOpenTags).toHaveLength(3);
       for (const tag of scriptOpenTags) {
         expect(tag).toMatch(/type="module"/);
       }
       expect(html).toMatch(/Ward\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
+      expect(html).toMatch(/Base\.astro\?astro&type=script/);
     });
 
     it('renders the map container with the boundary URL and a no-JS fallback text', async () => {
