@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderMessage, contentVariablesFor } from '../../src/lib/send/render';
+import { renderMessage, contentVariablesFor, renderEmailMarkdown } from '../../src/lib/send/render';
 
 describe('src/lib/send/render.ts renderMessage', () => {
   describe('W1 (welcome)', () => {
@@ -113,6 +113,36 @@ describe('src/lib/send/render.ts renderMessage', () => {
     it('throws unknown_template rather than silently returning undefined', () => {
       // @ts-expect-error deliberately invalid code for the error-path test
       expect(() => renderMessage('NOPE', 'en', 'email', {})).toThrow(/unknown_template/);
+    });
+  });
+
+  describe('renderEmailMarkdown', () => {
+    it('converts an email body Markdown -> HTML: **bold** -> <strong>, "- bullets" -> <ul><li>, [text](url) -> <a href>', () => {
+      const rendered = renderMessage('R1', 'en', 'email', {
+        deadline: '31 August',
+        checkRegistrationLink: 'https://bangalore-votes.opencity.in/check-registration',
+        guideLink: 'https://bangalore-votes.opencity.in/voting-guide/register',
+      });
+
+      const html = renderEmailMarkdown(rendered.body);
+
+      expect(html).toContain('<strong>31 August</strong>');
+      expect(html).toContain('<a href="https://bangalore-votes.opencity.in/check-registration">Check your registration</a>');
+      expect(html).not.toContain('**');
+      expect(html).not.toMatch(/\[[^\]]+\]\([^)]+\)/);
+    });
+
+    it('a body with "- " bullet lines renders a real <ul>/<li> list', () => {
+      const rendered = renderMessage('W1', 'en', 'email', {
+        ward: '57 - Jayanagar',
+        language: 'English',
+        notificationsLink: 'https://bangalore-votes.opencity.in/account/notifications',
+      });
+
+      const html = renderEmailMarkdown(rendered.body);
+
+      expect(html).toContain('<ul>');
+      expect(html).toContain('<li><strong>Ward:</strong> 57 - Jayanagar</li>');
     });
   });
 });

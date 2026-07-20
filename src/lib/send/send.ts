@@ -47,7 +47,7 @@ import { campaignSends } from '../../db/schema';
 import type { Lang } from '../../i18n';
 import { logEvent } from '../log';
 import { isSuppressed } from '../suppressions';
-import { contentVariablesFor, renderMessage, type Channel, type SendCode } from './render';
+import { contentVariablesFor, renderEmailMarkdown, renderMessage, type Channel, type SendCode } from './render';
 import { sendEmail } from './sendgrid';
 import { sendWhatsAppTemplate } from './twilio';
 
@@ -106,7 +106,15 @@ async function recordSend(
   language: Lang,
   status: CampaignSendStatus,
 ): Promise<void> {
-  await db.insert(campaignSends).values({ code, userId, wardId, channel, language, status });
+  // onConflictDoNothing: the pre-check in sendToUser (existingSend) is the
+  // primary send-once mechanism; this is the backstop for a genuine
+  // concurrent race (two callers both pass the pre-check before either
+  // inserts) so send_once_uq's unique-violation degrades to a graceful
+  // no-op rather than throwing.
+  await db
+    .insert(campaignSends)
+    .values({ code, userId, wardId, channel, language, status })
+    .onConflictDoNothing({ target: [campaignSends.code, campaignSends.userId, campaignSends.channel] });
   logEvent('campaign_send', { code, userId, channel, status });
 }
 
@@ -155,7 +163,12 @@ export async function sendToUser(
       logEvent('campaign_send_disabled', { code, userId: user.id, channel });
       status = 'sent';
     } else if (channel === 'email') {
-      const result = await sendEmail(contact, rendered.subject ?? '', rendered.body);
+      // rendered.body is Markdown (templates.ts's email bodies, verbatim
+      // from docs/messages.md) — must be converted to HTML before it
+      // reaches SendGrid's text/html content field, or recipients see
+      // literal `**`/`[text](url)` (Task 52 review finding).
+      const html = renderEmailMarkdown(rendered.body);
+      const result = await sendEmail(contact, rendered.subject ?? '', html);
       status = result.ok ? 'sent' : 'failed';
     } else {
       const contentVars = contentVariablesFor(code, user.language, vars);

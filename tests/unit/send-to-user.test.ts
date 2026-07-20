@@ -130,6 +130,28 @@ describe('src/lib/send/send.ts sendToUser', () => {
     expect(rows.find((r) => r.channel === 'whatsapp')!.status).toBe('failed');
   });
 
+  it('the HTML handed to sendEmail is rendered from the W1 template Markdown (real tags), not the literal Markdown source', async () => {
+    const user = await makeUser(FIXTURES.full);
+
+    await sendToUser(user, 'W1', W1_VARS);
+
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    const [, subject, html] = vi.mocked(sendEmail).mock.calls[0]!;
+    expect(subject).toBe("You're set up for Send-To-User Test Ward ward updates");
+
+    // Real HTML structure, rendered from the Markdown source (**bold**
+    // list items become <strong>/<ul><li>, the bare notifications URL is
+    // autolinked to <a href=...>).
+    expect(html).toContain('<strong>Ward:</strong>');
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>');
+    expect(html).toContain(`<a href="${W1_VARS.notificationsLink}"`);
+
+    // NOT literal, unrendered Markdown syntax.
+    expect(html).not.toContain('**');
+    expect(html).not.toMatch(/\[[^\]]+\]\([^)]+\)/);
+  });
+
   it('a suppressed email: that channel is skipped with ledger status "suppressed", sendEmail is never called; whatsapp (unsuppressed) still proceeds', async () => {
     const user = await makeUser(FIXTURES.suppressed);
     await db.insert(schema.suppressions).values({ contact: FIXTURES.suppressed.email, channel: 'email', reason: 'bounce' });

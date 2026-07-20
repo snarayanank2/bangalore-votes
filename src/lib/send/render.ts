@@ -11,6 +11,7 @@
  * a broken send (a caller that forgot a link/date/count) must fail loudly
  * rather than ship a template with a literal unfilled `{{2}}` in it.
  */
+import { marked } from 'marked';
 import type { Lang } from '../../i18n';
 import { templates, type TemplateCode, type TemplateChannel } from './templates';
 
@@ -113,4 +114,26 @@ export function contentVariablesFor(
     result[String(i + 1)] = vars[name]!;
   });
   return result;
+}
+
+/**
+ * Converts an EMAIL body's Markdown — every `EmailTemplate.bodyTemplate` in
+ * templates.ts is Markdown copied verbatim from docs/messages.md (**bold**,
+ * `- bullets`, `[text](url)`, backtick-code) — into HTML, for send.ts to pass
+ * as SendGrid's `text/html` content. Without this conversion a recipient
+ * sees literal `**`/`[..](..)` characters instead of formatting (Task 52
+ * review finding).
+ *
+ * Deliberately uses `marked` directly rather than
+ * `src/lib/render-content.ts`'s `renderContentHtml` — that helper strips
+ * `<!-- INPUT NEEDED -->`-style authoring comments and rewrites
+ * root-relative links through `localePath()`, both tailored to on-site
+ * editorial content and not what an email body needs (its links are already
+ * absolute `https://...` URLs baked into `vars`, not root-relative). Calling
+ * `marked` directly with no `sanitize`/raw-HTML option enabled is safe here
+ * for the same reason it's safe in render-content.ts: the Markdown is
+ * repo-authored (templates.ts/docs/messages.md), never user input.
+ */
+export function renderEmailMarkdown(markdown: string): string {
+  return marked.parse(markdown, { gfm: true, async: false }) as string;
 }
