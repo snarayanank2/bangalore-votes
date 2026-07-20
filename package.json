@@ -16,9 +16,11 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed:wards": "tsx scripts/seed-wards.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
-    "seed:dev": "tsx scripts/seed-dev.ts"
+    "seed:dev": "tsx scripts/seed-dev.ts",
+    "translate": "tsx scripts/translate.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.112.3",
     "@astrojs/node": "^9.5.5",
     "astro": "^5.18.2",
     "drizzle-orm": "^0.45.2",
