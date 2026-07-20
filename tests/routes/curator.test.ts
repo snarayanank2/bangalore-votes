@@ -85,6 +85,8 @@ const EMAILS = {
   citizen: 'curator-route-test-citizen@example.com',
   submitterA: 'curator-route-test-submitter-a@example.com',
   submitterB: 'curator-route-test-submitter-b@example.com',
+  admin: 'curator-route-test-admin@example.com',
+  emptyScopeCurator: 'curator-route-test-empty-scope-curator@example.com',
 };
 
 /** Strips container-API debug attributes and collapses whitespace (see tests/routes/account.test.ts). */
@@ -150,7 +152,11 @@ async function sessionFor(userId: number): Promise<{ cookieValue: string; token:
   return { cookieValue, token: issueCsrfToken(id) };
 }
 
-async function upsertUser(email: string, role: 'citizen' | 'curator', extra: Partial<typeof schema.users.$inferInsert> = {}): Promise<number> {
+async function upsertUser(
+  email: string,
+  role: 'citizen' | 'curator' | 'admin',
+  extra: Partial<typeof schema.users.$inferInsert> = {},
+): Promise<number> {
   const [row] = await db
     .insert(schema.users)
     .values({ email, role, status: 'active', ...extra })
@@ -197,8 +203,12 @@ let curatorId: number;
 let citizenId: number;
 let submitterAId: number;
 let submitterBId: number;
+let adminId: number; // role 'admin', NO curator_scopes rows — sees every ward (Gap 2)
+let emptyScopeCuratorId: number; // role 'curator', ZERO curator_scopes rows — the []-is-not-null sentinel (Gap 2)
 let curatorAuth: { cookieValue: string; token: string };
 let citizenAuth: { cookieValue: string; token: string };
+let adminAuth: { cookieValue: string; token: string };
+let emptyScopeCuratorAuth: { cookieValue: string; token: string };
 
 let candidateA: number; // in WARD_A — hosts every accept/reject fixture field below
 let candidateB: number; // in WARD_B (out of scope)
@@ -209,9 +219,13 @@ let itemRejectEmpty: { id: number; targetRef: string };
 let itemRejectValid: { id: number; targetRef: string };
 let itemCsrf: { id: number; targetRef: string };
 let itemAlreadyResolved: { id: number; targetRef: string };
+let itemAcceptMissingSource: { id: number; targetRef: string };
+let itemAcceptBadSource: { id: number; targetRef: string };
 
 async function resetFixtures(): Promise<void> {
-  const userIds = [curatorId, citizenId, submitterAId, submitterBId].filter((v): v is number => typeof v === 'number');
+  const userIds = [curatorId, citizenId, submitterAId, submitterBId, adminId, emptyScopeCuratorId].filter(
+    (v): v is number => typeof v === 'number',
+  );
   if (userIds.length > 0) {
     await db.delete(schema.flagSubmissions).where(inArray(schema.flagSubmissions.userId, userIds));
     await db.delete(schema.sessions).where(inArray(schema.sessions.userId, userIds));
@@ -253,10 +267,15 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
     citizenId = await upsertUser(EMAILS.citizen, 'citizen');
     submitterAId = await upsertUser(EMAILS.submitterA, 'citizen');
     submitterBId = await upsertUser(EMAILS.submitterB, 'citizen');
+    adminId = await upsertUser(EMAILS.admin, 'admin');
+    emptyScopeCuratorId = await upsertUser(EMAILS.emptyScopeCurator, 'curator');
     await resetFixtures();
 
     // Curator scoped to WARD_A, WARD_D, WARD_E — NOT WARD_B (the
-    // out-of-scope test's whole point).
+    // out-of-scope test's whole point). Deliberately NO curator_scopes rows
+    // for adminId (admin ignores scope entirely, src/lib/curator.ts's
+    // `scopedWardIds` returns `null` for it) or for emptyScopeCuratorId
+    // (zero rows -> `[]`, the "in scope for nothing" sentinel, Gap 2).
     await db.insert(schema.curatorScopes).values([
       { userId: curatorId, wardId: WARD_A.id },
       { userId: curatorId, wardId: WARD_D_NEVER_SIGNED_OFF.id },
@@ -265,6 +284,8 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
 
     curatorAuth = await sessionFor(curatorId);
     citizenAuth = await sessionFor(citizenId);
+    adminAuth = await sessionFor(adminId);
+    emptyScopeCuratorAuth = await sessionFor(emptyScopeCuratorId);
 
     candidateA = await insertCandidate(WARD_A.id);
     candidateB = await insertCandidate(WARD_B_OUT_OF_SCOPE.id);
@@ -275,6 +296,8 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
     itemRejectValid = await insertPendingItem(WARD_A.id, candidateA, 'education', [submitterAId]);
     itemCsrf = await insertPendingItem(WARD_A.id, candidateA, 'track_record', [submitterAId]);
     itemAlreadyResolved = await insertPendingItem(WARD_A.id, candidateA, 'approachability', [submitterAId]);
+    itemAcceptMissingSource = await insertPendingItem(WARD_A.id, candidateA, 'net_worth', [submitterAId]);
+    itemAcceptBadSource = await insertPendingItem(WARD_A.id, candidateA, 'contact_info', [submitterAId]);
 
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -400,6 +423,86 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
       const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, itemAlreadyResolved.id));
       expect(item?.status).toBe('pending');
     });
+
+    it('accept with sourceUrl MISSING -> validation error, item stays pending, field not published', async () => {
+      const res = await run(QueueItemRoute, `/curator/queue/${itemAcceptMissingSource.id}`, {
+        method: 'POST',
+        cookieValue: curatorAuth.cookieValue,
+        params: { id: String(itemAcceptMissingSource.id) },
+        fields: {
+          formAction: 'accept',
+          valueEn: 'Should not publish (missing source)',
+          sourceType: 'curator',
+          authoredLang: 'en',
+          confirmPublish: 'on',
+          [CSRF_FIELD_NAME]: curatorAuth.token,
+        },
+      });
+      expect(res.status).toBe(400);
+
+      const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, itemAcceptMissingSource.id));
+      expect(item?.status).toBe('pending');
+
+      const [field] = await db
+        .select()
+        .from(schema.candidateFields)
+        .where(and(eq(schema.candidateFields.candidateId, candidateA), eq(schema.candidateFields.fieldKey, 'net_worth')));
+      expect(field).toBeUndefined();
+    });
+
+    it('accept with a NON-http(s) sourceUrl (javascript:) -> validation error, item stays pending, field not published', async () => {
+      const res = await run(QueueItemRoute, `/curator/queue/${itemAcceptBadSource.id}`, {
+        method: 'POST',
+        cookieValue: curatorAuth.cookieValue,
+        params: { id: String(itemAcceptBadSource.id) },
+        fields: {
+          formAction: 'accept',
+          valueEn: 'Should not publish (bad scheme)',
+          sourceUrl: 'javascript:alert(1)',
+          sourceType: 'curator',
+          authoredLang: 'en',
+          confirmPublish: 'on',
+          [CSRF_FIELD_NAME]: curatorAuth.token,
+        },
+      });
+      expect(res.status).toBe(400);
+
+      const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, itemAcceptBadSource.id));
+      expect(item?.status).toBe('pending');
+
+      const [field] = await db
+        .select()
+        .from(schema.candidateFields)
+        .where(and(eq(schema.candidateFields.candidateId, candidateA), eq(schema.candidateFields.fieldKey, 'contact_info')));
+      expect(field).toBeUndefined();
+    });
+
+    it('accept with a NON-http(s) sourceUrl (ftp:) -> validation error, item stays pending, field not published', async () => {
+      const res = await run(QueueItemRoute, `/curator/queue/${itemAcceptBadSource.id}`, {
+        method: 'POST',
+        cookieValue: curatorAuth.cookieValue,
+        params: { id: String(itemAcceptBadSource.id) },
+        fields: {
+          formAction: 'accept',
+          valueEn: 'Should not publish (ftp scheme)',
+          sourceUrl: 'ftp://x',
+          sourceType: 'curator',
+          authoredLang: 'en',
+          confirmPublish: 'on',
+          [CSRF_FIELD_NAME]: curatorAuth.token,
+        },
+      });
+      expect(res.status).toBe(400);
+
+      const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, itemAcceptBadSource.id));
+      expect(item?.status).toBe('pending');
+
+      const [field] = await db
+        .select()
+        .from(schema.candidateFields)
+        .where(and(eq(schema.candidateFields.candidateId, candidateA), eq(schema.candidateFields.fieldKey, 'contact_info')));
+      expect(field).toBeUndefined();
+    });
   });
 
   describe('reject requires a reason (PRD §6.1 step 3)', () => {
@@ -482,6 +585,45 @@ describe('/curator, /curator/queue, /curator/queue/{id} (Task 34) — IA §5.1/�
       const [item] = await db.select().from(schema.flagItems).where(eq(schema.flagItems.id, itemAlreadyResolved.id));
       expect(item?.status).toBe('rejected');
       expect(item?.resolutionReason).toBe('First resolution.'); // unchanged by the second, too-late attempt
+    });
+  });
+
+  describe('admin all-wards + empty-scope curator (the []-vs-null security sentinel)', () => {
+    it('admin (no curator_scopes rows at all) sees pending items across MULTIPLE wards, including one no curator_scopes row covers, and can open any of them directly', async () => {
+      const queueRes = await run(QueueIndex, '/curator/queue', { cookieValue: adminAuth.cookieValue });
+      expect(queueRes.status).toBe(200);
+      const html = normalize(await queueRes.text());
+
+      // WARD_B_OUT_OF_SCOPE has no curator_scopes row for ANY user — proves
+      // admin's `null` sentinel is a real "no filter", not merely "whatever
+      // the regular curator's scopes happen to include".
+      expect(html).toContain(WARD_B_OUT_OF_SCOPE.nameEn);
+      expect(html).toContain(humanTargetLabel('candidate_field', itemOutOfScope.targetRef));
+      // AND a different ward's item, in the same response — genuinely
+      // unfiltered across multiple wards, not a fluke of one row leaking.
+      expect(html).toContain(WARD_A.nameEn);
+
+      const itemRes = await run(QueueItemRoute, `/curator/queue/${itemOutOfScope.id}`, {
+        cookieValue: adminAuth.cookieValue,
+        params: { id: String(itemOutOfScope.id) },
+      });
+      expect(itemRes.status).toBe(200);
+    });
+
+    it('a curator with ZERO curator_scopes rows sees NO items (empty scope means nothing, not everything), and is 403d on direct item access', async () => {
+      const queueRes = await run(QueueIndex, '/curator/queue', { cookieValue: emptyScopeCuratorAuth.cookieValue });
+      expect(queueRes.status).toBe(200);
+      const html = normalize(await queueRes.text());
+
+      expect(html).not.toContain(WARD_A.nameEn);
+      expect(html).not.toContain(WARD_B_OUT_OF_SCOPE.nameEn);
+      expect(html).not.toContain(humanTargetLabel('candidate_field', itemOutOfScope.targetRef));
+
+      const itemRes = await run(QueueItemRoute, `/curator/queue/${itemOutOfScope.id}`, {
+        cookieValue: emptyScopeCuratorAuth.cookieValue,
+        params: { id: String(itemOutOfScope.id) },
+      });
+      expect(itemRes.status).toBe(403);
     });
   });
 
