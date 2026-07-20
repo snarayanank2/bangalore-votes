@@ -1,0 +1,210 @@
+---
+/**
+ * `/curator/ward/{id}` (Task 39, PRD §9.1; design-system.md §7.13) — the
+ * curator ward editor: read-only ward metadata (nameEn/nameKn are official
+ * data, boundary is a static reference to `data/gba.geojson` — neither is
+ * editable from this task), the READINESS PANEL, and the "Mark ward ready"
+ * sign-off control. Links out to `/curator/ward/{id}/issues` for the
+ * ward-issues editor.
+ *
+ * READINESS PANEL (design-system.md §7.13, the load-bearing visual rule):
+ * "forest tint when passing, sun tint with a listed gap-set when held —
+ * NEVER red, because 'not ready' is a work state, not an error." This is
+ * why Badge.astro's `ward-ready`/`ward-held` variants exist as the ONLY two
+ * states rendered here — there is no third (error/red) path, by
+ * construction: `complete` is a boolean, and the sun-tint branch always
+ * renders SOMETHING informative (either the gap list, or, for a ward with
+ * zero filed/contesting candidates, a distinct explanatory note — see
+ * `noCandidates` below) rather than an empty/alarming state.
+ *
+ * SIGN-OFF STATUS: distinguishes three states — signed off (shows
+ * when/who), cleared-by-change (was signed off, a later candidate-set
+ * change cleared it — `signedOffAt == null && clearedAt != null`, since
+ * `clearWardSignOff` always nulls `signedOffAt` the moment it clears), and
+ * never-signed-off (both null). This is a SEPARATE, more precise
+ * computation than the dashboard's `clearedByChange` (Task 34,
+ * src/lib/curator.ts's `loadDashboard`) — see this file's own comment
+ * below for why.
+ */
+import CuratorLayout from '../../../layouts/CuratorLayout.astro';
+import Card from '../../../components/Card.astro';
+import Badge from '../../../components/Badge.astro';
+import Banner from '../../../components/Banner.astro';
+import Button from '../../../components/Button.astro';
+import { t, type Lang } from '../../../i18n';
+import { CSRF_FIELD_NAME } from '../../../lib/csrf';
+import type { WardEditData } from '../../../lib/curator';
+
+interface Props {
+  lang: Lang;
+  csrfToken: string;
+  ward: WardEditData;
+  message?: { kind: 'notice' | 'error'; key: string };
+}
+
+const { lang, csrfToken, ward, message } = Astro.props;
+const wardName = lang === 'kn' ? ward.nameKn : ward.nameEn;
+const messageText = message ? t(lang, message.key) : undefined;
+
+const { complete, gaps } = ward.readiness;
+const noCandidates = !complete && gaps.length === 0;
+
+// See module docstring: distinct from the dashboard's `clearedByChange`,
+// computed directly off the fact that `clearWardSignOff` always nulls
+// `signedOffAt` when it clears a ward — so "was signed off, then cleared"
+// is exactly "signedOffAt is null AND clearedAt is set" (as opposed to
+// "never touched", where both are null).
+const clearedByChange = ward.signedOffAt == null && ward.clearedAt != null;
+const signedOffByLabel = ward.signedOffByEmail ?? (ward.signedOffByUserId != null ? String(ward.signedOffByUserId) : '');
+---
+
+<CuratorLayout lang={lang} title={t(lang, 'curator.wardEdit.meta.title')} description={t(lang, 'curator.wardEdit.meta.description')}>
+  <div class="curator-page">
+    <p><a href="/curator">{t(lang, 'curator.wardEdit.backToDashboard')}</a></p>
+    <h1>{t(lang, 'curator.wardEdit.heading', { ward: wardName })}</h1>
+
+    {
+      messageText && (
+        <Banner kind={message!.kind === 'error' ? 'error' : 'notice'} lang={lang}>
+          {messageText}
+        </Banner>
+      )
+    }
+
+    <Card>
+      <h2>{t(lang, 'curator.wardEdit.meta.heading')}</h2>
+      <dl class="meta-list">
+        <div>
+          <dt>{t(lang, 'curator.wardEdit.meta.nameEnLabel')}</dt>
+          <dd>{ward.nameEn}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'curator.wardEdit.meta.nameKnLabel')}</dt>
+          <dd>{ward.nameKn}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'curator.wardEdit.meta.zoneLabel')}</dt>
+          <dd>{ward.zone}</dd>
+        </div>
+        <div>
+          <dt>{t(lang, 'curator.wardEdit.meta.boundaryRefLabel')}</dt>
+          <dd>{ward.boundaryRef}</dd>
+        </div>
+      </dl>
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'curator.wardEdit.readiness.heading')}</h2>
+      <p class="readiness-badge-line">
+        {complete ? <Badge variant="ward-ready" lang={lang} /> : <Badge variant="ward-held" lang={lang} />}
+      </p>
+
+      {
+        !complete &&
+          (noCandidates ? (
+            <p>{t(lang, 'curator.wardEdit.readiness.noCandidates')}</p>
+          ) : (
+            <>
+              <h3>{t(lang, 'curator.wardEdit.readiness.gapsHeading')}</h3>
+              <ul class="gap-list">
+                {gaps.map((gap) => (
+                  <li>{t(lang, 'curator.wardEdit.readiness.gapItem', { name: gap.candidateName, fields: gap.missing.join(', ') })}</li>
+                ))}
+              </ul>
+            </>
+          ))
+      }
+
+      <h3>{t(lang, 'curator.wardEdit.signOff.heading')}</h3>
+      {
+        ward.signedOffAt ? (
+          <p>{t(lang, 'curator.wardEdit.signOff.signedOffLine', { at: ward.signedOffAt.toISOString(), by: signedOffByLabel })}</p>
+        ) : clearedByChange ? (
+          <p>{t(lang, 'curator.wardEdit.signOff.clearedByChange')}</p>
+        ) : (
+          <p>{t(lang, 'curator.wardEdit.signOff.notSignedOff')}</p>
+        )
+      }
+
+      <form method="post" action={`/curator/ward/${ward.id}`}>
+        <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+        <input type="hidden" name="formAction" value="sign_off" />
+        <Button type="submit" variant="primary" lang={lang}>
+          {t(lang, 'curator.wardEdit.signOff.submit')}
+        </Button>
+      </form>
+    </Card>
+
+    <Card>
+      <a href={`/curator/ward/${ward.id}/issues`}>{t(lang, 'curator.wardEdit.issuesLink')}</a>
+      <span class="link-sep">·</span>
+      <a href={`/curator/candidate/new?ward=${ward.id}`}>{t(lang, 'curator.wardEdit.candidateAddLink')}</a>
+    </Card>
+  </div>
+</CuratorLayout>
+
+<style>
+  .curator-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .curator-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .curator-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .curator-page h3 {
+    font-size: var(--text-base);
+    margin: var(--space-4) 0 var(--space-1);
+  }
+
+  .meta-list {
+    margin: 0;
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: var(--space-1) var(--space-3);
+  }
+
+  .meta-list div {
+    display: contents;
+  }
+
+  .meta-list dt {
+    font-weight: 700;
+    color: var(--color-text-muted);
+  }
+
+  .meta-list dd {
+    margin: 0;
+  }
+
+  .readiness-badge-line {
+    margin: 0 0 var(--space-2);
+  }
+
+  .gap-list {
+    margin: 0 0 var(--space-2);
+    padding-left: var(--space-5);
+  }
+
+  form {
+    margin-top: var(--space-3);
+  }
+
+  .link-sep {
+    margin-inline: var(--space-2);
+    color: var(--color-text-muted);
+  }
+</style>

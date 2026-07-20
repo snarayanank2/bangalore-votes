@@ -54,6 +54,7 @@ import { checkDefaultLimit } from './rate-limit';
 import { fetchAffidavitFromEc, type AffidavitFetchErrorCode } from './affidavit-fetch';
 import { extractAffidavitFields } from './extract';
 import { addNewsLink, approveNewsLink } from './news';
+import { computeReadiness, signOffWard, type ReadinessResult } from './readiness';
 import type { Lang } from '../i18n';
 import type { Role } from './session';
 
@@ -930,5 +931,93 @@ export async function handleNewsLinkApprove(actor: CuratorActor, candidateId: nu
   }
 
   await approveNewsLink(actor, linkId);
+  return { kind: 'saved' };
+}
+
+// ---------------------------------------------------------------------------
+// Ward editor + readiness panel (Task 39; IA §5.5-adjacent; PRD §9.1;
+// design-system.md §7.13) — `/curator/ward/{id}`'s data-loading side. The
+// mechanical completeness check, sign-off, and the comms send-gate
+// themselves live in src/lib/readiness.ts; this module only assembles the
+// page-level view model (ward metadata + the current readiness/sign-off
+// state) and dispatches the "Mark ward ready" POST.
+// ---------------------------------------------------------------------------
+
+export interface WardEditData {
+  id: number;
+  nameEn: string;
+  nameKn: string;
+  corporation: string;
+  zone: string;
+  boundaryRef: string;
+  readiness: ReadinessResult;
+  signedOffAt: Date | null;
+  /** The signing curator/admin's email, when resolvable — falls back to their raw user id in the view (WardEdit.astro) when a user row no longer resolves. */
+  signedOffByEmail: string | null;
+  signedOffByUserId: number | null;
+  clearedAt: Date | null;
+}
+
+/**
+ * Loads everything `/curator/ward/{id}` needs to render: the ward's own
+ * (official, curator-read-only in this task) metadata, the live
+ * `computeReadiness` result, and the current `ward_readiness` sign-off
+ * state. `null` when no such ward exists — the route twin turns that into
+ * a 404. Does NOT check scope (same convention as `loadCandidateForEdit` —
+ * the caller must `canEditWard` against the returned ward id).
+ */
+export async function loadWardForEdit(wardId: number): Promise<WardEditData | null> {
+  const [ward] = await db.select().from(wards).where(eq(wards.id, wardId));
+  if (!ward) return null;
+
+  const [readinessRow] = await db
+    .select({
+      signedOffAt: wardReadiness.signedOffAt,
+      signedOffBy: wardReadiness.signedOffBy,
+      clearedAt: wardReadiness.clearedAt,
+    })
+    .from(wardReadiness)
+    .where(eq(wardReadiness.wardId, wardId));
+
+  let signedOffByEmail: string | null = null;
+  if (readinessRow?.signedOffBy != null) {
+    const [signer] = await db.select({ email: users.email }).from(users).where(eq(users.id, readinessRow.signedOffBy));
+    signedOffByEmail = signer?.email ?? null;
+  }
+
+  const readiness = await computeReadiness(wardId);
+
+  return {
+    id: ward.id,
+    nameEn: ward.nameEn,
+    nameKn: ward.nameKn,
+    corporation: ward.corporation,
+    zone: ward.zone,
+    boundaryRef: ward.boundaryRef,
+    readiness,
+    signedOffAt: readinessRow?.signedOffAt ?? null,
+    signedOffByEmail,
+    signedOffByUserId: readinessRow?.signedOffBy ?? null,
+    clearedAt: readinessRow?.clearedAt ?? null,
+  };
+}
+
+export type SignOffOutcome = { kind: 'saved' } | { kind: 'out_of_scope' };
+
+/**
+ * Handles the "Mark ward ready" form. `signOffWard` (src/lib/readiness.ts)
+ * itself re-checks scope (defense in depth — the route twin has already
+ * 403'd once for GET/POST, same convention as every other scope-checked
+ * mutator in this module) and does the actual snapshot + audit write.
+ */
+export async function handleWardSignOff(actor: CuratorActor, wardId: number): Promise<SignOffOutcome> {
+  try {
+    await signOffWard(actor, wardId);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'out_of_scope') {
+      return { kind: 'out_of_scope' };
+    }
+    throw err;
+  }
   return { kind: 'saved' };
 }
