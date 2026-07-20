@@ -23,7 +23,7 @@ retention decision → lawyer drafts /privacy → /privacy published
   → the comms plan can run
 ```
 
-Every arrow is someone else's queue. The chain is measured in months, and it starts with a decision nobody has made (§2.1). This is the one most likely to be mistaken for launch-week paperwork.
+Every arrow is someone else's queue. The chain is measured in months, and it starts with a retention proposal that still needs legal confirmation (§2.1). This is the one most likely to be mistaken for launch-week paperwork.
 
 **Path B — Ward delimitation data.** The teaser *is* the ward finder (GTM spec §2). Without post-delimitation boundaries there is no Phase 1 — not a degraded Phase 1, none. Pincode lookup (PRD §5.1) ships first and needs no boundary polygons — the decided hedge — which buys a partial path, but address lookup and everything ward-scoped waits on this.
 
@@ -35,12 +35,12 @@ Every arrow is someone else's queue. The chain is measured in months, and it sta
 
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
-| 2.1 | **Retention period decision** — how long citizen contact data is kept; a period or a deletion trigger | `/privacy`, therefore all of Path A | unassigned |
+| 2.1 | **Retention period — legal confirmation.** The product proposal is decided (PRD §17, 2026-07-19): contact data deleted or anonymized within 3 months of results being declared. Counsel confirms or amends it | `/privacy`, therefore all of Path A | unassigned |
 | 2.2 | **Legal counsel engaged** — to draft `/terms` and `/privacy` | Path A | unassigned |
 | 2.3 | **DPDP Act 2023 compliance review** — consent notice, purpose limitation, data-principal rights incl. erasure mechanics (`docs/architecture.md` §7), children's-data position (the 18+ assertion at registration, PRD §10), cross-border transfer position (`docs/architecture.md` §13) | `/privacy` | unassigned |
 | 2.4 | **Named grievance officer** — a real person, contactable, published | `/privacy` (DPDP requirement) | unassigned |
 | 2.5 | **Contribution licensing** — terms under which citizen flags and issue votes are used | `/terms` | unassigned |
-| 2.6 | **Future-use consent decision** — whether registration carries an optional "tell me about future civic tools" opt-in | Registration UI; the next phase's list | unassigned |
+| 2.6 | **Future-use consent — decided** (PRD §14, 2026-07-19): registration carries the optional "tell me about future civic tools" checkbox. Remaining work is the checkbox wording, part of the legal-review input (PRD §10) | The next phase's list | unassigned |
 | 2.7 | **Oorvani Foundation entity details** — trust registration, signing authority, registered address for legal pages and Meta verification | `/privacy`, `/about`, Meta verification | unassigned |
 | 2.8 | **Data-processing terms with every processor** — Twilio/SendGrid DPAs, Google Cloud terms (Geocoding), Anthropic commercial terms, Sentry DPA; the contractual cover behind the `/privacy` processor inventory (PRD §5.16) and the cross-border position (`docs/architecture.md` §13) | `/privacy` accuracy; the amended "shares only with service providers under contract" commitment | unassigned |
 | 2.9 | **DPDP breach-notification readiness** — Data Protection Board notification procedure, bilingual affected-user notice template, decision timeline, named owner (`docs/architecture.md` §13) | Launch responsibly; the Act has no materiality threshold | unassigned |
@@ -163,6 +163,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.12 | **Google Analytics property** — created, access shared, and the tracker disclosed in `/privacy` before it ships | The 300,000-unique-visitor target and funnel/attribution measurement (GTM §8) | unassigned |
 | 6.13 | **reCAPTCHA v3 keys** — site key + secret for the anonymous EOI form (`docs/architecture.md` §7); disclosed in `/privacy` alongside GA | `/partner-with-us` | unassigned |
 | 6.14 | **Monitoring accounts** — DigitalOcean Uptime checks (incl. the SSL-expiry alert) wired to an ops alert email; a Sentry project (free tier, server-side only); a healthchecks.io check for the backup dead-man's-switch (`docs/architecture.md` §10) | Knowing the site is down; budget alarms landing somewhere; backup failure being loud | unassigned |
+| 6.15 | **Google Programmable Search Engine + Custom Search JSON API key** — for candidate news-link suggestions (PRD §5.2; `docs/architecture.md` §7), configured against the repo's news-domain allowlist, with a daily query budget + alert | News-link suggestions only — degrades gracefully to curator-added links | unassigned |
 
 **6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 
@@ -172,7 +173,7 @@ What is needed is a deliberate confirmation rather than a product spec's reading
 
 **Only the Geocoding API is in play.** Rendering is MapLibre, so there is no Maps JavaScript API bill and no key in the browser. If address autocomplete is ever added, the Places API becomes a new dependency with its own metering — and its own version of the 6.4 question.
 
-**6.11 is the gap.** Four metered services — geocoding, Anthropic, CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. Geocoding spend is capped by design (§6.5); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
+**6.11 is the gap.** Five metered services — geocoding, Anthropic, news search (§6.15, the smallest and bounded by design), CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. Geocoding spend is capped by design (§6.5); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
 
 **6.9 deserves its own line.** "An unrehearsed backup is not a backup" is a task with a date, not a principle. It is the kind of thing that is genuinely fine until the one day it is not, which for this project is a day that cannot be rescheduled.
 
@@ -182,14 +183,12 @@ What is needed is a deliberate confirmation rather than a product spec's reading
 
 Not external dependencies, but non-code, unowned, and blocking. Listed so they are not mistaken for engineering tasks waiting on engineering. The question text lives in **PRD §17**, the single home for open questions; these rows exist because this register carries owners.
 
+The 2026-07-19 review resolved most of this table (PRD §14): future-use consent is a yes (= 2.6), funding disclosure names each funder, the press push goes at N with an E−2w second beat, and the legal pages ship EN-controlling with a Kannada courtesy translation. What remains:
+
 | # | Decision | Blocks | Owner |
 |---|---|---|---|
-| 7.1 | Retention period (= 2.1, repeated because it blocks the most) | Path A | unassigned |
-| 7.2 | Future-use consent at registration (= 2.6) | Registration UI; the next phase | unassigned |
-| 7.3 | **Funding disclosure detail** — named funders and amounts, or categories only? | `/about` | unassigned |
+| 7.1 | Retention period — legal confirmation of the 3-months-post-results proposal (= 2.1, repeated because it blocks the most) | Path A | unassigned |
 | 7.4 | **Owned channels** — are Open City and Citizen Matters available for launch distribution? | Phase 0 and 1 planning | unassigned |
-| 7.5 | **Press timing** — does the launch push go at N, or at E−2w when report cards are complete? | Press outreach | unassigned |
-| 7.6 | **Legal-page localisation** — do `/terms` and `/privacy` ship in Kannada? | Legal drafting scope | unassigned |
 
 **7.4 may be the highest-leverage open question in the project.** The GTM plan is written against a cold start: no list, no paid spend, everything earned through partners. If Oorvani's existing properties carry a Bengaluru civic readership, that assumption is wrong in the project's favour, and Phase 1 should be planned differently. It costs one conversation to find out and it is worth having before Phase 0 hardens.
 
