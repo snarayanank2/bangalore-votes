@@ -1,0 +1,469 @@
+---
+/**
+ * Candidate report card (`/candidate/{slug}`, `/kn/candidate/{slug}`) —
+ * information-architecture.md §3.4, PRD §5.2. The single most-requested
+ * feature: a neutral, sourced profile for one candidate — name/photo/party,
+ * the five curator-maintained report-card fields, news coverage, and the
+ * Flag an error action.
+ *
+ * Existence check lives in the route twins (src/pages/candidate/[slug].astro,
+ * src/pages/kn/candidate/[slug].astro), not here — only a page-level
+ * frontmatter script can end an Astro request early with a custom HTTP
+ * status, so an UNKNOWN slug never actually reaches this component in
+ * production; only unknown slugs 404 (architecture §8). The `row` lookup
+ * below is guarded anyway (renders a minimal not-found fallback rather than
+ * throwing) purely as a defensive belt-and-braces measure.
+ *
+ * STATUS LIFECYCLE (PRD §5.2): an EXISTING candidate's URL is ALWAYS 200,
+ * including withdrawn/rejected (a prominent, neutral NOTICE banner — not an
+ * error — since the links have already been shared and must keep
+ * resolving) and pre-notification/no-fields-yet candidates (the empty-state
+ * fields render via FieldRow's own "Not declared" fallback — no special
+ * casing needed here). PROVISIONAL marker: shown whenever
+ * `app_settings.withdrawals_closed` isn't `'true'` yet (candidate lists and
+ * report cards carry it until withdrawals close, matching the L1 send's
+ * framing, PRD §5.2/§9.3).
+ *
+ * PROVENANCE (design-system §3, PRD §5.2/§11): name/photo/party come from
+ * the EC nomination itself — there is no `candidate_fields` row for them,
+ * so they carry a plain static "Source: EC nomination" note rather than one
+ * of SourceLine's three RESERVED provenance chips (that chip set is
+ * reserved for curator/affidavit/AI-extracted fields — see SourceLine's
+ * docstring). The five report-card fields render via FieldRow, which
+ * already encodes: Affidavit badge linking to the stored PDF (the
+ * candidate_fields row's own `sourceUrl` IS that `/media/{id}/{hash}` URL —
+ * `src/lib/extract.ts` writes it there directly at extraction time, so no
+ * separate affidavit lookup is needed on this page), Curator-compiled badge
+ * (never links), AI-extracted badge (until a curator confirms/edits the
+ * field and clears it), and "Not declared" for a not-yet-populated field.
+ *
+ * NEUTRALITY (design-system §4, non-negotiable): party is TEXT only — never
+ * a color/tint/accent. Every field (including cases/assets) renders through
+ * the exact same FieldRow markup, in plain ink — no alarm styling. This
+ * platform's schema carries no ECI-symbol image field yet, so the "optional
+ * ECI symbol" mentioned in the IA has no data source to render from — party
+ * shows as text only, same as CandidateRow's existing convention.
+ *
+ * NEWS LINKS (Task 38 boundary, re-asserted here): `listNewsLinks(id,
+ * { approvedOnly: true })` is the PUBLIC guard — a `suggested` link
+ * structurally cannot come back from this call, so this page can never
+ * surface an unapproved suggestion regardless of caller discipline.
+ *
+ * FLAG ACTION (Task 32): the five report-card fields are this page's
+ * flaggable targets (`targetType: 'candidate_field'`, `targetRef:
+ * 'candidate:{id}:{fieldKey}'`) — same cache-safe, anonymous-style button
+ * + `data-flag-action`/`data-ward-id`/`data-flag-targets` wiring as
+ * Ward.astro/WardIssues.astro; `src/islands/FlagModal.ts`'s `initFlagModal`
+ * (mounted once from Base.astro) wires it, no per-page script needed.
+ *
+ * PERSON JSON-LD (architecture §8/§13): `sameAs` carries the approved news
+ * link URLs; `subjectOf` additionally carries each approved link's title so
+ * a curator-authored title is exercised by this page's serialization too.
+ * Serialized with `<` escaped to `<` so no curator/citizen-authored
+ * substring (a news title, a field value) can prematurely close the
+ * `<script>` tag — Task 56 will centralize this into a shared `seo.ts`
+ * helper; this inlines a small, correct one now (same stopgap About.astro
+ * already uses for `Organization`).
+ *
+ * CACHE-SAFETY (architecture §5): this component never reads cookies or
+ * session — the page is identical for every visitor. Every absolute URL
+ * used in the JSON-LD is derived from `Astro.site`, never the request
+ * Host. The Flag button renders its full anonymous-safe markup regardless
+ * of auth state (design-system §7.8) — the auth gate happens client-side,
+ * on tap, inside FlagModal's island.
+ */
+import Base from '../../layouts/Base.astro';
+import Banner from '../../components/Banner.astro';
+import Button from '../../components/Button.astro';
+import Card from '../../components/Card.astro';
+import FieldRow from '../../components/FieldRow.astro';
+import EmptyState from '../../components/EmptyState.astro';
+import { t, localePath, type Lang } from '../../i18n';
+import { db } from '../../db/client';
+import { candidates, candidateFields, wards, media } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+import { REPORT_CARD_FIELD_KEYS, type ReportCardFieldKey } from '../../lib/curator';
+import { listNewsLinks } from '../../lib/news';
+import { getKnownSetting } from '../../lib/settings';
+
+interface Props {
+  lang: Lang;
+  slug: string;
+}
+
+const { lang, slug } = Astro.props;
+
+const [row] = await db
+  .select({
+    id: candidates.id,
+    slug: candidates.slug,
+    wardId: candidates.wardId,
+    wardNameEn: wards.nameEn,
+    wardNameKn: wards.nameKn,
+    nameEn: candidates.nameEn,
+    nameKn: candidates.nameKn,
+    partyEn: candidates.partyEn,
+    partyKn: candidates.partyKn,
+    photoMediaId: candidates.photoMediaId,
+    photoHash: media.sha256,
+    status: candidates.status,
+  })
+  .from(candidates)
+  .innerJoin(wards, eq(wards.id, candidates.wardId))
+  .leftJoin(media, eq(media.id, candidates.photoMediaId))
+  .where(eq(candidates.slug, slug));
+
+const FIELD_LABEL_KEYS: Record<ReportCardFieldKey, string> = {
+  track_record: 'candidate.field.trackRecord',
+  cases: 'candidate.field.cases',
+  assets: 'candidate.field.assets',
+  education: 'candidate.field.education',
+  approachability: 'candidate.field.approachability',
+};
+
+const candidateName = row ? (lang === 'kn' && row.nameKn ? row.nameKn : row.nameEn) : '';
+const partyName = row ? (lang === 'kn' && row.partyKn ? row.partyKn : row.partyEn) : '';
+const wardName = row ? (lang === 'kn' ? row.wardNameKn : row.wardNameEn) : '';
+const photoUrl = row?.photoMediaId != null && row.photoHash ? `/media/${row.photoMediaId}/${row.photoHash.slice(0, 16)}` : null;
+
+// Neutral initials placeholder (no photo) — same derivation as
+// CandidateRow.astro: first letter of up to the first two words of the
+// English name. Never a fake/stock image.
+const initials = row
+  ? row.nameEn
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase() ?? '')
+      .join('')
+  : '';
+
+const fieldRows = row ? await db.select().from(candidateFields).where(eq(candidateFields.candidateId, row.id)) : [];
+const fieldByKey = new Map(fieldRows.map((f) => [f.fieldKey, f]));
+
+/** Caller-resolved value pick (Task 40 convention): prefer this page's own language, falling back to the other one when the preferred language hasn't been authored/translated yet. FieldRow itself only decides whether to show the pending-translation indicator, from authoredLang/translationStatus — never from this resolved string. */
+function pickValue(preferred: Lang, en: string | null | undefined, kn: string | null | undefined): string | null {
+  const value = preferred === 'kn' ? (kn ?? en) : (en ?? kn);
+  return value ?? null;
+}
+
+const reportCardFields = REPORT_CARD_FIELD_KEYS.map((key) => {
+  const f = fieldByKey.get(key);
+  return {
+    key,
+    label: t(lang, FIELD_LABEL_KEYS[key]),
+    value: pickValue(lang, f?.valueEn, f?.valueKn),
+    notDeclared: f?.notDeclared ?? false,
+    sourceType: f?.sourceType ?? ('curator' as const),
+    sourceUrl: f?.sourceUrl ?? null,
+    aiExtracted: f?.aiExtracted ?? false,
+    authoredLang: f?.authoredLang ?? lang,
+    translationStatus: f?.translationStatus ?? ('done' as const),
+  };
+});
+
+const newsLinks = row ? await listNewsLinks(row.id, { approvedOnly: true }) : [];
+
+const withdrawalsClosedSetting = await getKnownSetting('withdrawals_closed');
+const isProvisional = withdrawalsClosedSetting !== 'true';
+
+const showStatusBanner = row?.status === 'withdrawn' || row?.status === 'rejected';
+
+const pagePath = `/candidate/${slug}`;
+const title = row
+  ? t(lang, 'candidate.meta.title', { name: candidateName, wardName })
+  : t(lang, 'candidate.notFound.fact');
+const description = row
+  ? t(lang, 'candidate.meta.description', { name: candidateName, party: partyName, wardName })
+  : t(lang, 'candidate.notFound.fact');
+
+// Flag misinformation (Task 32, IA §7.2, PRD §6.1) — this page's flaggable
+// targets are the five report-card fields. Same anonymous-safe markup for
+// every visitor (design-system §7.8); the auth gate happens client-side.
+const flagTargets = row
+  ? JSON.stringify(
+      REPORT_CARD_FIELD_KEYS.map((key) => ({
+        targetType: 'candidate_field',
+        targetRef: `candidate:${row.id}:${key}`,
+        label: t(lang, FIELD_LABEL_KEYS[key]),
+      })),
+    )
+  : '[]';
+
+// Person JSON-LD (architecture §8/§13) — sameAs carries the approved news
+// link URLs; subjectOf additionally carries each link's title (curator-
+// authored text, so this is also what exercises the '<' escape below).
+const siteOrigin = Astro.site ?? new URL('https://bangalore-votes.opencity.in');
+const canonicalHref = new URL(localePath(lang, pagePath), siteOrigin).href;
+
+const personJsonLd = row
+  ? JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'Person',
+      name: candidateName,
+      url: canonicalHref,
+      ...(photoUrl ? { image: new URL(photoUrl, siteOrigin).href } : {}),
+      homeLocation: { '@type': 'AdministrativeArea', name: wardName },
+      sameAs: newsLinks.map((link) => link.url),
+      subjectOf: newsLinks.map((link) => ({ '@type': 'NewsArticle', headline: link.title, url: link.url })),
+    }).replace(/</g, '\\u003c')
+  : null;
+---
+
+<Base lang={lang} title={title} description={description} path={pagePath}>
+  {
+    row ? (
+      <div class="candidate">
+        {personJsonLd && <script type="application/ld+json" set:html={personJsonLd} is:inline />}
+
+        {isProvisional && <p class="provisional-marker">{t(lang, 'candidate.provisionalMarker')}</p>}
+
+        {showStatusBanner && (
+          <Banner kind="notice" lang={lang}>
+            {t(lang, `candidate.statusBanner.${row.status as 'withdrawn' | 'rejected'}`)}
+          </Banner>
+        )}
+
+        <header class="candidate-header">
+          {photoUrl ? (
+            <img class="photo" src={photoUrl} width="96" height="96" alt="" loading="lazy" />
+          ) : (
+            <span class="photo photo--placeholder" aria-hidden="true">
+              {initials}
+            </span>
+          )}
+          <div class="identity">
+            <h1 class="name">{candidateName}</h1>
+            <p class="party">{partyName}</p>
+            <p class="ward-line">{wardName}</p>
+          </div>
+        </header>
+        <p class="ec-source-note">{t(lang, 'candidate.header.sourceEcNomination')}</p>
+
+        <Button
+          variant="tertiary"
+          type="button"
+          lang={lang}
+          data-flag-action
+          data-ward-id={row.wardId}
+          data-flag-targets={flagTargets}
+        >
+          {t(lang, 'common.flagError')}
+        </Button>
+
+        <Card>
+          <div class="field-rows">
+            {reportCardFields.map((field) => (
+              <FieldRow
+                label={field.label}
+                value={field.value}
+                notDeclared={field.notDeclared}
+                sourceType={field.sourceType}
+                sourceUrl={field.sourceUrl}
+                aiExtracted={field.aiExtracted}
+                lang={lang}
+                authoredLang={field.authoredLang}
+                translationStatus={field.translationStatus}
+              />
+            ))}
+          </div>
+        </Card>
+
+        <section class="news-section" aria-label={t(lang, 'candidate.news.heading')}>
+          <h2>{t(lang, 'candidate.news.heading')}</h2>
+          {newsLinks.length === 0 ? (
+            <p class="placeholder-note">{t(lang, 'candidate.news.empty')}</p>
+          ) : (
+            <ul class="news-list">
+              {newsLinks.map((link) => (
+                <li class="news-item">
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">
+                    {link.title}
+                    <svg
+                      class="external-glyph"
+                      viewBox="0 0 24 24"
+                      width="16"
+                      height="16"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                      role="img"
+                      aria-label={t(lang, 'common.opensInNewTab')}
+                    >
+                      <path d="M9 6h9v9" stroke-linecap="round" stroke-linejoin="round" />
+                      <path d="M18 6 8 16" stroke-linecap="round" stroke-linejoin="round" />
+                      <path
+                        d="M13 6H6.75A1.75 1.75 0 0 0 5 7.75v10.5A1.75 1.75 0 0 0 6.75 20h10.5A1.75 1.75 0 0 0 19 18.25V12"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  </a>
+                  <span class="domain">{link.domain}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <nav class="candidate-links" aria-label={t(lang, 'candidate.links.label')}>
+          <a href={localePath(lang, `/ward/${row.wardId}/compare`)}>{t(lang, 'candidate.links.compare')}</a>
+          <a href={localePath(lang, `/ward/${row.wardId}/issues`)}>{t(lang, 'candidate.links.issues')}</a>
+        </nav>
+      </div>
+    ) : (
+      <EmptyState fact={t(lang, 'candidate.notFound.fact')} />
+    )
+  }
+</Base>
+
+<style>
+  .candidate {
+    max-width: var(--container-app);
+    margin-inline: auto;
+    padding: var(--space-8) var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-6);
+  }
+
+  .provisional-marker {
+    margin: 0;
+    font-size: var(--text-sm);
+    font-style: italic;
+    color: var(--color-text-muted);
+  }
+
+  .candidate-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .photo {
+    flex: none;
+    width: 96px;
+    height: 96px;
+    border-radius: var(--radius-full);
+    object-fit: cover;
+    background: var(--color-surface);
+  }
+
+  .photo--placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-2xl);
+    color: var(--color-text-muted);
+  }
+
+  .identity {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .name {
+    font-family: var(--font-heading);
+    font-size: var(--text-3xl);
+    line-height: var(--leading-3xl);
+    margin: 0;
+  }
+
+  .party {
+    margin: 0;
+    font-size: var(--text-base);
+    color: var(--color-text);
+  }
+
+  .ward-line {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .ec-source-note {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .field-rows {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .field-rows > :global(*:not(:last-child)) {
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .news-section h2 {
+    font-family: var(--font-heading);
+    font-size: var(--text-xl);
+    margin: 0 0 var(--space-3);
+  }
+
+  .placeholder-note {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    font-style: italic;
+  }
+
+  .news-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .news-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2);
+  }
+
+  .news-item a {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .news-item a:hover,
+  .news-item a:focus-visible {
+    text-decoration: underline;
+  }
+
+  .external-glyph {
+    margin-inline-start: var(--space-1);
+    vertical-align: -2px;
+  }
+
+  .domain {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .candidate-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+  }
+
+  .candidate-links a {
+    color: var(--color-primary);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .candidate-links a:hover,
+  .candidate-links a:focus-visible {
+    text-decoration: underline;
+  }
+</style>

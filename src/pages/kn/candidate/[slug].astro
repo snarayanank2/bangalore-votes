@@ -1,0 +1,24 @@
+---
+/**
+ * Candidate report card (`/kn/candidate/{slug}`) — Kannada twin, see
+ * src/pages/candidate/[slug].astro for the full explanation of the 404
+ * handling.
+ */
+import Candidate from '../../../features/pages/Candidate.astro';
+import { db } from '../../../db/client';
+import { candidates } from '../../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const slug = Astro.params.slug;
+
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+const [exists] = await db.select({ id: candidates.id }).from(candidates).where(eq(candidates.slug, slug));
+if (!exists) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<Candidate lang="kn" slug={slug} />

@@ -1,0 +1,34 @@
+---
+/**
+ * Candidate report card (`/candidate/{slug}`) — thin route twin over
+ * src/features/pages/Candidate.astro (see src/features/pages/README.md).
+ *
+ * Existence check ONLY lives here, not in Candidate.astro: only a
+ * page-level frontmatter script can end an Astro request early with a
+ * custom HTTP status (returning a Response from a component rendered as a
+ * child of a page has no effect on the actual response) — so this twin
+ * runs a minimal existence lookup and returns a real 404 before
+ * Candidate.astro (which does its own full-row lookup for the fields it
+ * renders) is ever reached. IA §3.4, architecture §8: only an UNKNOWN slug
+ * 404s — an existing candidate is ALWAYS 200, including withdrawn/rejected
+ * and pre-notification/no-fields-yet candidates (Candidate.astro itself
+ * handles those states).
+ */
+import Candidate from '../../features/pages/Candidate.astro';
+import { db } from '../../db/client';
+import { candidates } from '../../db/schema';
+import { eq } from 'drizzle-orm';
+
+const slug = Astro.params.slug;
+
+if (!slug) {
+  return new Response(null, { status: 404 });
+}
+
+const [exists] = await db.select({ id: candidates.id }).from(candidates).where(eq(candidates.slug, slug));
+if (!exists) {
+  return new Response(null, { status: 404 });
+}
+---
+
+<Candidate lang="en" slug={slug} />
