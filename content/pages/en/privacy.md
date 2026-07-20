@@ -70,7 +70,7 @@ As a data principal under India's Digital Personal Data Protection Act, 2023, yo
 
 ## How long do you keep my data?
 
-We propose to delete or anonymize citizen contact data (email, phone, address-derived ward, and related account data) **within a set period after election results are declared**, with encrypted backups aging out of retention on their normal rotation schedule afterward.
+Our proposal — pending confirmation by legal counsel — is that citizen contact data (email, phone, address-derived ward, and related account data) is deleted or anonymized **within 3 months of the election results being declared**, with encrypted backups aging out on rotation.
 
 **This retention period is a product proposal, not yet legally confirmed**, and this page will state the exact, confirmed period once that legal review is complete. Until then, treat any specific number you may see elsewhere as provisional.
 

@@ -5,7 +5,10 @@ description: Who runs this platform, who funds it, how data is sourced and verif
 
 ## Who runs this platform?
 
-This platform is run by the **Oorvani Foundation**, the trust that also operates [Open City](https://opencity.in) and Citizen Matters. We're not affiliated with any candidate, party, or government body. This platform exists to give Bengaluru citizens neutral, sourced, ward-level information ahead of the GBA corporator elections — nothing more, nothing less.
+This platform is run by the **Oorvani Foundation**, the trust that also operates [Open City](https://opencity.in).
+<!-- INPUT NEEDED: whether Citizen Matters is also Oorvani-operated is unconfirmed (PRD §17) — add here once confirmed -->
+
+We're not affiliated with any candidate, party, or government body. This platform exists to give Bengaluru citizens neutral, sourced, ward-level information ahead of the GBA corporator elections — nothing more, nothing less.
 
 <!-- INPUT NEEDED: team names/bios and mission statement for this section. -->
 

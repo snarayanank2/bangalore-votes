@@ -8,14 +8,15 @@ Filing a story on the GBA elections and need something to quote or drop in? This
 ## Boilerplate
 
 <!-- INPUT NEEDED: legal/comms review of the three boilerplate lengths below for exact word-count compliance (50/100/200 words) and factual accuracy (launch date, ward count status at time of publication). -->
+<!-- INPUT NEEDED: mention Citizen Matters only if confirmed Oorvani-operated (PRD §17) -->
 
 **50 words**
 
-This platform gives Bengaluru citizens ward-level information ahead of the GBA corporator elections — new ward boundaries, neutral candidate report cards sourced from sworn affidavits, local issue priorities, and voting logistics. Built and run by the Oorvani Foundation, publisher of Citizen Matters and Open City, it does not endorse any candidate or party.
+This platform gives Bengaluru citizens ward-level information ahead of the GBA corporator elections — new ward boundaries, neutral candidate report cards sourced from sworn affidavits, issue priorities, and voting logistics. Built and run by the Oorvani Foundation, the trust behind Open City, it does not endorse any candidate or party.
 
 **100 words**
 
-This platform gives Bengaluru citizens trustworthy, ward-level information ahead of the Greater Bengaluru Authority's corporator elections — the first ward election in the city in roughly a decade, under newly redrawn boundaries. Citizens can find their new ward, read neutral candidate report cards sourced from sworn affidavits, compare candidates side by side, vote on their ward's top local issues, and get help with voter registration, voter ID, and finding their polling booth. Every fact on the platform carries a visible source. Built and run by the Oorvani Foundation, publisher of Citizen Matters and Open City, the platform does not endorse or oppose any candidate or party.
+This platform gives Bengaluru citizens trustworthy, ward-level information ahead of the Greater Bengaluru Authority's corporator elections — the first ward election in roughly a decade, under newly redrawn boundaries. Citizens can find their new ward, read neutral candidate report cards sourced from sworn affidavits, compare candidates, vote on their ward's top issues, and get help with voter registration, voter ID, and polling booth locator. Every fact carries a visible source. Built and run by the Oorvani Foundation, the trust behind Open City, the platform does not endorse or oppose any candidate or party.
 
 **200 words**
 
