@@ -29,6 +29,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import {
   auditLog,
+  candidateAffidavits,
   candidateFields,
   candidates,
   curatorScopes,
@@ -39,6 +40,7 @@ import {
   wardReadiness,
   wards,
   type candidateStatusEnum,
+  type extractionStatusEnum,
   type flagStatusEnum,
   type flagTargetEnum,
   type sourceTypeEnum,
@@ -48,6 +50,8 @@ import { resolveFlag } from './flags';
 import { createCandidate, publishCandidateCore, publishCandidateField } from './publish';
 import { storeMedia, type MediaStoreErrorCode } from './media';
 import { checkDefaultLimit } from './rate-limit';
+import { fetchAffidavitFromEc, type AffidavitFetchErrorCode } from './affidavit-fetch';
+import { extractAffidavitFields } from './extract';
 import type { Lang } from '../i18n';
 import type { Role } from './session';
 
@@ -56,6 +60,7 @@ type FlagStatus = (typeof flagStatusEnum.enumValues)[number];
 type SourceType = (typeof sourceTypeEnum.enumValues)[number];
 type AuthoredLang = (typeof langEnum.enumValues)[number];
 type CandidateStatus = (typeof candidateStatusEnum.enumValues)[number];
+type ExtractionStatus = (typeof extractionStatusEnum.enumValues)[number];
 const CANDIDATE_STATUSES = ['filed', 'contesting', 'rejected', 'withdrawn'] as const satisfies readonly CandidateStatus[];
 
 /** Same shape `src/middleware.ts` puts on `locals.session` for an authed request. */
@@ -483,6 +488,15 @@ export interface ReportCardFieldEditRow {
   authoredLang: AuthoredLang;
 }
 
+/** One row of the affidavit ingestion history (Task 37) — newest first. `mediaUrl` is the stored PDF's public, content-hashed URL (the source every extracted field points back to). */
+export interface CandidateAffidavitRow {
+  id: number;
+  originUrl: string | null;
+  extractionStatus: ExtractionStatus;
+  mediaUrl: string;
+  createdAt: Date;
+}
+
 export interface CandidateEditData {
   id: number;
   slug: string;
@@ -497,6 +511,7 @@ export interface CandidateEditData {
   photoUrl: string | null;
   status: CandidateStatus;
   fields: Record<ReportCardFieldKey, ReportCardFieldEditRow>;
+  affidavits: CandidateAffidavitRow[];
 }
 
 /** Loads everything `/curator/candidate/{id}` needs to render: the candidate's core row (+ ward name) and its five report-card fields, defaulting any field with no `candidate_fields` row yet to an empty, not-yet-declared state. `null` when no such candidate exists — the route twin turns that into a 404. Does NOT check scope (same convention as `loadQueueItem` — the caller must `canEditWard` against the returned `wardId`). */
@@ -541,6 +556,28 @@ export async function loadCandidateForEdit(candidateId: number): Promise<Candida
     }),
   ) as Record<ReportCardFieldKey, ReportCardFieldEditRow>;
 
+  const affidavitRows = await db
+    .select({
+      id: candidateAffidavits.id,
+      originUrl: candidateAffidavits.originUrl,
+      extractionStatus: candidateAffidavits.extractionStatus,
+      createdAt: candidateAffidavits.createdAt,
+      mediaHash: media.sha256,
+      mediaId: media.id,
+    })
+    .from(candidateAffidavits)
+    .innerJoin(media, eq(media.id, candidateAffidavits.mediaId))
+    .where(eq(candidateAffidavits.candidateId, candidateId))
+    .orderBy(desc(candidateAffidavits.createdAt));
+
+  const affidavits: CandidateAffidavitRow[] = affidavitRows.map((a) => ({
+    id: a.id,
+    originUrl: a.originUrl,
+    extractionStatus: a.extractionStatus,
+    mediaUrl: `/media/${a.mediaId}/${a.mediaHash.slice(0, 16)}`,
+    createdAt: a.createdAt,
+  }));
+
   return {
     id: row.id,
     slug: row.slug,
@@ -555,6 +592,7 @@ export async function loadCandidateForEdit(candidateId: number): Promise<Candida
     photoUrl: row.photoMediaId != null && row.photoHash ? `/media/${row.photoMediaId}/${row.photoHash.slice(0, 16)}` : null,
     status: row.status,
     fields,
+    affidavits,
   };
 }
 
@@ -717,4 +755,108 @@ export async function handleCandidateFieldPublish(
   });
 
   return { kind: 'saved' };
+}
+
+// ---------------------------------------------------------------------------
+// Affidavit ingestion (Task 37; architecture §7/§13; PRD §5.2) — the
+// `formAction=affidavit` form on `/curator/candidate/{id}`: upload the PDF
+// directly, OR paste its EC link (fetched SSRF-hardened, src/lib/affidavit-fetch.ts).
+// Either path lands the same way from here on: `storeMedia(kind:'affidavit')`
+// (magic-byte + size validation, identical for both paths — architecture
+// §7's "fetched bytes pass the same validation as a direct upload"), a new
+// `candidate_affidavits` row, then AI extraction
+// (src/lib/extract.ts) run in-request so the editor can surface a failure
+// immediately rather than leaving the curator wondering.
+// ---------------------------------------------------------------------------
+
+export type CandidateAffidavitOutcome =
+  | { kind: 'saved'; extractionFailed: boolean }
+  | { kind: 'validation_error'; key: string };
+
+/** Error key for a `fetchAffidavitFromEc` throw — every SSRF rejection reads to the curator as "that's not a link this platform can fetch"; the size cap gets its own (shared with storeMedia's) message. */
+function affidavitFetchErrorKey(err: unknown): string {
+  const code = err instanceof Error ? (err.message as AffidavitFetchErrorCode | string) : '';
+  if (code === 'media_too_large') return 'curator.candidateEdit.error.affidavitTooLarge';
+  if (code === 'ssrf_scheme' || code === 'ssrf_host' || code === 'ssrf_ip' || code === 'ssrf_redirect_cap') {
+    return 'curator.candidateEdit.error.affidavitUrlRejected';
+  }
+  return 'curator.candidateEdit.error.affidavitFetchFailed';
+}
+
+/** Error key for a `storeMedia` throw on the affidavit path — shared size-cap key with `affidavitFetchErrorKey` above (the cap is the same 20 MB either way). */
+function affidavitStoreErrorKey(err: unknown): string {
+  const code = err instanceof Error ? (err.message as MediaStoreErrorCode | string) : '';
+  if (code === 'media_too_large') return 'curator.candidateEdit.error.affidavitTooLarge';
+  return 'curator.candidateEdit.error.affidavitUnsupported';
+}
+
+/**
+ * Handles the affidavit form (`formAction=affidavit`) on
+ * `/curator/candidate/{id}`: exactly one of an uploaded PDF (`affidavitFile`)
+ * or a pasted EC link (`ecUrl`) must be present. Shares the same per-account
+ * `upload` rate limit as the core photo upload (both write `media` rows).
+ *
+ * Extraction runs in-request (`await`ed): a failure there does NOT fail this
+ * whole publish — the affidavit is still stored and the
+ * `candidate_affidavits` row still lands (`extractionStatus: 'failed'`,
+ * written by `extractAffidavitFields` itself); the caller surfaces
+ * `extractionFailed: true` as a notice rather than a hard error, since the
+ * curator can still see/re-trigger extraction later (a jobs-based retry is
+ * a later concern per the task brief).
+ */
+export async function handleCandidateAffidavitPublish(
+  actor: CuratorActor,
+  candidateId: number,
+  form: FormData,
+): Promise<CandidateAffidavitOutcome> {
+  const ecUrl = String(form.get('ecUrl') ?? '').trim();
+  const fileField = form.get('affidavitFile');
+  const hasFile = fileField instanceof File && fileField.size > 0;
+
+  if (!ecUrl && !hasFile) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.affidavitRequired' };
+  }
+  if (ecUrl && hasFile) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.affidavitBothProvided' };
+  }
+
+  const allowed = await checkDefaultLimit(actor.userId, 'upload');
+  if (!allowed) {
+    return { kind: 'validation_error', key: 'curator.candidateEdit.error.uploadRateLimited' };
+  }
+
+  let bytes: Buffer;
+  if (ecUrl) {
+    try {
+      bytes = await fetchAffidavitFromEc(ecUrl);
+    } catch (err) {
+      return { kind: 'validation_error', key: affidavitFetchErrorKey(err) };
+    }
+  } else {
+    bytes = Buffer.from(await (fileField as File).arrayBuffer());
+  }
+
+  let mediaId: number;
+  try {
+    const stored = await storeMedia(actor, { bytes }, 'affidavit');
+    mediaId = stored.id;
+  } catch (err) {
+    return { kind: 'validation_error', key: affidavitStoreErrorKey(err) };
+  }
+
+  await db.insert(candidateAffidavits).values({
+    candidateId,
+    mediaId,
+    originUrl: ecUrl || null,
+    extractionStatus: 'pending',
+  });
+
+  let extractionFailed = false;
+  try {
+    await extractAffidavitFields(mediaId, candidateId, { userId: actor.userId });
+  } catch {
+    extractionFailed = true;
+  }
+
+  return { kind: 'saved', extractionFailed };
 }

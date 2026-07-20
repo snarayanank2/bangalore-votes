@@ -16,6 +16,7 @@ import CandidateEdit from '../../../features/pages/curator/CandidateEdit.astro';
 import { canEditWard } from '../../../lib/authz';
 import {
   REPORT_CARD_FIELD_KEYS,
+  handleCandidateAffidavitPublish,
   handleCandidateCorePublish,
   handleCandidateFieldPublish,
   loadCandidateForEdit,
@@ -68,6 +69,16 @@ if (Astro.request.method === 'POST') {
       return new Response(null, { status: 400, headers: { 'cache-control': 'no-store' } });
     }
     const outcome = await handleCandidateFieldPublish(actor, candidateId, fieldKey as ReportCardFieldKey, form);
+    if (outcome.kind === 'saved') {
+      return new Response(null, {
+        status: 302,
+        headers: { Location: `/curator/candidate/${candidateId}`, 'cache-control': 'no-store' },
+      });
+    }
+    message = { kind: 'error', key: outcome.key };
+    responseStatus = 400;
+  } else if (formAction === 'affidavit') {
+    const outcome = await handleCandidateAffidavitPublish(actor, candidateId, form);
     if (outcome.kind === 'saved') {
       return new Response(null, {
         status: 302,

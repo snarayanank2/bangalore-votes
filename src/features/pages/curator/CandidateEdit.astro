@@ -23,10 +23,22 @@
  *     marked `required` and the server re-validates regardless (see
  *     `handleCandidateFieldPublish`).
  *
- * AFFIDAVIT (Task 37) and NEWS LINKS (Task 38) are out of scope here —
- * both render as a clearly-marked placeholder section, not a working
- * upload/list, so this page has an obvious mount point for those tasks
- * without faking functionality that doesn't exist yet.
+ * AFFIDAVIT (Task 37, architecture §7/§13, PRD §5.2): TWO independent forms
+ * (`formAction=affidavit`, disambiguated server-side by which of
+ * `affidavitFile` / `ecUrl` is present) — an upload (curator picks a PDF
+ * off disk) and an EC-link fetch (curator pastes the official EC affidavit
+ * URL; src/lib/affidavit-fetch.ts does the SSRF-hardened fetch). Either
+ * path lands the same way: `storeMedia(kind:'affidavit')`, a new
+ * `candidate_affidavits` row, then AI extraction populates the three
+ * extracted fields immediately (marked AI-extracted, cleared the moment a
+ * curator re-confirms one — Task 5's rule, unchanged here). The stored
+ * affidavit list shows each PDF's link, its source (uploaded vs. the EC URL
+ * it came from), and its extraction status.
+ *
+ * NEWS LINKS (Task 38) is still out of scope here — it renders as a
+ * clearly-marked placeholder section, not a working list, so this page has
+ * an obvious mount point for that task without faking functionality that
+ * doesn't exist yet.
  */
 import CuratorLayout from '../../../layouts/CuratorLayout.astro';
 import Card from '../../../components/Card.astro';
@@ -242,7 +254,60 @@ const formTarget = isNew ? `/curator/candidate/new?ward=${wardId}` : `/curator/c
       !isNew && (
         <Card>
           <h2>{t(lang, 'curator.candidateEdit.affidavit.heading')}</h2>
-          <p class="placeholder-note">{t(lang, 'curator.candidateEdit.affidavit.note')}</p>
+
+          <h3>{t(lang, 'curator.candidateEdit.affidavit.existingHeading')}</h3>
+          {candidate!.affidavits.length === 0 ? (
+            <p class="placeholder-note">{t(lang, 'curator.candidateEdit.affidavit.noneYet')}</p>
+          ) : (
+            <ul class="affidavit-list">
+              {candidate!.affidavits.map((a) => (
+                <li class="affidavit-item">
+                  <a href={a.mediaUrl} target="_blank" rel="noopener noreferrer">
+                    {t(lang, 'curator.candidateEdit.affidavit.viewPdf')}
+                  </a>
+                  <span class="meta">
+                    {a.originUrl
+                      ? `${t(lang, 'curator.candidateEdit.affidavit.sourceEcLink')} ${a.originUrl}`
+                      : t(lang, 'curator.candidateEdit.affidavit.sourceUpload')}
+                  </span>
+                  <span class={`status-badge status-${a.extractionStatus}`}>
+                    {t(lang, `curator.candidateEdit.affidavit.status.${a.extractionStatus}`)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h3>{t(lang, 'curator.candidateEdit.affidavit.uploadHeading')}</h3>
+          <form method="post" action={formTarget} enctype="multipart/form-data">
+            <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+            <input type="hidden" name="formAction" value="affidavit" />
+            <div class="form-field">
+              <label class="form-label" for="affidavit-file">
+                {t(lang, 'curator.candidateEdit.affidavit.uploadLabel')}
+              </label>
+              <input id="affidavit-file" class="form-input" type="file" name="affidavitFile" accept="application/pdf" />
+            </div>
+            <Button type="submit" variant="secondary" lang={lang}>
+              {t(lang, 'curator.candidateEdit.affidavit.uploadSubmit')}
+            </Button>
+          </form>
+
+          <h3>{t(lang, 'curator.candidateEdit.affidavit.ecUrlHeading')}</h3>
+          <form method="post" action={formTarget}>
+            <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+            <input type="hidden" name="formAction" value="affidavit" />
+            <FormField
+              label={t(lang, 'curator.candidateEdit.affidavit.ecUrlLabel')}
+              name="ecUrl"
+              type="text"
+              helper={t(lang, 'curator.candidateEdit.affidavit.ecUrlHelper')}
+              lang={lang}
+            />
+            <Button type="submit" variant="secondary" lang={lang}>
+              {t(lang, 'curator.candidateEdit.affidavit.ecUrlSubmit')}
+            </Button>
+          </form>
         </Card>
       )
     }
@@ -361,5 +426,37 @@ const formTarget = isNew ? `/curator/candidate/new?ward=${wardId}` : `/curator/c
     color: var(--color-text-muted);
     font-size: var(--text-sm);
     font-style: italic;
+  }
+
+  .affidavit-list {
+    list-style: none;
+    margin: 0 0 var(--space-4);
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .affidavit-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+  }
+
+  .status-badge {
+    padding: 0 var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+  }
+
+  .status-badge.status-failed {
+    background: var(--color-danger-surface);
+    color: var(--color-danger);
   }
 </style>
