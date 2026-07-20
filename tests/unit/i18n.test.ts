@@ -62,6 +62,20 @@ describe('t()', () => {
     expect(() => t('en', '__hints')).toThrow();
     expect(() => t('kn', '__hashes')).toThrow();
   });
+
+  it('leaves unmatched placeholders literal when vars is partially provided', () => {
+    // 'greeting.multi' template is '{greeting} {name}, you owe {amount}'
+    // Supply only name and amount; greeting placeholder remains literal
+    expect(t('en', 'greeting.multi', { name: 'Ravi', amount: 50 })).toBe(
+      '{greeting} Ravi, you owe 50',
+    );
+  });
+
+  it('leaves all placeholders literal when vars is omitted', () => {
+    // 'greeting.multi' template is '{greeting} {name}, you owe {amount}'
+    // Call with no vars; all placeholders remain literal
+    expect(t('en', 'greeting.multi')).toBe('{greeting} {name}, you owe {amount}');
+  });
 });
 
 describe('localePath()', () => {
