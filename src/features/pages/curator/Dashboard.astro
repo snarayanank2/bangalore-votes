@@ -1,0 +1,177 @@
+---
+/**
+ * `/curator` (Task 34, information-architecture.md §5.1) — a curator's
+ * home: review-queue count, a recent-activity audit tail, and the
+ * awaiting-sign-off list for their scoped wards (admin: every ward).
+ *
+ * No `/kn/` twin — curator/admin routes are internal tooling (noindex, see
+ * src/middleware.ts), rendered in the signed-in user's OWN saved
+ * `users.language` rather than derived from the URL (there is no `/kn/`
+ * curator route to derive it from). See src/lib/curator.ts's
+ * `loadCuratorLang`.
+ *
+ * QUICK LINKS (IA §5.1: "quick entry to edit candidates/wards and define
+ * issues"): only the Review queue link is real today — Edit candidate/Edit
+ * ward/Define ward issues are later tasks (36/39) with no route yet, so
+ * they're listed as coming soon rather than linking to a 404 or faking a
+ * page. See the Task 34 report for this scope note.
+ */
+import CuratorLayout from '../../../layouts/CuratorLayout.astro';
+import Card from '../../../components/Card.astro';
+import Badge from '../../../components/Badge.astro';
+import { t, localePath, type Lang } from '../../../i18n';
+import type { DashboardData } from '../../../lib/curator';
+
+interface Props {
+  lang: Lang;
+  data: DashboardData;
+}
+
+const { lang, data } = Astro.props;
+const { queueCount, recentActivity, awaitingSignOff } = data;
+---
+
+<CuratorLayout lang={lang} title={t(lang, 'curator.dashboard.meta.title')} description={t(lang, 'curator.dashboard.meta.description')}>
+  <div class="curator-page">
+    <h1>{t(lang, 'curator.dashboard.heading')}</h1>
+
+    <Card>
+      <h2>{t(lang, 'curator.dashboard.queueHeading')}</h2>
+      <p class="queue-count">{t(lang, 'curator.dashboard.queueCount', { count: queueCount })}</p>
+      <a href="/curator/queue">{t(lang, 'curator.dashboard.queueLink')}</a>
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'curator.dashboard.signOff.heading')}</h2>
+      {
+        awaitingSignOff.length === 0 ? (
+          <p>{t(lang, 'curator.dashboard.signOff.empty')}</p>
+        ) : (
+          <ul class="sign-off-list">
+            {awaitingSignOff.map((ward) => (
+              <li class="sign-off-row">
+                {ward.clearedByChange && <Badge variant="ward-held" lang={lang} />}
+                <a href={localePath(lang, `/ward/${ward.wardId}`)}>{lang === 'kn' ? ward.nameKn : ward.nameEn}</a>
+                {ward.clearedByChange && <span class="cleared-note">{t(lang, 'curator.dashboard.signOff.clearedNote')}</span>}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'curator.dashboard.recentActivity.heading')}</h2>
+      {
+        recentActivity.length === 0 ? (
+          <p>{t(lang, 'curator.dashboard.recentActivity.empty')}</p>
+        ) : (
+          <table class="activity-table">
+            <thead>
+              <tr>
+                <th>{t(lang, 'curator.dashboard.recentActivity.colAction')}</th>
+                <th>{t(lang, 'curator.dashboard.recentActivity.colEntity')}</th>
+                <th>{t(lang, 'curator.dashboard.recentActivity.colWard')}</th>
+                <th>{t(lang, 'curator.dashboard.recentActivity.colWhen')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentActivity.map((entry) => (
+                <tr>
+                  <td>{entry.action}</td>
+                  <td>
+                    {entry.entityType}:{entry.entityId}
+                  </td>
+                  <td>{entry.wardId ?? '—'}</td>
+                  <td>{entry.createdAt.toISOString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      }
+    </Card>
+
+    <Card>
+      <h2>{t(lang, 'curator.dashboard.quickLinks.heading')}</h2>
+      <ul class="quick-links">
+        <li>
+          <a href="/curator/queue">{t(lang, 'curator.dashboard.quickLinks.queue')}</a>
+        </li>
+        <li class="quick-links-pending">{t(lang, 'curator.dashboard.quickLinks.editComingSoon')}</li>
+      </ul>
+    </Card>
+  </div>
+</CuratorLayout>
+
+<style>
+  .curator-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .curator-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .curator-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .queue-count {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    margin: 0 0 var(--space-2);
+  }
+
+  .sign-off-list,
+  .quick-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .sign-off-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .cleared-note {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .quick-links-pending {
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  .activity-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .activity-table th,
+  .activity-table td {
+    text-align: left;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .activity-table tbody tr:nth-child(odd) {
+    background: var(--color-surface);
+  }
+</style>

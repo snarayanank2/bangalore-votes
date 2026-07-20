@@ -1,0 +1,22 @@
+---
+/**
+ * `/curator` — see src/features/pages/curator/Dashboard.astro for the full
+ * explanation. This route twin owns the HTTP concerns a plain component
+ * cannot: no-store (an authed, per-curator dashboard must never be
+ * cached), and resolving the render language from the signed-in user's
+ * OWN saved preference (no `/kn/` twin exists for curator routes — see
+ * src/lib/curator.ts's `loadCuratorLang`).
+ *
+ * src/middleware.ts already 403s any non-curator/admin session and
+ * redirects an anonymous request to /login before this ever runs.
+ */
+import Dashboard from '../../features/pages/curator/Dashboard.astro';
+import { loadDashboard, loadCuratorLang } from '../../lib/curator';
+
+const session = Astro.locals.session!;
+const [data, lang] = await Promise.all([loadDashboard(session.userId, session.role), loadCuratorLang(session.userId)]);
+
+Astro.response.headers.set('cache-control', 'no-store');
+---
+
+<Dashboard lang={lang} data={data} />

@@ -1,0 +1,303 @@
+---
+/**
+ * `/curator/queue/{id}` (Task 34, information-architecture.md §5.3; PRD
+ * §6.1 step 3-4) — one flag item: every collapsed `flag_submissions` row,
+ * the target's current value + source, and the accept/reject actions.
+ *
+ * SCOPE ENFORCEMENT: this component trusts that its caller
+ * (src/pages/curator/queue/[id].astro) has already verified `canEditWard`
+ * for `item.wardId` and 403'd otherwise — it does not re-check scope
+ * itself. See src/lib/curator.ts's module docstring.
+ *
+ * ACCEPT is only offered for a `candidate_field` target (Task 34 scope —
+ * `item.candidateField` is non-null exactly then; ward_field/ward_issue
+ * accept-publish lands in Task 39, see src/lib/curator.ts's
+ * `handleAccept`). For any other target type this renders a note instead of
+ * the accept form; REJECT is always available regardless of target type.
+ *
+ * CONFIRMATION (design-system.md §7.13: "destructive and publish actions
+ * get confirmation dialogs stating scope"): a required checkbox naming the
+ * exact publish target (`/ward/{id}`) sits directly above the Accept
+ * button — a no-JS-required confirmation step, consistent with every other
+ * form on this route being a plain server-rendered POST.
+ */
+import CuratorLayout from '../../../layouts/CuratorLayout.astro';
+import Card from '../../../components/Card.astro';
+import Badge from '../../../components/Badge.astro';
+import type { BadgeVariant } from '../../../components/Badge.astro';
+import Banner from '../../../components/Banner.astro';
+import Button from '../../../components/Button.astro';
+import FormField from '../../../components/FormField.astro';
+import SourceLine from '../../../components/SourceLine.astro';
+import { t, type Lang } from '../../../i18n';
+import { CSRF_FIELD_NAME } from '../../../lib/csrf';
+import type { QueueItemDetail } from '../../../lib/curator';
+
+interface Props {
+  lang: Lang;
+  csrfToken: string;
+  item: QueueItemDetail;
+  message?: { kind: 'notice' | 'error'; key: string };
+}
+
+const { lang, csrfToken, item, message } = Astro.props;
+const messageText = message ? t(lang, message.key) : undefined;
+
+const BADGE_VARIANT: Record<QueueItemDetail['status'], BadgeVariant> = {
+  pending: 'flag-pending',
+  accepted: 'flag-accepted',
+  rejected: 'flag-rejected',
+};
+
+const wardPath = `/ward/${item.wardId}`;
+const isPending = item.status === 'pending';
+---
+
+<CuratorLayout lang={lang} title={t(lang, 'curator.queueItem.meta.title')} description={t(lang, 'curator.queueItem.meta.description')}>
+  <div class="curator-page">
+    <p><a href="/curator/queue">{t(lang, 'curator.queueItem.backToQueue')}</a></p>
+    <h1>{t(lang, 'curator.queueItem.heading', { ward: lang === 'kn' ? item.wardNameKn : item.wardNameEn })}</h1>
+
+    <p class="target-line">
+      <Badge variant={BADGE_VARIANT[item.status]} lang={lang} />
+      <span>{item.targetLabel}</span>
+    </p>
+
+    {
+      messageText && (
+        <Banner kind={message!.kind === 'error' ? 'error' : 'notice'} lang={lang}>
+          {messageText}
+        </Banner>
+      )
+    }
+
+    {
+      !isPending && item.resolutionReason && (
+        <Banner kind="notice" lang={lang}>
+          {t(lang, 'curator.queueItem.resolutionReason', { reason: item.resolutionReason })}
+        </Banner>
+      )
+    }
+
+    <Card>
+      <h2>{t(lang, 'curator.queueItem.submissions.heading')}</h2>
+      <ul class="submissions-list">
+        {item.submissions.map((submission) => (
+          <li class="submission-card">
+            <p class="detail">{submission.detail}</p>
+            {submission.suggestedValue && (
+              <p class="meta">
+                {t(lang, 'curator.queueItem.submissions.suggestedValueLabel')}: {submission.suggestedValue}
+              </p>
+            )}
+            {submission.sourceUrl && (
+              <p class="meta">
+                {t(lang, 'curator.queueItem.submissions.sourceLabel')}:{' '}
+                <a href={submission.sourceUrl} target="_blank" rel="noopener noreferrer">
+                  {submission.sourceUrl}
+                </a>
+              </p>
+            )}
+            <p class="meta">{submission.createdAt.toISOString()}</p>
+          </li>
+        ))}
+      </ul>
+    </Card>
+
+    {
+      item.candidateField && (
+        <Card>
+          <h2>{t(lang, 'curator.queueItem.currentValue.heading')}</h2>
+          <p class="meta">
+            {t(lang, 'curator.queueItem.currentValue.candidate', { name: item.candidateField.candidateNameEn })}
+          </p>
+          <p class="meta">{t(lang, 'curator.queueItem.currentValue.field', { field: item.candidateField.fieldKey })}</p>
+          {item.candidateField.notDeclared ? (
+            <p>{t(lang, 'common.notDeclared')}</p>
+          ) : (
+            <>
+              <p>{item.candidateField.valueEn || t(lang, 'curator.queueItem.currentValue.none')}</p>
+              {item.candidateField.valueKn && <p lang="kn">{item.candidateField.valueKn}</p>}
+            </>
+          )}
+          <SourceLine sourceType={item.candidateField.sourceType} sourceUrl={item.candidateField.sourceUrl} lang={lang} />
+        </Card>
+      )
+    }
+
+    {
+      isPending && (
+        <Card>
+          <h2>{t(lang, 'curator.queueItem.reject.heading')}</h2>
+          <form method="post">
+            <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+            <input type="hidden" name="formAction" value="reject" />
+            <div class="form-field">
+              <label class="form-label" for="reject-reason">
+                {t(lang, 'curator.queueItem.reject.reasonLabel')}
+              </label>
+              <textarea id="reject-reason" class="form-input" name="reason" required rows={3} />
+            </div>
+            <Button type="submit" variant="destructive" lang={lang}>
+              {t(lang, 'curator.queueItem.reject.submit')}
+            </Button>
+          </form>
+        </Card>
+      )
+    }
+
+    {
+      isPending && item.candidateField && (
+        <Card>
+          <h2>{t(lang, 'curator.queueItem.accept.heading')}</h2>
+          <form method="post">
+            <input type="hidden" name={CSRF_FIELD_NAME} value={csrfToken} />
+            <input type="hidden" name="formAction" value="accept" />
+            <FormField label={t(lang, 'curator.queueItem.accept.valueEnLabel')} name="valueEn" lang={lang} />
+            <FormField label={t(lang, 'curator.queueItem.accept.valueKnLabel')} name="valueKn" lang={lang} />
+            <label class="checkbox">
+              <input type="checkbox" name="notDeclared" />
+              {t(lang, 'curator.queueItem.accept.notDeclaredLabel')}
+            </label>
+            <FormField
+              label={t(lang, 'curator.queueItem.accept.sourceUrlLabel')}
+              name="sourceUrl"
+              type="text"
+              required
+              lang={lang}
+            />
+            <div class="form-field">
+              <label class="form-label" for="accept-source-type">
+                {t(lang, 'curator.queueItem.accept.sourceTypeLabel')}
+              </label>
+              <select id="accept-source-type" class="form-input" name="sourceType">
+                <option value="curator">{t(lang, 'curator.queueItem.accept.sourceType.curator')}</option>
+                <option value="official">{t(lang, 'curator.queueItem.accept.sourceType.official')}</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label class="form-label" for="accept-authored-lang">
+                {t(lang, 'curator.queueItem.accept.authoredLangLabel')}
+              </label>
+              <select id="accept-authored-lang" class="form-input" name="authoredLang">
+                <option value="en">{t(lang, 'curator.queueItem.accept.authoredLang.en')}</option>
+                <option value="kn">{t(lang, 'curator.queueItem.accept.authoredLang.kn')}</option>
+              </select>
+            </div>
+            <label class="checkbox confirm-checkbox">
+              <input type="checkbox" name="confirmPublish" required />
+              {t(lang, 'curator.queueItem.accept.confirm', { path: wardPath })}
+            </label>
+            <Button type="submit" variant="primary" lang={lang}>
+              {t(lang, 'curator.queueItem.accept.submit')}
+            </Button>
+          </form>
+        </Card>
+      )
+    }
+
+    {
+      isPending && !item.candidateField && (
+        <Card>
+          <h2>{t(lang, 'curator.queueItem.accept.heading')}</h2>
+          <p>{t(lang, 'curator.queueItem.accept.unsupportedNote')}</p>
+        </Card>
+      )
+    }
+  </div>
+</CuratorLayout>
+
+<style>
+  .curator-page {
+    max-width: var(--container-prose);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .curator-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .curator-page h2 {
+    font-size: var(--text-lg);
+    margin: 0 0 var(--space-3);
+  }
+
+  .target-line {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0;
+  }
+
+  .submissions-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .submission-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+  }
+
+  .detail {
+    margin: 0 0 var(--space-1);
+  }
+
+  .meta {
+    margin: 0 0 var(--space-1);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    max-width: 32rem;
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .form-label {
+    font-size: var(--text-sm);
+    font-weight: 700;
+  }
+
+  .form-input {
+    min-height: 44px;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-base);
+    font-family: var(--font-body);
+    color: var(--color-text);
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+
+  .checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+  }
+
+  .confirm-checkbox {
+    font-weight: 700;
+  }
+</style>

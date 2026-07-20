@@ -1,0 +1,22 @@
+---
+/**
+ * `/curator/queue` — see src/features/pages/curator/Queue.astro for the
+ * full explanation. Route-twin concerns only: no-store, the `?sort=`
+ * query param, and the signed-in user's saved render language.
+ */
+import Queue from '../../../features/pages/curator/Queue.astro';
+import { loadQueueList, loadCuratorLang, type QueueSort } from '../../../lib/curator';
+
+const session = Astro.locals.session!;
+const sortParam = Astro.url.searchParams.get('sort');
+const sort: QueueSort = sortParam === 'ward' ? 'ward' : 'recent';
+
+const [items, lang] = await Promise.all([
+  loadQueueList(session.userId, session.role, sort),
+  loadCuratorLang(session.userId),
+]);
+
+Astro.response.headers.set('cache-control', 'no-store');
+---
+
+<Queue lang={lang} items={items} sort={sort} />

@@ -1,0 +1,108 @@
+---
+/**
+ * `/curator/queue` (Task 34, information-architecture.md §5.2) — PENDING
+ * flag_items in the curator's scoped wards ONLY (admin: every ward). An
+ * out-of-scope item is never in `items` — src/lib/curator.ts's
+ * `loadQueueList` does the scoping; this component just renders whatever
+ * it's handed. See src/features/pages/curator/Dashboard.astro's docstring
+ * for the language/noindex rationale shared by every curator page.
+ */
+import CuratorLayout from '../../../layouts/CuratorLayout.astro';
+import { t, type Lang } from '../../../i18n';
+import type { QueueListItem, QueueSort } from '../../../lib/curator';
+
+interface Props {
+  lang: Lang;
+  items: QueueListItem[];
+  sort: QueueSort;
+}
+
+const { lang, items, sort } = Astro.props;
+---
+
+<CuratorLayout lang={lang} title={t(lang, 'curator.queue.meta.title')} description={t(lang, 'curator.queue.meta.description')}>
+  <div class="curator-page">
+    <h1>{t(lang, 'curator.queue.heading')}</h1>
+    <p><a href="/curator">{t(lang, 'curator.queue.backToDashboard')}</a></p>
+
+    <nav class="sort-nav" aria-label={t(lang, 'curator.queue.sort.label')}>
+      <a href="?sort=recent" aria-current={sort === 'recent' ? 'true' : undefined}>
+        {t(lang, 'curator.queue.sort.recent')}
+      </a>
+      <a href="?sort=ward" aria-current={sort === 'ward' ? 'true' : undefined}>
+        {t(lang, 'curator.queue.sort.ward')}
+      </a>
+    </nav>
+
+    {
+      items.length === 0 ? (
+        <p>{t(lang, 'curator.queue.empty')}</p>
+      ) : (
+        <table class="queue-table">
+          <thead>
+            <tr>
+              <th>{t(lang, 'curator.queue.colWard')}</th>
+              <th>{t(lang, 'curator.queue.colTarget')}</th>
+              <th>{t(lang, 'curator.queue.colCount')}</th>
+              <th>{t(lang, 'curator.queue.colCreated')}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr>
+                <td>{lang === 'kn' ? item.wardNameKn : item.wardNameEn}</td>
+                <td>{item.targetLabel}</td>
+                <td>{item.submissionCount}</td>
+                <td>{item.createdAt.toISOString()}</td>
+                <td>
+                  <a href={`/curator/queue/${item.id}`}>{t(lang, 'curator.queue.viewLink')}</a>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )
+    }
+  </div>
+</CuratorLayout>
+
+<style>
+  .curator-page {
+    max-width: var(--container-wide, 64rem);
+    margin-inline: auto;
+    padding-block: var(--space-8);
+    padding-inline: var(--container-pad-x);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .curator-page h1 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin: 0;
+  }
+
+  .sort-nav {
+    display: flex;
+    gap: var(--space-4);
+  }
+
+  .queue-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .queue-table th,
+  .queue-table td {
+    text-align: left;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .queue-table tbody tr:nth-child(odd) {
+    background: var(--color-surface);
+  }
+</style>

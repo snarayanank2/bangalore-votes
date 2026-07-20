@@ -1,0 +1,73 @@
+---
+/**
+ * CuratorLayout — the document shell for `/curator/*` (Task 34,
+ * design-system.md §7.13 "Curator and admin surfaces"). Deliberately NOT
+ * src/layouts/Base.astro: Base's AppBar renders a language-toggle link via
+ * `localePath(otherLang, path)`, which assumes a real `/kn/<path>` route
+ * exists for every page it's used on — true for every PUBLIC page (each
+ * has a route twin), but NOT true here (see src/lib/curator.ts's module
+ * docstring: curator/admin routes have no `/kn/` twin at all, and render
+ * bilingual UI strings driven by the signed-in user's saved
+ * `users.language` instead). Reusing Base would render a toggle link
+ * pointing at a URL like `/kn/curator` that 404s.
+ *
+ * Also skips Base's canonical/hreflang tags (nothing to alternate between —
+ * there is only ever one URL for a given curator screen) and the
+ * anonymous-visitor widgets Base mounts for every public page
+ * (Register/Login, Flag, Vote modals, MeSlot) — none of those apply to an
+ * already-authenticated curator/admin session.
+ *
+ * `noindex` is unconditional here (every curator/admin page always is —
+ * src/middleware.ts also stamps `X-Robots-Tag: noindex` as a second layer).
+ */
+import '../styles/global.css';
+import SkipLink from '../components/SkipLink.astro';
+import { t, type Lang } from '../i18n';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+}
+
+const { lang, title, description } = Astro.props;
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content="noindex" />
+  </head>
+  <body>
+    <SkipLink lang={lang} />
+    <header class="curator-bar">
+      <a class="wordmark" href="/curator">{t(lang, 'curator.layout.wordmark')}</a>
+    </header>
+    <main id="main-content">
+      <slot />
+    </main>
+  </body>
+</html>
+
+<style>
+  .curator-bar {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding-inline: var(--container-pad-x);
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .wordmark {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: var(--text-lg);
+    color: var(--color-primary);
+    text-decoration: none;
+  }
+</style>
