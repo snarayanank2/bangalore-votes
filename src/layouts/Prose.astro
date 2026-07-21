@@ -1,8 +1,10 @@
 ---
 /**
- * Prose layout — wraps Base for long-form guide/legal/about pages,
- * constraining content to the --container-prose measure (design-system.md
- * §6.2) for readable line length.
+ * Prose layout — wraps Base for long-form guide/legal/about pages. Uses the
+ * --container-app frame so its header, content, and footer share one width
+ * with the rest of the site (home/ward/compare), rather than the narrower
+ * --container-prose measure that left these pages visibly thinner than the
+ * chrome on wide screens.
  *
  * Renders `title` as the page's single visible <h1>. The content files
  * (content/pages/**\/*.md) deliberately start their bodies at `## ` (h2) and
@@ -36,8 +38,11 @@ const { lang, title, description, path, ogImage, noindex, jsonLd } = Astro.props
 </Base>
 
 <style>
+  /* --container-app frame, matching the app-bar, footer, and the app/ward
+     pages so every page presents a consistent-width column (design-system.md
+     §6.2). Centered like the chrome, so both edges line up on wide screens. */
   .prose {
-    max-width: var(--container-prose);
+    max-width: var(--container-app);
     margin-inline: auto;
     padding-block: var(--space-8);
     padding-inline: var(--container-pad-x);
