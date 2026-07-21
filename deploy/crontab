@@ -1,0 +1,49 @@
+# GBA Elections Citizen Platform — jobs container crontab (Task 55;
+# architecture.md §10 "Jobs, ops, backups"). Each line invokes one job via
+# `tsx`, exactly like jobs/run-campaign.ts is invoked, against the app
+# codebase this container shares with the web service.
+#
+# Task 59 wires PATH/workdir/user for the actual jobs container image and
+# installs this file (e.g. as /etc/cron.d/gba-jobs or under `crond`'s
+# system crontab dir) — the paths below assume the app is checked out at
+# /app, matched to that task's Dockerfile.
+#
+# Every job is a one-shot process that exits 0 (success) or 1 (failure) —
+# cron's own mail-on-nonzero-exit (or the container's log driver) is the
+# first line of failure visibility; scripts/backup.sh additionally pings
+# healthchecks.io as a dead-man's-switch (architecture §10).
+
+# Translation retry — re-drives any candidate_fields/ward_issues/
+# candidate_stances row still translationStatus='pending' (e.g. because
+# ANTHROPIC_API_KEY was briefly absent, or a prior attempt timed out).
+*/5 * * * * cd /app && tsx jobs/translate-retry.ts >> /var/log/gba-jobs/translate-retry.log 2>&1
+
+# Sitemap regeneration — MINIMAL today (Task 60 expands to full ward/
+# candidate coverage); rewrites sitemap.xml/sitemap-en.xml/sitemap-kn.xml
+# every hour so lastmod stays fresh.
+0 * * * * cd /app && tsx jobs/regen-sitemaps.ts >> /var/log/gba-jobs/regen-sitemaps.log 2>&1
+
+# Campaign calendar runner (Task 54) — the seven-send comms calendar
+# (registration reminders, candidate-set notices, election-day/logistics
+# sends), ward-gated on readiness and the election-silence guardrail.
+30 3 * * * cd /app && tsx jobs/run-campaign.ts >> /var/log/gba-jobs/run-campaign.log 2>&1
+
+# News-link suggestions — Google Programmable Search over the domain
+# allowlist for every filed/contesting candidate, budget-capped; a no-op
+# until GOOGLE_SEARCH_API_KEY/GOOGLE_SEARCH_CX are configured. Every ~2
+# days (architecture §7's "a 2-3 day refresh").
+0 4 */2 * * cd /app && tsx jobs/news-suggest.ts >> /var/log/gba-jobs/news-suggest.log 2>&1
+
+# Suppression reconciliation — safety net against a lost SendGrid webhook
+# event; a no-op until SENDGRID_API_KEY is configured.
+0 5 * * * cd /app && tsx jobs/reconcile-suppressions.ts >> /var/log/gba-jobs/reconcile-suppressions.log 2>&1
+
+# DPDP retention enforcement — SHIPS DISABLED pending PRD §17 legal
+# sign-off on the retention period; logs a loud warning and erases no one
+# unless RETENTION_ENABLED=true is explicitly set.
+0 6 * * * cd /app && tsx jobs/retention.ts >> /var/log/gba-jobs/retention.log 2>&1
+
+# Nightly backup — pg_dump -> restic (DO Spaces, BLR1) -> verify snapshot
+# count increased -> healthchecks.io ping. See scripts/backup.sh's header
+# for the required env vars.
+0 2 * * * /app/scripts/backup.sh >> /var/log/gba-jobs/backup.log 2>&1
