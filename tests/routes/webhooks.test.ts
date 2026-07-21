@@ -300,4 +300,40 @@ describe('POST /api/webhooks/twilio', () => {
     const row = await suppressionRow(STOP_PHONE, 'whatsapp');
     expect(row).toBeUndefined();
   });
+
+  it('non-form Content-Type (JSON body) with a truthy signature header -> 403, not 500, writes nothing', async () => {
+    process.env.TWILIO_AUTH_TOKEN = TEST_TOKEN;
+    // Node's Request.formData() throws a TypeError for a JSON body -> this
+    // must fail closed (403), never escape as an uncaught 500.
+    const res = await twilioPOST({
+      request: new Request(TWILIO_URL, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          host: 'bangalore-votes.opencity.in',
+          'x-forwarded-proto': 'https',
+          'x-twilio-signature': 'anything-truthy',
+        },
+        body: JSON.stringify({ From: `whatsapp:${STOP_PHONE}`, Body: 'STOP' }),
+      }),
+    } as any);
+
+    expect(res.status).toBe(403);
+    const row = await suppressionRow(STOP_PHONE, 'whatsapp');
+    expect(row).toBeUndefined();
+    const bounceRow = await suppressionRow(BOUNCE_EMAIL, 'email');
+    expect(bounceRow).toBeUndefined();
+  });
+
+  it('STOP keyword with From absent -> 200, no suppression written (empty-phone no-op)', async () => {
+    process.env.TWILIO_AUTH_TOKEN = TEST_TOKEN;
+    const params = new URLSearchParams({ Body: 'STOP' });
+    const signature = computeTwilioSignature(TEST_TOKEN, TWILIO_URL, params);
+
+    const res = await twilioPOST({ request: twilioRequest(params, signature) } as any);
+
+    expect(res.status).toBe(200);
+    const row = await suppressionRow(STOP_PHONE, 'whatsapp');
+    expect(row).toBeUndefined();
+  });
 });

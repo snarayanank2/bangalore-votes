@@ -27,9 +27,13 @@
  * (no trailing slash mismatch, no `?extra=params` appended in the console).
  *
  * FAIL-CLOSED (security-critical): missing/empty `TWILIO_AUTH_TOKEN`,
- * missing `X-Twilio-Signature` header, or a computed signature that
- * doesn't match (including a length mismatch, checked before
- * `timingSafeEqual` so it never throws) -> 403, nothing written.
+ * missing `X-Twilio-Signature` header, a computed signature that doesn't
+ * match (including a length mismatch, checked before `timingSafeEqual` so
+ * it never throws), or `request.formData()`/reconstruction throwing (e.g.
+ * Content-Type isn't `application/x-www-form-urlencoded` or valid
+ * `multipart/form-data` — Node's `formData()` throws a TypeError for JSON
+ * bodies, missing Content-Type, or malformed multipart) -> 403, nothing
+ * written, never a 500.
  */
 import type { APIRoute } from 'astro';
 import crypto from 'node:crypto';
@@ -83,16 +87,26 @@ export const POST: APIRoute = async ({ request }) => {
     return forbidden();
   }
 
-  const formData = await request.formData();
-  const params = new URLSearchParams();
-  for (const [key, value] of formData.entries()) {
-    if (typeof value === 'string') params.append(key, value);
+  let verified: boolean;
+  let params: URLSearchParams;
+  try {
+    const formData = await request.formData();
+    params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+      if (typeof value === 'string') params.append(key, value);
+    }
+
+    const url = reconstructUrl(request);
+    const expected = expectedSignature(authToken, url, params);
+    verified = signaturesMatch(expected, signatureHeader);
+  } catch {
+    // Content-Type isn't parseable as form data (or reconstruction/signing
+    // otherwise threw) -> fail closed, not a 500.
+    verified = false;
+    params = new URLSearchParams();
   }
 
-  const url = reconstructUrl(request);
-  const expected = expectedSignature(authToken, url, params);
-
-  if (!signaturesMatch(expected, signatureHeader)) {
+  if (!verified) {
     return forbidden();
   }
 
@@ -104,6 +118,8 @@ export const POST: APIRoute = async ({ request }) => {
     if (normalized) {
       await addSuppression(normalized, 'whatsapp', 'stop');
     }
+    // else: no `From` (or it normalized to empty) -> nothing to suppress;
+    // intentional no-op, not an oversight. Still ack 200 so Twilio doesn't retry.
     return ok();
   }
 
