@@ -381,6 +381,115 @@ immediately after — it should return `'sent'` again rather than
 
 ---
 
+## k6 election-day load test (architecture §12; Task 65)
+
+**Why this exists:** one k6 run is the acceptance test for the whole
+single-VM sizing decision (architecture §14.6: 2 vCPU / 4 GB) — it proves
+the nginx micro-cache holds election-day read volume with p95 < 500 ms,
+that legitimate traffic through the CGNAT-sized rate-limit zones (§7) never
+sees a 429, and that the app origin renders each unique URL at most once
+per cache TTL rather than once per request. The script itself lives at
+`tests/load/k6-election-day.js`; read its file-header comment for the full
+design rationale (peak-RPS assumption, ward-id space, page mix, the
+`X-Cache-Status` dependency).
+
+**WHEN:** run this against **staging**, before election week — not on every
+deploy, and never against production (staging is disposable; production
+isn't). Re-run it any time the Droplet size, nginx cache config, or rate
+limits change.
+
+**Prerequisite — staging currently has no cache to measure.** As shipped,
+`deploy/nginx/conf.d/site.conf`'s staging server block deliberately sets
+**no** `proxy_cache` on any location ("No cache anywhere on staging — every
+request reaches app-staging directly", by design, so staging tests real
+app behavior rather than nginx's cache a second time). That means the
+script's cache-HIT-ratio assertion (`cache_hit_rate`) and the
+cache-absorbs-the-load story behind the p95 assertion **cannot be
+validated by pointing `BASE_URL` at staging as configured today** — every
+request will MISS (or show an empty `X-Cache-Status`), because there's
+nothing to hit. Before the real run, do ONE of:
+
+1. **(Recommended)** Temporarily add the production `/` location's
+   `proxy_cache pages; proxy_cache_key "$scheme$host$uri"; proxy_cache_valid
+   200 60s;` (plus the matching `ward/[^/]+/issues|data` 5m-TTL location) to
+   the staging server block for the duration of the test window, then
+   revert — a scoped, reviewed, temporary config change, not a permanent
+   fork of staging's behavior.
+2. Run this specific k6 test against the **production** hostname during a
+   pre-announcement or off-peak window (before public traffic exists, or
+   late night), accepting the small residual risk. This script's traffic is
+   low-risk even there: `/api/ward-lookup` is only ever called in **pincode
+   mode**, which never spends the Google geocode budget (`src/lib/pincode.ts`
+   — a pure in-memory lookup), and the script never touches OTP, votes,
+   flags, or media endpoints at all.
+
+Either way, `X-Cache-Status` itself is now emitted everywhere the cache
+invariant matters — see `deploy/nginx/snippets/security-headers.conf`'s own
+comment for why that one-line addition is safe against the Task-60
+add_header-inheritance gotcha.
+
+**Install k6 on a separate load-generation machine — NOT the Droplet.**
+Generating load from the box under test would measure the generator
+competing with the app for the same 2 vCPUs, not the real network path a
+Bengaluru citizen's request takes. A laptop or a small cloud VM outside
+BLR1 (so the run also reflects real internet latency, not localhost) is
+fine:
+
+```sh
+# macOS
+brew install k6
+
+# Debian/Ubuntu
+sudo gpg -k
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
+  --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
+  | sudo tee /etc/apt/sources.list.d/k6.list
+sudo apt-get update && sudo apt-get install k6
+```
+
+**Run it** (staging basic-auth — see step 5b above — is passed via
+`STAGING_USER`/`STAGING_PASS`, or temporarily lift `auth_basic` on the
+staging server block for the run and remove it again after):
+
+```sh
+k6 run \
+  -e BASE_URL=https://staging.bangalore-votes.opencity.in \
+  -e STAGING_USER=<tester-username> \
+  -e STAGING_PASS=<tester-password> \
+  -e CANDIDATE_SLUGS=<comma-separated-real-slugs-if-any-are-seeded> \
+  tests/load/k6-election-day.js
+```
+
+Tune `PEAK_CACHED_RPS`, `WARD_LOOKUP_RPS`, `KN_SHARE`, `RAMP_UP`,
+`HOLD_AT_PEAK`, `RAMP_DOWN` via the same `-e` flags — see the script's
+top-of-file constants for defaults and what each one means.
+
+**Reading the result:** k6 prints a `THRESHOLDS` block at the end. **All
+four must show ✓:**
+
+| Threshold | What it proves |
+|---|---|
+| `http_req_duration{scenario:cached}`: `p(95)<500` | Cached public pages stay fast at election-day volume. |
+| `http_req_failed`: `rate<0.01` | No broad breakage under load. |
+| `rate_limited_429`: `count==0` | Legitimate ward-lookup/browsing traffic never trips the CGNAT-sized `api` zone (§7). |
+| `cache_hit_rate`: `rate>0.9` | The micro-cache — not the app origin — is absorbing the load (requires the staging prerequisite above to be addressed first). |
+
+A ✗ on any threshold fails the acceptance test for the current Droplet
+size/config.
+
+**If it fails:** the accepted remediation is a **vertical resize** of the
+Droplet (architecture §14.6, §201) — minutes of work via `doctl compute
+droplet-action resize <droplet-id> --size <bigger-size> --resize-disk`
+(or the DO console) followed by a re-run of this same k6 command. This is
+explicitly NOT meant to trigger a re-architecture — the whole point of the
+single-VM design's k6 gate is "resize if short, don't redesign." If the
+`rate_limited_429` threshold specifically fails (not the RPS/latency ones),
+that's a rate-limits.conf zone-sizing question instead (§7) — revisit the
+zone rate/burst, not the Droplet size.
+
+---
+
 ## Pointers (brief — see the named source for the full procedure)
 
 - **Secret rotation:** custody and rotation cadence — dependency register
