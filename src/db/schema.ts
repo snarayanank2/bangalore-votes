@@ -151,6 +151,23 @@ export const curatorScopes = pgTable('curator_scopes', {
   wardId: integer('ward_id').notNull().references(() => wards.id),
 }, (t) => [primaryKey({ columns: [t.userId, t.wardId] })]);
 
+/**
+ * TEST ONLY — written to exclusively when `OTP_TEST_SINK === 'true'`
+ * (src/lib/otp.ts's `requestOtp`), which must NEVER be set in production or
+ * staging (it defeats the hashed-storage protection `otp_codes.code_hash`
+ * exists for by additionally persisting the plaintext code). This table
+ * exists purely so the Playwright e2e suite (Task 64) — a real browser
+ * driving the app as a separate process — can read the OTP code a request
+ * generated, since it has no in-process access to `requestOtp`'s return
+ * value. Empty and unused in every environment that doesn't set the flag.
+ */
+export const otpTestCodes = pgTable('otp_test_codes', {
+  id: serial('id').primaryKey(),
+  destination: text('destination').notNull(),
+  code: text('code').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [index('otp_test_codes_destination_idx').on(t.destination, t.createdAt)]);
+
 export const otpCodes = pgTable('otp_codes', {
   id: serial('id').primaryKey(),
   destination: text('destination').notNull(),           // email address or +91… number

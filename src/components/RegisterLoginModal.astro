@@ -174,7 +174,16 @@ const { lang } = Astro.props;
     color: var(--color-text);
   }
 
-  .rl-modal form {
+  /*
+   * :not([hidden]) — found by Task 64's Playwright smoke suite: an
+   * unconditional `display: flex` here overrides the UA stylesheet's
+   * `[hidden] { display: none }` (author-origin CSS always wins over
+   * user-agent CSS regardless of specificity), so step 2/3's `hidden`
+   * attribute (src/islands/RegisterLoginModal.ts's `showStep`) stopped
+   * actually hiding anything — every step rendered stacked in the same
+   * dialog at once. Guarding the selector restores real hiding.
+   */
+  .rl-modal form:not([hidden]) {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);

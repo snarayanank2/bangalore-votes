@@ -142,7 +142,18 @@ const { lang } = Astro.props;
     font-size: var(--text-base);
   }
 
-  [data-vote-home-ward-wrap] {
+  /*
+   * :not([hidden]) — found by Task 64's Playwright smoke suite: without
+   * this guard, the unconditional `display: flex` below overrides the UA
+   * stylesheet's `[hidden] { display: none }` (author-origin CSS always
+   * wins over user-agent CSS regardless of specificity), so this box stayed
+   * visually rendered (with its real "Change your home ward" link) even
+   * while `hidden` — meaning a visitor whose home ward DID match saw the
+   * "vote only in your home ward" message and the vote form stacked
+   * together, at the same time src/islands/VoteModal.ts's `showVoteForm`
+   * had just correctly set `homeWardWrap.hidden = true`.
+   */
+  [data-vote-home-ward-wrap]:not([hidden]) {
     display: flex;
     flex-direction: column;
     gap: var(--space-4);

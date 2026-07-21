@@ -49,7 +49,7 @@
 import { randomInt, createHash, timingSafeEqual } from 'node:crypto';
 import { and, eq, isNull, desc } from 'drizzle-orm';
 import { db } from '../db/client';
-import { otpCodes, suppressions } from '../db/schema';
+import { otpCodes, otpTestCodes, suppressions } from '../db/schema';
 import { consumeBudget } from './budgets';
 import { sendEmail } from './send/sendgrid';
 import { sendWhatsAppTemplate } from './send/twilio';
@@ -187,6 +187,17 @@ export async function requestOtp(
     sendOk = result.ok && result.status === 'sent';
   }
   if (!sendOk) return 'send_failed';
+
+  // TEST ONLY — OTP_TEST_SINK must NEVER be set in production (or staging).
+  // It exists solely so the Playwright e2e suite (Task 64), which drives the
+  // app through a real browser talking to a SEPARATE server process, can
+  // read the plaintext code a request generated (it has no in-process
+  // access to this function's return value). This block is a strict no-op
+  // unless the env var is exactly the string 'true' — it does not alter the
+  // hashed-storage write below or anything else about the real send path.
+  if (process.env.OTP_TEST_SINK === 'true') {
+    await db.insert(otpTestCodes).values({ destination, code });
+  }
 
   await db.insert(otpCodes).values({
     destination,
