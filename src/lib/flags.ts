@@ -34,8 +34,9 @@
  */
 import { and, eq } from 'drizzle-orm';
 import { db } from '../db/client';
-import { flagItems, flagSubmissions } from '../db/schema';
+import { candidates, flagItems, flagSubmissions, wardIssues, wards } from '../db/schema';
 import { writeAudit, type Tx } from './audit';
+import { canEditWard } from './authz';
 import { isUniqueViolation } from './db-errors';
 import { publishCandidateFieldTx, type PublishCandidateFieldInput } from './publish';
 import { translateFieldSoon } from './translate-runtime';
@@ -43,12 +44,72 @@ import { translateFieldSoon } from './translate-runtime';
 export type FlagTargetType = 'candidate_field' | 'ward_field' | 'ward_issue';
 
 export interface SubmitFlagInput {
-  wardId: number;
+  /**
+   * ADVISORY ONLY — NOT TRUSTED. The ward a flag is filed under is DERIVED
+   * server-side from `targetRef` (see `deriveTargetWardId`), never taken from
+   * this client-supplied value. It stays on the type only because the API
+   * route's request schema still carries it; `submitFlag` ignores it. A
+   * mismatch between this and the target's real ward means the derived (real)
+   * ward wins — this is what stops a curator/citizen from filing a flag whose
+   * target candidate lives in ward B into ward A's queue and having ward A's
+   * curator (who has no scope over B) accept+publish it.
+   */
+  wardId?: number;
   targetType: FlagTargetType;
   targetRef: string;
   detail: string;
   suggestedValue?: string | null;
   sourceUrl?: string | null;
+}
+
+/** Thrown by `deriveTargetWardId` (and surfaced by `submitFlag`) when `targetRef` is malformed for its `targetType`, or points at a target that doesn't exist — the API route turns this into a 400 rather than filing a flag against a nonexistent target. */
+export class InvalidFlagTargetError extends Error {
+  constructor(message = 'invalid_flag_target') {
+    super(message);
+    this.name = 'InvalidFlagTargetError';
+  }
+}
+
+/**
+ * The ONLY authority on which ward a flag is filed under: derives it from the
+ * TARGET, server-side, never from the client. A citizen may flag ANY ward's
+ * content (flagging is city-wide), but the resulting queue item MUST land in
+ * the TARGET's real ward so the correct (scoped) curator sees and can act on
+ * it. Rejects (throws {@link InvalidFlagTargetError}) a malformed targetRef or
+ * a target row that doesn't exist.
+ *
+ *   - candidate_field (`candidate:<id>:<fieldKey>`): the candidate's own
+ *     `wardId` (the field being flagged belongs to that candidate).
+ *   - ward_field     (`ward:<id>:<fieldKey>`): the ward IS the id in the ref
+ *     (verified to exist).
+ *   - ward_issue     (`ward_issue:<id>`): the `ward_issues` row's `wardId`.
+ */
+export async function deriveTargetWardId(targetType: FlagTargetType, targetRef: string): Promise<number> {
+  if (targetType === 'candidate_field') {
+    const match = /^candidate:(\d+):(.+)$/.exec(targetRef);
+    if (!match) throw new InvalidFlagTargetError();
+    const candidateId = Number(match[1]);
+    const [row] = await db.select({ wardId: candidates.wardId }).from(candidates).where(eq(candidates.id, candidateId));
+    if (!row) throw new InvalidFlagTargetError();
+    return row.wardId;
+  }
+
+  if (targetType === 'ward_field') {
+    const match = /^ward:(\d+):(.+)$/.exec(targetRef);
+    if (!match) throw new InvalidFlagTargetError();
+    const wardId = Number(match[1]);
+    const [row] = await db.select({ id: wards.id }).from(wards).where(eq(wards.id, wardId));
+    if (!row) throw new InvalidFlagTargetError();
+    return row.id;
+  }
+
+  // ward_issue
+  const match = /^ward_issue:(\d+)$/.exec(targetRef);
+  if (!match) throw new InvalidFlagTargetError();
+  const issueId = Number(match[1]);
+  const [row] = await db.select({ wardId: wardIssues.wardId }).from(wardIssues).where(eq(wardIssues.id, issueId));
+  if (!row) throw new InvalidFlagTargetError();
+  return row.wardId;
 }
 
 export type ResolveFlagResolution =
@@ -68,7 +129,7 @@ async function selectPending(tx: Tx, targetRef: string): Promise<{ id: number } 
  * Finds or creates the PENDING flag_items row for `input.targetRef`,
  * inside `tx`. See the module docstring for the race/savepoint handling.
  */
-async function findOrCreatePendingItem(tx: Tx, input: SubmitFlagInput): Promise<number> {
+async function findOrCreatePendingItem(tx: Tx, input: SubmitFlagInput, wardId: number): Promise<number> {
   const existing = await selectPending(tx, input.targetRef);
   if (existing) return existing.id;
 
@@ -80,7 +141,7 @@ async function findOrCreatePendingItem(tx: Tx, input: SubmitFlagInput): Promise<
       const [created] = await tx2
         .insert(flagItems)
         .values({
-          wardId: input.wardId,
+          wardId,
           targetType: input.targetType,
           targetRef: input.targetRef,
           status: 'pending',
@@ -105,8 +166,15 @@ async function findOrCreatePendingItem(tx: Tx, input: SubmitFlagInput): Promise<
  * trail, PRD §11) — all in one transaction.
  */
 export async function submitFlag(userId: number, input: SubmitFlagInput): Promise<{ flagItemId: number }> {
+  // Derive the ward from the TARGET, server-side — the client-supplied
+  // `input.wardId` is never trusted (see `SubmitFlagInput.wardId` /
+  // `deriveTargetWardId`). A malformed/nonexistent target throws
+  // InvalidFlagTargetError here, BEFORE any transaction opens — nothing is
+  // written for a target that doesn't exist.
+  const wardId = await deriveTargetWardId(input.targetType, input.targetRef);
+
   const flagItemId = await db.transaction(async (tx) => {
-    const itemId = await findOrCreatePendingItem(tx, input);
+    const itemId = await findOrCreatePendingItem(tx, input, wardId);
 
     await tx.insert(flagSubmissions).values({
       flagItemId: itemId,
@@ -121,7 +189,7 @@ export async function submitFlag(userId: number, input: SubmitFlagInput): Promis
       action: 'flag',
       entityType: 'flag',
       entityId: String(itemId),
-      wardId: input.wardId,
+      wardId,
       sourceUrl: input.sourceUrl ?? null,
     });
 
@@ -133,10 +201,21 @@ export async function submitFlag(userId: number, input: SubmitFlagInput): Promis
 
 /**
  * Resolves a queue item (curator/admin only — PRD §6.1; the caller, e.g.
- * Task 34's curator route, is responsible for the per-ward `canEditWard`
- * scope check BEFORE calling this — this function only asserts the actor's
- * ROLE, not their ward scope, since it has no ward-scope context of its
- * own for a `ward_field`/`ward_issue` target).
+ * Task 34's curator route, ALSO does a per-ward `canEditWard` scope check
+ * on the loaded item BEFORE calling this).
+ *
+ * ACCEPT-PATH SCOPE RE-CHECK (final-review Fix 1, defense-in-depth): before
+ * publishing, this re-derives the REAL ward of the candidate actually being
+ * written (`resolution.publish.candidateId`'s `wardId`) and asserts the
+ * acting curator `canEditWard` THAT ward — not merely the flag item's stored
+ * `wardId`. Admin (city-wide) always passes. This closes the seam
+ * permanently: even a legacy/hand-inserted flag_items row whose stored
+ * `wardId` was filed against the wrong ward (so the route's item.wardId
+ * check passed for a curator who has no scope over the candidate's true
+ * ward) can never publish a field in a ward the curator doesn't own — the
+ * publish is authorized against the write's ACTUAL target ward. Throws
+ * `out_of_scope` (failing closed — no publish, no status flip) when not
+ * allowed.
  *
  * ACCEPT (candidate_field targets only, for now — ward_field/ward_issue
  * accept-publish paths land in Tasks 34/39): publishes the field via
@@ -179,6 +258,21 @@ export async function resolveFlag(
     }
 
     if (resolution.accept) {
+      // ACCEPT-PATH SCOPE RE-CHECK (see docstring): authorize the write
+      // against the candidate's REAL ward, re-derived here — not the flag
+      // item's stored `wardId`. Admin passes via canEditWard's role branch.
+      const [targetCandidate] = await tx
+        .select({ wardId: candidates.wardId })
+        .from(candidates)
+        .where(eq(candidates.id, resolution.publish.candidateId));
+      if (!targetCandidate) {
+        throw new Error(`resolveFlag: no candidate with id ${resolution.publish.candidateId}`);
+      }
+      const allowed = await canEditWard(actor.userId, actor.role, targetCandidate.wardId);
+      if (!allowed) {
+        throw new Error('out_of_scope');
+      }
+
       // Task 31 scope: accept only supports candidate_field targets, via
       // the shared publish core. ward_field/ward_issue accept-publish
       // paths are added by Tasks 34/39 (a discriminated union over

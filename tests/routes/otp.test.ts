@@ -18,6 +18,11 @@ vi.mock('../../src/lib/otp', async (importOriginal) => {
   return { ...actual, requestOtp: vi.fn(), verifyOtp: vi.fn() };
 });
 
+// Registration now fires the W1 welcome send (final-review Fix 2). This suite
+// tests the OTP/auth routes, not the send path — stub sendToUser so it writes
+// no campaign_sends rows (which would otherwise FK-block fixture cleanup).
+vi.mock('../../src/lib/send/send', () => ({ sendToUser: vi.fn(async () => ({ results: [] })) }));
+
 import { requestOtp, verifyOtp } from '../../src/lib/otp';
 import { POST as requestPOST } from '../../src/pages/api/otp/request';
 import { POST as verifyPOST } from '../../src/pages/api/otp/verify';

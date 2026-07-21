@@ -37,7 +37,13 @@ vi.mock('../../src/lib/settings', async (importOriginal) => {
   return { ...actual, getKnownSetting: vi.fn(actual.getKnownSetting) };
 });
 
+// W1 (final-review Fix 2): registration now fires the welcome/opt-in send.
+// Mock the send path so no real send/ledger write happens here and so this
+// suite can assert exactly when W1 is (and isn't) dispatched.
+vi.mock('../../src/lib/send/send', () => ({ sendToUser: vi.fn(async () => ({ results: [] })) }));
+
 import { sendEmail } from '../../src/lib/send/sendgrid';
+import { sendToUser } from '../../src/lib/send/send';
 import { resolveOrRegister } from '../../src/lib/auth-flow';
 import { requestOtp } from '../../src/lib/otp';
 import { getKnownSetting } from '../../src/lib/settings';
@@ -120,6 +126,8 @@ describe('src/lib/auth-flow.ts resolveOrRegister', () => {
 
   beforeEach(async () => {
     await resetFixtures();
+    vi.mocked(sendToUser).mockClear();
+    vi.mocked(sendToUser).mockResolvedValue({ results: [] });
   });
 
   it('known contact -> {ok:true, registered:false, setCookie} without touching consent fields', async () => {
@@ -298,5 +306,77 @@ describe('src/lib/auth-flow.ts resolveOrRegister', () => {
 
     const sessions = await db.select().from(schema.sessions).where(eq(schema.sessions.userId, active!.id));
     expect(sessions).toHaveLength(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Final-review Fix 2 — W1 welcome/opt-in send fires on REGISTER only.
+  // ---------------------------------------------------------------------------
+
+  it('registering a NEW user fires exactly one W1 sendToUser (with the new user + code "W1" + real vars)', async () => {
+    const code = await getRealCode(NEW_EMAIL);
+    await resolveOrRegister(NEW_EMAIL, code); // peek — no send yet
+    expect(sendToUser).not.toHaveBeenCalled();
+
+    const final = await resolveOrRegister(NEW_EMAIL, code, { wardId: WARD.id, language: 'en', futureTools: true });
+    expect(final.ok).toBe(true);
+
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+    const [sentUser, sentCode, sentVars, sentOpts] = vi.mocked(sendToUser).mock.calls[0]!;
+
+    const [row] = await db.select().from(schema.users).where(eq(schema.users.email, NEW_EMAIL));
+    expect(sentUser.id).toBe(row!.id);
+    expect(sentCode).toBe('W1');
+    // Union of W1's email+whatsapp required vars, all sourced from the new row.
+    expect(sentVars).toEqual({
+      ward: WARD.nameEn,
+      language: 'English',
+      notificationsLink: 'https://bangalore-votes.opencity.in/account/notifications',
+    });
+    expect(sentOpts).toEqual({ wardId: WARD.id });
+  });
+
+  it('a Kannada registrant gets the KN ward name + "Kannada" + the /kn/ notifications link in W1 vars', async () => {
+    const code = await getRealCode(NEW_EMAIL);
+    await resolveOrRegister(NEW_EMAIL, code);
+    await resolveOrRegister(NEW_EMAIL, code, { wardId: WARD.id, language: 'kn', futureTools: false });
+
+    expect(sendToUser).toHaveBeenCalledTimes(1);
+    const [, , sentVars] = vi.mocked(sendToUser).mock.calls[0]!;
+    expect(sentVars).toEqual({
+      ward: WARD.nameKn,
+      language: 'Kannada',
+      notificationsLink: 'https://bangalore-votes.opencity.in/kn/account/notifications',
+    });
+  });
+
+  it('LOGIN of an existing contact does NOT fire W1', async () => {
+    await db
+      .insert(schema.users)
+      .values({ email: KNOWN_EMAIL, homeWardId: WARD.id, role: 'citizen', status: 'active' })
+      .returning();
+
+    const code = await getRealCode(KNOWN_EMAIL);
+    const result = await resolveOrRegister(KNOWN_EMAIL, code);
+
+    expect(result.ok).toBe(true);
+    expect(sendToUser).not.toHaveBeenCalled();
+  });
+
+  it('a THROWING W1 send does NOT break registration — the account is still created and the result is success', async () => {
+    vi.mocked(sendToUser).mockRejectedValueOnce(new Error('transport exploded'));
+
+    const code = await getRealCode(NEW_EMAIL);
+    await resolveOrRegister(NEW_EMAIL, code);
+    const final = await resolveOrRegister(NEW_EMAIL, code, { wardId: WARD.id, language: 'en', futureTools: true });
+
+    expect(final.ok).toBe(true);
+    if (!final.ok) throw new Error('unreachable');
+    expect(final.registered).toBe(true);
+    expect(final.setCookie).toContain(`${SESSION_COOKIE}=`);
+
+    // The account exists exactly once despite the W1 failure.
+    const rows = await db.select().from(schema.users).where(eq(schema.users.email, NEW_EMAIL));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.consentAt).not.toBeNull();
   });
 });

@@ -21,6 +21,9 @@ import { onRequest } from '../../src/middleware';
 
 vi.mock('../../src/lib/send/sendgrid', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }));
 vi.mock('../../src/lib/send/twilio', () => ({ sendWhatsAppTemplate: vi.fn(async () => ({ ok: true, status: 'sent' })) }));
+// Stub the campaign send path so nothing this suite does writes campaign_sends
+// rows (would FK-block fixture cleanup); this suite doesn't test sends.
+vi.mock('../../src/lib/send/send', () => ({ sendToUser: vi.fn(async () => ({ results: [] })) }));
 
 import { sendEmail } from '../../src/lib/send/sendgrid';
 
@@ -71,6 +74,10 @@ const EMAILS = {
   contactNew: 'account-route-contact-new-render@example.com',
   contactNewAttach: 'account-route-contact-new-attach@example.com',
   taken: 'account-route-taken@example.com',
+  // Final-review Fix 3: a mixed-case contact must be STORED normalized
+  // (lowercased). Only the normalized form is a fixture email (that's what
+  // ends up in users.email / otp_codes.destination and needs cleanup).
+  contactMixedNormalized: 'account-route-mixed@example.com',
   notifications: 'account-route-notifications@example.com',
   submissions: 'account-route-submissions@example.com',
   csrf: 'account-route-csrf@example.com',
@@ -327,6 +334,47 @@ describe('/account, /account/notifications, /account/submissions (Task 29) — I
       expect(res.status).toBe(200);
       const [row] = await db.select().from(schema.users).where(eq(schema.users.id, userId));
       expect(row!.email).toBe(EMAILS.contactNewAttach);
+    });
+
+    it('a MIXED-CASE contact is stored NORMALIZED (lowercased), so a normalized login resolves to the SAME account — no duplicate (Fix 3)', async () => {
+      const MIXED = 'Account-Route-Mixed@Example.COM';
+      const normalized = EMAILS.contactMixedNormalized; // 'account-route-mixed@example.com'
+
+      const userId = await upsertUser(EMAILS.contact, { homeWardId: WARD_A.id });
+      const { cookieValue, token } = await sessionFor(userId);
+
+      // Step 1 with the MIXED-CASE destination — requestOtp normalizes, so the
+      // OTP email goes to the lowercased address.
+      await run(ACCOUNT_TWINS, 'en', '/account', {
+        method: 'POST',
+        cookieValue,
+        fields: { action: 'contact_step1', destination: MIXED, [CSRF_FIELD_NAME]: token },
+      });
+      const code = getOtpCode(normalized);
+
+      // Step 2 with the MIXED-CASE destination + the code.
+      const res = await run(ACCOUNT_TWINS, 'en', '/account', {
+        method: 'POST',
+        cookieValue,
+        fields: {
+          action: 'contact_step2',
+          destination: MIXED,
+          channel: 'email',
+          code,
+          [CSRF_FIELD_NAME]: token,
+        },
+      });
+      expect(res.status).toBe(200);
+
+      // Stored value is the NORMALIZED (lowercase) email — the exact key a
+      // later normalized login (`findUserByContact` -> `eq(users.email, ...)`)
+      // queries by, so it resolves to THIS user rather than registering a
+      // duplicate. Before the fix, users.email held 'Account-Route-Mixed@...'
+      // and this normalized lookup would miss.
+      const byNormalized = await db.select().from(schema.users).where(eq(schema.users.email, normalized));
+      expect(byNormalized).toHaveLength(1);
+      expect(byNormalized[0]!.id).toBe(userId);
+      expect(byNormalized[0]!.email).toBe(normalized);
     });
 
     it('a contact already registered to ANOTHER account -> error, not attached', async () => {

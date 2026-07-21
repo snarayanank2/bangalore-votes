@@ -25,11 +25,19 @@
  */
 import { eq, or } from 'drizzle-orm';
 import { db } from '../db/client';
-import { users } from '../db/schema';
+import { users, wards } from '../db/schema';
+import { localePath, type Lang } from '../i18n';
+import { captureException } from './logger';
 import { isUniqueViolation } from './db-errors';
 import { normalizeDestination, verifyOtp } from './otp';
+import { sendToUser, type SendToUserUser } from './send/send';
 import { createSession } from './session';
 import { getKnownSetting } from './settings';
+
+const SITE_ORIGIN = process.env.SITE_ORIGIN ?? 'https://bangalore-votes.opencity.in';
+
+/** Human-readable language name for the W1 confirmation's `{{2}}` var (docs/messages.md §4: "language (English/Kannada)"). Same mapping src/lib/translate-runtime.ts uses. */
+const LANGUAGE_DISPLAY_NAME: Record<Lang, string> = { en: 'English', kn: 'Kannada' };
 
 export interface RegisterPayload {
   wardId: number;
@@ -51,6 +59,57 @@ async function findUserByContact(destination: string) {
     .from(users)
     .where(or(eq(users.email, destination), eq(users.phone, destination)));
   return row;
+}
+
+/**
+ * Fires the W1 welcome / opt-in confirmation (docs/messages.md §4, PRD §10)
+ * for a JUST-registered user. `calendar.ts` deliberately excludes W1 ("fires
+ * from the registration flow, auth-flow.ts") — this is that fire.
+ *
+ * ERROR-ISOLATED: this is `await`ed inside a try/catch by the caller, and any
+ * throw is swallowed+logged there — a W1 send failure MUST NEVER fail or roll
+ * back the registration (the account is already committed by the time this
+ * runs). `sendToUser` already owns channel eligibility, suppression,
+ * send-once, and SENDS_DISABLED, so nothing here needs to reason about those.
+ *
+ * W1's required vars are the union of its email+whatsapp templates
+ * (templates.ts): `ward`, `language`, `notificationsLink` — all sourced from
+ * the new user's own committed row (home ward, saved language), never
+ * invented.
+ */
+async function sendWelcomeMessage(user: {
+  id: number;
+  email: string | null;
+  phone: string | null;
+  language: Lang;
+  emailEnabled: boolean;
+  whatsappEnabled: boolean;
+  homeWardId: number | null;
+}): Promise<void> {
+  if (user.homeWardId == null) return; // registration always sets a home ward; defensive
+  const [ward] = await db
+    .select({ nameEn: wards.nameEn, nameKn: wards.nameKn })
+    .from(wards)
+    .where(eq(wards.id, user.homeWardId));
+  if (!ward) return; // FK guarantees the ward exists at registration; defensive
+
+  const wardName = user.language === 'kn' ? ward.nameKn : ward.nameEn;
+  const vars = {
+    ward: wardName,
+    language: LANGUAGE_DISPLAY_NAME[user.language],
+    notificationsLink: SITE_ORIGIN + localePath(user.language, '/account/notifications'),
+  };
+
+  const sendUser: SendToUserUser = {
+    id: user.id,
+    email: user.email,
+    phone: user.phone,
+    language: user.language,
+    emailEnabled: user.emailEnabled,
+    whatsappEnabled: user.whatsappEnabled,
+    homeWardId: user.homeWardId,
+  };
+  await sendToUser(sendUser, 'W1', vars, { wardId: user.homeWardId });
 }
 
 /**
@@ -106,6 +165,18 @@ export async function resolveOrRegister(
       .returning();
 
     const session = await createSession(created!.id);
+
+    // W1 welcome / opt-in confirmation — ONLY on the register path (never on
+    // login of an existing contact). Error-isolated: a send failure must not
+    // fail or roll back the just-committed registration. `sendToUser` handles
+    // channel eligibility / suppression / send-once / SENDS_DISABLED itself.
+    try {
+      await sendWelcomeMessage(created!);
+    } catch (sendErr) {
+      // No PII — captureException scrubs, and we pass only the user id.
+      captureException(sendErr, { event: 'w1_send_failed', userId: created!.id });
+    }
+
     return { ok: true, registered: true, setCookie: session.setCookie };
   } catch (err: unknown) {
     if (isUniqueViolation(err)) {

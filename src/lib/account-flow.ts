@@ -152,7 +152,12 @@ async function handleContactStep1(userId: number, form: FormData): Promise<Accou
 }
 
 async function handleContactStep2(userId: number, form: FormData): Promise<AccountRenderState> {
-  const destination = String(form.get('destination') ?? '').trim();
+  // NORMALIZE before verifying AND before storing (final-review Fix 3): OTP
+  // lookup normalizes (lower-cases email), so `users.email` must be stored in
+  // the SAME normalized form — otherwise a `Foo@Bar.COM` here stores mixed
+  // case while a later normalized login for `foo@bar.com` won't match it,
+  // creating a duplicate account and breaking one-account-per-contact.
+  const destination = normalizeDestination(String(form.get('destination') ?? ''));
   const channel: OtpChannel = String(form.get('channel') ?? 'email') === 'whatsapp' ? 'whatsapp' : 'email';
   const code = String(form.get('code') ?? '').trim();
 

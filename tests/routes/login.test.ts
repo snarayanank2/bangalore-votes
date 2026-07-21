@@ -19,6 +19,10 @@ import { SESSION_COOKIE } from '../../src/lib/session';
 
 vi.mock('../../src/lib/send/sendgrid', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }));
 vi.mock('../../src/lib/send/twilio', () => ({ sendWhatsAppTemplate: vi.fn(async () => ({ ok: true, status: 'sent' })) }));
+// Registration fires the W1 welcome send (final-review Fix 2); this suite
+// tests the /login route, not the send path — stub sendToUser so it writes no
+// campaign_sends rows (which would otherwise FK-block fixture cleanup).
+vi.mock('../../src/lib/send/send', () => ({ sendToUser: vi.fn(async () => ({ results: [] })) }));
 
 import { sendEmail } from '../../src/lib/send/sendgrid';
 import LoginEn from '../../src/pages/login.astro';

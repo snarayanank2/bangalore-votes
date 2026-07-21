@@ -179,6 +179,16 @@ ENV HOST=0.0.0.0 \
 
 EXPOSE 4321
 
+# Cron job log directory. Every deploy/crontab line redirects to
+# `>> /var/log/gba-jobs/<job>.log 2>&1`; the jobs container runs as the
+# non-root `appuser`, so supercronic's `sh -c` cannot open (let alone create)
+# that redirect target unless the directory exists AND is appuser-writable.
+# Without this, EVERY cron job fails with ENOENT before its command even runs
+# (backups, run-campaign, retention, sitemaps, news-suggest,
+# reconcile-suppressions, translate-retry). Created here, owned by appuser,
+# BEFORE the USER switch below (mkdir/chown need root).
+RUN mkdir -p /var/log/gba-jobs && chown appuser:appuser /var/log/gba-jobs
+
 # Switch to the non-root user for both entrypoints. Everything above this
 # line (apt installs, supercronic download, all COPYs, the chown) must run
 # as root; nothing below it may need root again.

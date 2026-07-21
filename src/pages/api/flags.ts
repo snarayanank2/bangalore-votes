@@ -25,7 +25,7 @@
  */
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
-import { submitFlag } from '../../lib/flags';
+import { submitFlag, InvalidFlagTargetError } from '../../lib/flags';
 import { checkDefaultLimit } from '../../lib/rate-limit';
 import { logEvent } from '../../lib/log';
 
@@ -85,7 +85,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'rate limit exceeded' }, 429);
   }
 
-  const { flagItemId } = await submitFlag(session.userId, parsed.data);
+  let flagItemId: number;
+  try {
+    ({ flagItemId } = await submitFlag(session.userId, parsed.data));
+  } catch (err) {
+    // A malformed targetRef or a target that doesn't exist — the ward is
+    // DERIVED from the target server-side (never the client `wardId`), so a
+    // target we can't resolve is a bad request, not a filed flag.
+    if (err instanceof InvalidFlagTargetError) {
+      return json({ error: 'invalid flag target' }, 400);
+    }
+    throw err;
+  }
 
   // PRIVACY: log only the resulting id — never `detail`/`sourceUrl`
   // (free-text the citizen wrote, may contain PII).
