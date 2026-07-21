@@ -59,6 +59,7 @@ import { readSession, SESSION_COOKIE, type Role } from './lib/session';
 import { issueCsrfToken, checkCsrfToken, CSRF_FIELD_NAME } from './lib/csrf';
 import { isSameOriginRelative } from './lib/authz';
 import { buildCsp } from './lib/csp';
+import { captureException } from './lib/logger';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
@@ -211,6 +212,17 @@ export const onRequest = defineMiddleware(async (context, next) => {
     }
   }
 
-  const response = await next();
+  // Task 63: an unhandled error from downstream (a page/route handler
+  // throwing rather than returning a Response) is reported to Sentry
+  // (scrubbed, env-gated — src/lib/logger.ts) before it's rethrown, so
+  // behavior is otherwise unchanged: no error is swallowed here, and this
+  // is the one Astro middleware boundary every request passes through.
+  let response: Response;
+  try {
+    response = await next();
+  } catch (err) {
+    captureException(err);
+    throw err;
+  }
   return respond(response);
 });

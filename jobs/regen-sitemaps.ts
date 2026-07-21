@@ -9,6 +9,7 @@
  */
 import { pathToFileURL } from 'node:url';
 import { regenerateSitemaps } from '../src/lib/seo/sitemaps';
+import { captureException } from '../src/lib/logger';
 
 export async function main(): Promise<void> {
   const result = await regenerateSitemaps();
@@ -21,6 +22,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });

@@ -11,6 +11,10 @@ dist/
 .env.*
 !.env.example
 
+# Staging basic-auth credential file (architecture §14.2/§14.6, Task 63) —
+# generated on the Droplet by deploy/runbook.md step 5, never committed.
+deploy/nginx/staging.htpasswd
+
 # Logs
 logs/
 *.log

@@ -13,6 +13,7 @@
  */
 import { pathToFileURL } from 'node:url';
 import { runCampaign } from '../src/lib/send/calendar';
+import { captureException } from '../src/lib/logger';
 
 export async function main(): Promise<void> {
   const now = new Date();
@@ -38,6 +39,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });

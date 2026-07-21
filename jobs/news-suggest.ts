@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { suggestNews, type NewsSearchResult } from '../src/lib/news-suggest';
+import { captureException } from '../src/lib/logger';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(SCRIPT_DIR, '..');
@@ -84,6 +85,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });

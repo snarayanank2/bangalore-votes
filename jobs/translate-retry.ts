@@ -29,6 +29,7 @@ import { pathToFileURL } from 'node:url';
 import { db } from '../src/db/client';
 import { candidateFields, wardIssues, candidateStances } from '../src/db/schema';
 import { translateFieldNow, type TranslateTable, type TranslateOutcome } from '../src/lib/translate-runtime';
+import { captureException } from '../src/lib/logger';
 
 const TABLES: TranslateTable[] = ['candidate_fields', 'ward_issues', 'candidate_stances'];
 
@@ -84,6 +85,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });

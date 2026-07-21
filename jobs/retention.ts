@@ -49,6 +49,7 @@ import { pathToFileURL } from 'node:url';
 import { db } from '../src/db/client';
 import { appSettings, users } from '../src/db/schema';
 import { eraseUser, type AdminActor } from '../src/lib/erasure';
+import { captureException } from '../src/lib/logger';
 import { logEvent } from '../src/lib/log';
 
 const RESULTS_DECLARED_AT_KEY = 'results_declared_at';
@@ -133,6 +134,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });

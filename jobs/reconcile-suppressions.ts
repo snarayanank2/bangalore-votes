@@ -39,6 +39,7 @@
  */
 import { pathToFileURL } from 'node:url';
 import { addSuppression, type SuppressionReason } from '../src/lib/suppressions';
+import { captureException } from '../src/lib/logger';
 
 interface SendGridSuppressionRow {
   email?: string;
@@ -93,6 +94,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       process.exit(0);
     })
     .catch((err) => {
+      captureException(err);
       console.error(err instanceof Error ? err.message : err);
       process.exit(1);
     });
