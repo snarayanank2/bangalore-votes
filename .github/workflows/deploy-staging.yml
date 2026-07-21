@@ -1,0 +1,54 @@
+# Staging deploy (architecture §14.3-§14.4): every merge to main, after CI
+# has built and pushed the `:edge` image (ci.yml's build-and-push job).
+#
+# Triggered via `workflow_run` rather than a second `on: push` so this
+# workflow only fires once ci.yml has actually finished — including its
+# build-and-push job — instead of racing it. The job-level `if:` below
+# additionally checks that the triggering ci run actually succeeded (a
+# failed/cancelled test run must never deploy).
+#
+# DEPLOY DIR: the Droplet already has this repo (and deploy/compose.*.yml)
+# checked out at /opt/bangalore-votes — set up once by the Task 63
+# provisioning runbook (architecture §14.6 step 4: "clone the repo"). This
+# workflow only ever `pull`s images; it never builds on the Droplet.
+#
+# SECRETS: DEPLOY_HOST / DEPLOY_USER / DEPLOY_SSH_KEY are `staging`
+# GitHub-Environment secrets (architecture §14.4) — distinct from the
+# `production` environment's secrets of the same name, never printed.
+name: deploy-staging
+
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    # Guard: only proceed if the ci run that triggered this actually
+    # succeeded (not on a failed/cancelled run, and only for the push-to-
+    # main event ci.yml runs on — workflow_run already scopes `branches`
+    # to main above, so this only checks the outcome).
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      # Ordering matters (architecture §14.7): pull the freshly-pushed
+      # image, run the migration against it BEFORE any container using the
+      # new code is restarted, then bring the stack up, then prune old
+      # images. A failed migrate aborts the script (set -e) before `up -d`
+      # ever runs, so the previously-running containers keep serving the
+      # old image/schema pair untouched.
+      - name: Deploy to staging
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd /opt/bangalore-votes
+            docker compose -f deploy/compose.staging.yml pull
+            docker compose -f deploy/compose.staging.yml run --rm app-staging npm run migrate
+            docker compose -f deploy/compose.staging.yml up -d
+            docker image prune -f
