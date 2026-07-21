@@ -143,6 +143,28 @@ COPY deploy ./deploy
 COPY scripts ./scripts
 COPY package.json ./package.json
 
+# Non-root runtime user (review finding — Task 59 hardening). Both
+# entrypoints run as this user: the `app` service's `node
+# ./dist/server/entry.mjs` and the `jobs` service's `supercronic
+# /app/deploy/crontab` (which in turn runs `tsx jobs/*.ts` per
+# deploy/crontab). A system user/group (no login shell, no password) is
+# enough — nothing here needs an interactive account.
+#
+# `chown -R appuser:appuser /app` AFTER every COPY above (and before the
+# USER switch below) so appuser owns everything it needs to read (dist/,
+# data/, content/, drizzle/, jobs/, src/, deploy/, scripts/) *and* the one
+# thing it needs to WRITE at runtime: jobs/regen-sitemaps.ts ->
+# src/lib/seo/sitemaps.ts's `regenerateSitemaps()` defaults its
+# `outputDir` to `path.join(process.cwd(), 'public')` = `/app/public`,
+# which doesn't exist yet at image-build time (`mkdirSync(..., {recursive:
+# true})` creates it on first run) — so it's `/app` ownership, not a
+# specific existing directory, that has to be right. scripts/backup.sh's
+# pg_dump staging file needs no such treatment: it defaults to `mktemp -d`
+# (world-writable /tmp) unless BACKUP_STAGING_DIR is set, so it's writable
+# by any user without a chown.
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app
+
 ENV HOST=0.0.0.0 \
     PORT=4321 \
     NODE_ENV=production \
@@ -156,5 +178,10 @@ ENV HOST=0.0.0.0 \
 # jobs container's raw supercronic-invoked commands do.
 
 EXPOSE 4321
+
+# Switch to the non-root user for both entrypoints. Everything above this
+# line (apt installs, supercronic download, all COPYs, the chown) must run
+# as root; nothing below it may need root again.
+USER appuser
 
 CMD ["node", "./dist/server/entry.mjs"]
