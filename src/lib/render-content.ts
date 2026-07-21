@@ -116,3 +116,37 @@ export function splitMarkdownSections(markdown: string): string[] {
   }
   return chunks;
 }
+
+/**
+ * Extracts genuine question/answer pairs from a content body's `## `
+ * sections, for `src/lib/seo.ts#faqLd` (Task 56; HowToVote.astro is the
+ * one guide page whose content is fully authored as question-shaped `##`
+ * headings — see that page's own docstring).
+ *
+ * A section only becomes a FAQ entry when its heading text itself ends in
+ * `?` — a non-question section title (were one ever added to this content)
+ * is simply skipped, never forced into a fabricated Q&A pairing. The
+ * answer is the section's remaining Markdown, rendered to HTML and then
+ * stripped to plain text (schema.org's `Answer.text` wants text, not
+ * markup) — comments are stripped first, same as `renderContentHtml`, so
+ * an authoring marker never leaks into a FAQ answer either.
+ */
+export function extractFaqEntries(body: string): { question: string; answer: string }[] {
+  const stripped = stripHtmlComments(body);
+  const sections = splitMarkdownSections(stripped).filter((section) => section.startsWith('## '));
+  const entries: { question: string; answer: string }[] = [];
+
+  for (const section of sections) {
+    const newlineIndex = section.indexOf('\n');
+    const headingLine = newlineIndex === -1 ? section : section.slice(0, newlineIndex);
+    const question = headingLine.replace(/^##\s+/, '').trim();
+    if (!question.endsWith('?')) continue;
+
+    const rest = newlineIndex === -1 ? '' : section.slice(newlineIndex + 1);
+    const answerHtml = marked.parse(rest, { gfm: true, async: false }) as string;
+    const answerText = answerHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (answerText) entries.push({ question, answer: answerText });
+  }
+
+  return entries;
+}

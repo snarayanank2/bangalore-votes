@@ -35,6 +35,11 @@
  * re-deriving/re-validating it through the static-file index on every
  * render. This also sidesteps needing `loadWardPolygons()` (a full parse of
  * a 3.5MB file) called anywhere at boot for this page to work.
+ *
+ * PLACE JSON-LD (architecture §8/§13, Task 56): `src/lib/seo.ts#placeLd`
+ * builds this ward's `AdministrativeArea` (name, id, page URL,
+ * `containedInPlace` Bengaluru) from data this page already loaded, passed
+ * to Base.astro's `jsonLd` prop.
  */
 import Base from '../../layouts/Base.astro';
 import Card from '../../components/Card.astro';
@@ -44,6 +49,7 @@ import { t, localePath, type Lang } from '../../i18n';
 import { db } from '../../db/client';
 import { wards } from '../../db/schema';
 import { eq } from 'drizzle-orm';
+import { placeLd } from '../../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -72,9 +78,11 @@ const description = ward ? t(lang, 'ward.meta.description', { wardName, wardId }
 const flagTargets = ward
   ? JSON.stringify([{ targetType: 'ward_field', targetRef: `ward:${wardId}:name`, label: t(lang, 'ward.flag.wardFieldLabel') }])
   : '[]';
+
+const wardJsonLd = ward ? [placeLd({ id: wardId, name: wardName, path: localePath(lang, pagePath) })] : [];
 ---
 
-<Base lang={lang} title={title} description={description} path={pagePath}>
+<Base lang={lang} title={title} description={description} path={pagePath} jsonLd={wardJsonLd}>
   {
     ward ? (
       <div class="ward">

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { renderContentHtml, splitMarkdownSections } from '../../src/lib/render-content';
+import { renderContentHtml, splitMarkdownSections, extractFaqEntries } from '../../src/lib/render-content';
 
 describe('renderContentHtml (src/lib/render-content.ts)', () => {
   it('renders Markdown headings/paragraphs/lists to HTML', () => {
@@ -75,5 +75,41 @@ describe('splitMarkdownSections (src/lib/render-content.ts)', () => {
     const chunks = splitMarkdownSections(md);
     expect(chunks).toHaveLength(2);
     expect(chunks[0]).toContain('### Subsection');
+  });
+});
+
+describe('extractFaqEntries (src/lib/render-content.ts, Task 56)', () => {
+  it('extracts a question/answer pair per question-shaped ## heading', () => {
+    const md = '## Can I vote NOTA?\n\nYes, NOTA is a valid option.\n\n## What do I bring?\n\nYour EPIC card.\n';
+    const entries = extractFaqEntries(md);
+    expect(entries).toEqual([
+      { question: 'Can I vote NOTA?', answer: 'Yes, NOTA is a valid option.' },
+      { question: 'What do I bring?', answer: 'Your EPIC card.' },
+    ]);
+  });
+
+  it('skips a non-question heading — never fabricates a Q&A pairing', () => {
+    const md = '## Overview\n\nSome intro text.\n\n## Can I vote NOTA?\n\nYes.\n';
+    const entries = extractFaqEntries(md);
+    expect(entries).toEqual([{ question: 'Can I vote NOTA?', answer: 'Yes.' }]);
+  });
+
+  it('strips HTML comments (authoring markers) out of the answer text', () => {
+    const md = '## Can I vote NOTA?\n\n<!-- INPUT NEEDED: confirm -->Yes, it is valid.\n';
+    const entries = extractFaqEntries(md);
+    expect(entries[0].answer).not.toContain('INPUT NEEDED');
+    expect(entries[0].answer).toContain('Yes, it is valid.');
+  });
+
+  it('renders the answer as plain text, not markup, even when the section has lists/links', () => {
+    const md = '## What do I need?\n\n- [Item one](/one)\n- Item two\n';
+    const entries = extractFaqEntries(md);
+    expect(entries[0].answer).not.toContain('<');
+    expect(entries[0].answer).toContain('Item one');
+    expect(entries[0].answer).toContain('Item two');
+  });
+
+  it('returns an empty array when the body has no ## headings at all', () => {
+    expect(extractFaqEntries('Just a paragraph.\n')).toEqual([]);
   });
 });

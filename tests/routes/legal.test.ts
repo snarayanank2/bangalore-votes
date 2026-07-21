@@ -89,13 +89,14 @@ describe('Trust & legal pages (Task 22) — IA §3.13/§3.17/§3.18, PRD §5.11/
       expect(html).not.toContain('INPUT NEEDED');
     });
 
-    it('emits Organization JSON-LD for the Oorvani Foundation, URL derived from Astro.site, with `<` escaped', async () => {
+    it('emits the platform Organization JSON-LD (src/lib/seo.ts#orgLd), Oorvani Foundation as parent/publisher, `<` escaped', async () => {
       const { html } = await renderPage(About, 'en', '/about');
       const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
       expect(match, 'expected an application/ld+json script tag').not.toBeNull();
       const payload = match![1];
 
       expect(payload).toContain('"@type":"Organization"');
+      expect(payload).toContain('Bangalore Votes');
       expect(payload).toContain('Oorvani Foundation');
       expect(payload).toContain(SITE_ORIGIN);
 
@@ -105,8 +106,10 @@ describe('Trust & legal pages (Task 22) — IA §3.13/§3.17/§3.18, PRD §5.11/
 
       const parsed = JSON.parse(payload);
       expect(parsed['@type']).toBe('Organization');
-      expect(parsed.name).toBe('Oorvani Foundation');
-      expect(parsed.url).toBe(SITE_ORIGIN + '/');
+      expect(parsed.name).toBe('Bangalore Votes');
+      expect(parsed.url).toBe(SITE_ORIGIN);
+      expect(parsed.parentOrganization.name).toBe('Oorvani Foundation');
+      expect(parsed.publisher.name).toBe('Oorvani Foundation');
     });
 
     it('does NOT show the courtesy-translation note, in either language', async () => {

@@ -8,28 +8,22 @@
  * neutrality commitments (all in the content itself; INPUT NEEDED markers
  * are stripped by renderContentHtml, never reaching the visitor).
  *
- * ADDITIONALLY emits `Organization` JSON-LD (architecture.md §8) for the
- * Oorvani Foundation, the operator this page names. Task 56 will centralize
- * JSON-LD construction/serialization across every page type (Person, Place,
- * Event, FAQPage, Organization, BreadcrumbList) into a shared `seo.ts`
- * helper — this inlines a small, correct one now rather than block on that
- * task; swap this block for the shared helper when Task 56 lands.
+ * ADDITIONALLY emits the platform `Organization` JSON-LD (architecture.md
+ * §8) via `src/lib/seo.ts#orgLd` — the shared builder every page type's
+ * JSON-LD now goes through (Task 56), passed to Base.astro's `jsonLd` prop
+ * (via Prose.astro, which forwards it). This replaces the small ad-hoc
+ * inline builder this page used to carry itself before Task 56 centralized
+ * JSON-LD construction/serialization.
  *
- * SECURITY (architecture.md §13): JSON-LD is serialized with `<` escaped to
- * `<` so no embedded substring can prematurely close the `<script>`
- * tag. Every value below is a static, repo-known string (organization
- * name/description), not curator or user input, so the actual risk here is
- * low — but the escape is applied unconditionally anyway, so this snippet
- * stays correct as a template even if a future edit feeds it dynamic data.
- *
- * CACHE-SAFETY: only reads repo content + Astro.site (the fixed configured
- * origin, never the request Host) — no cookie/session access, safe under
- * the anonymous-page micro-cache.
+ * CACHE-SAFETY: only reads repo content + `orgLd()` (a static builder with
+ * no per-request input) — no cookie/session access, safe under the
+ * anonymous-page micro-cache.
  */
 import Prose from '../../layouts/Prose.astro';
 import { type Lang } from '../../i18n';
 import { getPageContent } from '../../i18n/content';
 import { renderContentHtml } from '../../lib/render-content';
+import { orgLd } from '../../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -41,20 +35,8 @@ const content = getPageContent(lang, 'about');
 if (!content) {
   throw new Error('About: missing content/pages/en/about.md');
 }
-
-const siteOrigin = Astro.site ?? new URL('https://bangalore-votes.opencity.in');
-
-const organizationJsonLd = JSON.stringify({
-  '@context': 'https://schema.org',
-  '@type': 'Organization',
-  name: 'Oorvani Foundation',
-  url: siteOrigin.href,
-  description:
-    'The Oorvani Foundation operates Bangalore Votes, a neutral, non-partisan citizen information platform for the GBA ward corporator elections in Bengaluru.',
-}).replace(/</g, '\\u003c');
 ---
 
-<Prose lang={lang} title={content.title} description={content.description} path="/about">
-  <script type="application/ld+json" set:html={organizationJsonLd} is:inline />
+<Prose lang={lang} title={content.title} description={content.description} path="/about" jsonLd={[orgLd()]}>
   <div set:html={renderContentHtml(content.body, lang)} />
 </Prose>

@@ -163,27 +163,41 @@ describe('Ward result page (/ward/{id}, /kn/ward/{id}) — IA §3.2, PRD §5.1',
   });
 
   describe('WardMap island + no-JS fallback', () => {
-    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, MeSlot, and ?src attribution scripts (Tasks 27/28/32/33/49) — no others', async () => {
+    it('emits its own WardMap island script, plus Base.astro\'s global Register/Login, Flag, Vote modal, MeSlot, ?src attribution, and Place JSON-LD scripts (Tasks 27/28/32/33/49/56) — no others', async () => {
       const html = normalize(await (await renderWard('en', WARD.id)).text());
       const scriptOpenTags = html.match(/<script\b[^>]*>/g) ?? [];
       // See tests/routes/home.test.ts's equivalent assertion — every page
       // now also carries Base.astro's global Register/Login modal, Flag
       // modal (Task 32, src/components/FlagModal.astro), Vote modal (Task
       // 33, src/components/VoteModal.astro), MeSlot (Task 28,
-      // src/islands/MeSlot.ts), and the inline `?src` attribution writer
+      // src/islands/MeSlot.ts), the inline `?src` attribution writer
       // (Task 49, src/lib/attribution.ts — deliberately not type="module",
-      // architecture §13) scripts.
-      expect(scriptOpenTags).toHaveLength(6);
+      // architecture §13), and — since Task 56 — this page's own Place
+      // JSON-LD inline script (also not type="module").
+      expect(scriptOpenTags).toHaveLength(7);
       const moduleScripts = scriptOpenTags.filter((tag) => tag.includes('type="module"'));
       const inlineScripts = scriptOpenTags.filter((tag) => !tag.includes('type="module"'));
       expect(moduleScripts).toHaveLength(5);
-      expect(inlineScripts).toHaveLength(1);
+      expect(inlineScripts).toHaveLength(2);
       expect(html).toMatch(/Ward\.astro\?astro&type=script/);
       expect(html).toMatch(/RegisterLoginModal\.astro\?astro&type=script/);
       expect(html).toMatch(/FlagModal\.astro\?astro&type=script/);
       expect(html).toMatch(/VoteModal\.astro\?astro&type=script/);
       expect(html).toMatch(/Base\.astro\?astro&type=script/);
       expect(html).toMatch(/bv_src/);
+      expect(html).toMatch(/"@type":"AdministrativeArea"/);
+    });
+
+    it('emits Place JSON-LD (AdministrativeArea) for this ward, with an absolute url', async () => {
+      const html = await (await renderWard('en', WARD.id)).text();
+      const match = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/);
+      expect(match, 'expected an application/ld+json script tag').not.toBeNull();
+      const parsed = JSON.parse(match![1]);
+      expect(parsed['@type']).toBe('AdministrativeArea');
+      expect(parsed.name).toBe(WARD.nameEn);
+      expect(parsed.identifier).toBe(String(WARD.id));
+      expect(parsed.url).toBe(`${SITE_ORIGIN}/ward/${WARD.id}`);
+      expect(parsed.containedInPlace).toBeTruthy();
     });
 
     it('renders the map container with the boundary URL and a no-JS fallback text', async () => {

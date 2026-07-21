@@ -16,11 +16,19 @@
  *
  * CACHE-SAFETY: no settings/DB/cookie read at all — this page is pure
  * static content, the simplest of the six to cache.
+ *
+ * FAQ JSON-LD (architecture §8/§13, Task 56): `extractFaqEntries`
+ * (src/lib/render-content.ts) pulls the question/answer pairs straight out
+ * of this same content body's `##` sections — the "first-timer FAQ" this
+ * page already renders as visible headings+paragraphs above — and
+ * `src/lib/seo.ts#faqLd` builds the `FAQPage`, passed to Base.astro's
+ * `jsonLd` prop (via Prose.astro). No new content/data source.
  */
 import Prose from '../../layouts/Prose.astro';
 import type { Lang } from '../../i18n';
 import { getPageContent } from '../../i18n/content';
-import { renderContentHtml } from '../../lib/render-content';
+import { renderContentHtml, extractFaqEntries } from '../../lib/render-content';
+import { faqLd } from '../../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -32,8 +40,11 @@ const content = getPageContent(lang, 'how-to-vote');
 if (!content) {
   throw new Error('HowToVote: missing content/pages/en/how-to-vote.md');
 }
+
+const faqEntries = extractFaqEntries(content.body);
+const howToVoteJsonLd = faqEntries.length > 0 ? [faqLd(faqEntries)] : [];
 ---
 
-<Prose lang={lang} title={content.title} description={content.description} path="/voting-guide/how-to-vote">
+<Prose lang={lang} title={content.title} description={content.description} path="/voting-guide/how-to-vote" jsonLd={howToVoteJsonLd}>
   <div set:html={renderContentHtml(content.body, lang)} />
 </Prose>

@@ -14,6 +14,11 @@
  *
  * CACHE-SAFETY: only reads app_settings — no cookie/session access, safe
  * under the anonymous-page micro-cache.
+ *
+ * EVENT JSON-LD (architecture §8/§13, Task 56): `src/lib/seo.ts#eventLd`
+ * builds the election `Event` from the same `election_date` this page
+ * already reads for its status banner — no extra settings read. Omitted
+ * entirely (not a placeholder date) when `election_date` isn't set yet.
  */
 import Prose from '../../layouts/Prose.astro';
 import Banner from '../../components/Banner.astro';
@@ -21,6 +26,7 @@ import { t, type Lang } from '../../i18n';
 import { getPageContent } from '../../i18n/content';
 import { renderContentHtml } from '../../lib/render-content';
 import { getSettings } from '../../lib/settings';
+import { eventLd } from '../../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -36,9 +42,12 @@ if (!content) {
 const settings = await getSettings(['notification_date', 'election_date']);
 const notificationDate = settings.notification_date;
 const electionDate = settings.election_date;
+
+const electionEventLd = eventLd({ election_date: electionDate });
+const aboutElectionJsonLd = electionEventLd ? [electionEventLd] : [];
 ---
 
-<Prose lang={lang} title={content.title} description={content.description} path="/about-election">
+<Prose lang={lang} title={content.title} description={content.description} path="/about-election" jsonLd={aboutElectionJsonLd}>
   <section class="election-status">
     {!notificationDate ? (
       <Banner kind="notice" lang={lang}>

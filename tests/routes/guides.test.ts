@@ -241,6 +241,21 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(html).toContain('2026-08-01');
       expect(html).toContain('2026-09-15');
     });
+
+    it('emits Event JSON-LD once election_date is set (Task 56, src/lib/seo.ts#eventLd)', async () => {
+      vi.mocked(getSettings).mockResolvedValue({ ...NO_SETTINGS, election_date: '2026-09-15' });
+      const { html } = await renderPage(AboutElection, 'en', '/about-election');
+      const match = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/);
+      expect(match, 'expected an application/ld+json script tag').not.toBeNull();
+      const parsed = JSON.parse(match![1]);
+      expect(parsed['@type']).toBe('Event');
+      expect(parsed.startDate).toBe('2026-09-15');
+    });
+
+    it('emits NO Event JSON-LD when election_date is absent — never a placeholder date', async () => {
+      const { html } = await renderPage(AboutElection, 'en', '/about-election');
+      expect(html).not.toMatch(/application\/ld\+json/);
+    });
   });
 
   describe('VotingGuide (/voting-guide)', () => {
@@ -406,6 +421,21 @@ describe('Guide & explainer pages (Task 21) — IA §3.7-§3.12', () => {
       expect(html).not.toContain('<summary');
       // The NOTA answer's key fact is unconditionally in the markup.
       expect(html).toContain('None of the Above');
+    });
+
+    it('emits FAQPage JSON-LD built from this page\'s own question-shaped headings (Task 56, src/lib/seo.ts#faqLd)', async () => {
+      const { html } = await renderPage(HowToVote, 'en', '/voting-guide/how-to-vote');
+      const match = html.match(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/);
+      expect(match, 'expected an application/ld+json script tag').not.toBeNull();
+      const parsed = JSON.parse(match![1]);
+      expect(parsed['@type']).toBe('FAQPage');
+      expect(Array.isArray(parsed.mainEntity)).toBe(true);
+      expect(parsed.mainEntity.length).toBeGreaterThanOrEqual(5); // this content has 7 question-shaped `##` headings
+      const notaEntry = parsed.mainEntity.find((entry: any) => entry.name === 'Can I vote NOTA?');
+      expect(notaEntry, 'expected a "Can I vote NOTA?" Question entry').toBeTruthy();
+      expect(notaEntry['@type']).toBe('Question');
+      expect(notaEntry.acceptedAnswer['@type']).toBe('Answer');
+      expect(notaEntry.acceptedAnswer.text).toContain('None of the Above');
     });
   });
 

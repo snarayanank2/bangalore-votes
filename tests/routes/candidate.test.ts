@@ -395,40 +395,53 @@ describe('Candidate report card (/candidate/{slug}, /kn/candidate/{slug}) — IA
     });
   });
 
-  describe('Person JSON-LD (architecture §8/§13)', () => {
-    it('emits Person JSON-LD with sameAs = approved news urls, `<` escaped', async () => {
-      // Deliberately NOT run through normalize() here: architecture §13 only
-      // requires '<' to be escaped (that's the character that can open a
-      // closing `</script>` tag) — a raw '>' is left as-is (same convention
-      // as About.astro's Organization JSON-LD), and this test's news title
-      // itself contains one. normalize()'s whitespace-collapsing regexes
-      // are html-tag-aware, not JSON-aware, so running it over a JSON
-      // payload containing a raw '>' would corrupt the payload under test.
+  describe('Person + Breadcrumb JSON-LD (architecture §8/§13, Task 56 src/lib/seo.ts)', () => {
+    it('emits Person JSON-LD (name, party affiliation, absolute report-card url) — no ranking/evaluative field', async () => {
       const html = await (await renderCandidate('en', MAIN_SLUG)).text();
-      const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-      expect(match, 'expected an application/ld+json script tag').not.toBeNull();
-      const payload = match![1];
+      const scripts = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+      expect(scripts.length).toBeGreaterThanOrEqual(2); // Person + BreadcrumbList
 
-      expect(payload).toContain('"@type":"Person"');
-      expect(payload).not.toContain('<'); // no raw '<' — would close the script tag
-      expect(payload).toContain('\\u003c'); // the escaped form of the news title's '<'
-      expect(payload).not.toContain(SUGGESTED_NEWS_URL);
-
-      const parsed = JSON.parse(payload);
-      expect(parsed['@type']).toBe('Person');
-      expect(parsed.name).toBe('Report Card Test Candidate');
-      expect(parsed.sameAs).toEqual([APPROVED_NEWS_URL]);
-      expect(parsed.subjectOf).toHaveLength(1);
-      expect(parsed.subjectOf[0].headline).toBe(APPROVED_NEWS_TITLE); // decoded back to the raw '<' after JSON.parse
-      expect(parsed.subjectOf[0].url).toBe(APPROVED_NEWS_URL);
+      const person = scripts.map((m) => JSON.parse(m[1])).find((obj) => obj['@type'] === 'Person');
+      expect(person, 'expected a Person JSON-LD block').toBeTruthy();
+      expect(person.name).toBe('Report Card Test Candidate');
+      expect(person.url).toBe(`${SITE_ORIGIN}/candidate/${MAIN_SLUG}`);
+      expect(person.affiliation).toEqual({ '@type': 'Organization', name: 'Independent' });
+      expect(person).not.toHaveProperty('bestRating');
+      expect(person).not.toHaveProperty('ratingValue');
+      // No news data leaks into this minimal, non-evaluative Person shape.
+      expect(person).not.toHaveProperty('sameAs');
+      expect(person).not.toHaveProperty('subjectOf');
     });
 
-    it('does not emit JSON-LD for a candidate with no approved news (sameAs is an empty array, still valid)', async () => {
+    it('emits a BreadcrumbList trail Home -> Ward -> Candidate, absolute item URLs', async () => {
+      const html = await (await renderCandidate('en', MAIN_SLUG)).text();
+      const scripts = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+      const breadcrumb = scripts.map((m) => JSON.parse(m[1])).find((obj) => obj['@type'] === 'BreadcrumbList');
+      expect(breadcrumb, 'expected a BreadcrumbList JSON-LD block').toBeTruthy();
+      const items = breadcrumb.itemListElement;
+      expect(items).toHaveLength(3);
+      expect(items[0]).toEqual({ '@type': 'ListItem', position: 1, name: 'Bangalore Votes', item: `${SITE_ORIGIN}/` });
+      expect(items[1]).toEqual({
+        '@type': 'ListItem',
+        position: 2,
+        name: WARD.nameEn,
+        item: `${SITE_ORIGIN}/ward/${WARD.id}`,
+      });
+      expect(items[2]).toEqual({
+        '@type': 'ListItem',
+        position: 3,
+        name: 'Report Card Test Candidate',
+        item: `${SITE_ORIGIN}/candidate/${MAIN_SLUG}`,
+      });
+    });
+
+    it('a withdrawn candidate (URL still resolves, PRD §5.2) still emits Person JSON-LD', async () => {
       const html = await (await renderCandidate('en', WITHDRAWN_SLUG)).text();
-      const match = html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/);
-      expect(match).not.toBeNull();
-      const parsed = JSON.parse(match![1]);
-      expect(parsed.sameAs).toEqual([]);
+      const scripts = [...html.matchAll(/<script type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/g)];
+      const person = scripts.map((m) => JSON.parse(m[1])).find((obj) => obj['@type'] === 'Person');
+      expect(person).toBeTruthy();
+      expect(person.name).toBe('Withdrawn Test Candidate');
+      expect(person.affiliation).toEqual({ '@type': 'Organization', name: 'Independent' });
     });
   });
 

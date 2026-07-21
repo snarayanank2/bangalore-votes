@@ -56,21 +56,24 @@
  * Ward.astro/WardIssues.astro; `src/islands/FlagModal.ts`'s `initFlagModal`
  * (mounted once from Base.astro) wires it, no per-page script needed.
  *
- * PERSON JSON-LD (architecture §8/§13): `sameAs` carries the approved news
- * link URLs; `subjectOf` additionally carries each approved link's title so
- * a curator-authored title is exercised by this page's serialization too.
- * Serialized with `<` escaped to `<` so no curator/citizen-authored
- * substring (a news title, a field value) can prematurely close the
- * `<script>` tag — Task 56 will centralize this into a shared `seo.ts`
- * helper; this inlines a small, correct one now (same stopgap About.astro
- * already uses for `Organization`).
+ * PERSON JSON-LD (architecture §8/§13, Task 56): `src/lib/seo.ts#personLd`
+ * builds the candidate's `Person` (name, party affiliation, report-card
+ * URL — no ranking, no evaluative field), and `breadcrumbLd` builds the
+ * Home -> Ward -> Candidate trail; both are passed to Base.astro's
+ * `jsonLd` prop, which serializes (escaping `<`/`>`/`&` so no
+ * curator/citizen-authored substring, e.g. a party name, can prematurely
+ * close the `<script>` tag) and nonces them. This replaced a small ad-hoc
+ * inline builder this page used to carry itself before Task 56 centralized
+ * JSON-LD construction/serialization (same stopgap About.astro used to use
+ * for `Organization`).
  *
  * CACHE-SAFETY (architecture §5): this component never reads cookies or
  * session — the page is identical for every visitor. Every absolute URL
- * used in the JSON-LD is derived from `Astro.site`, never the request
- * Host. The Flag button renders its full anonymous-safe markup regardless
- * of auth state (design-system §7.8) — the auth gate happens client-side,
- * on tap, inside FlagModal's island.
+ * used in the JSON-LD is derived from `src/lib/seo.ts`'s `SITE_ORIGIN`
+ * (same fixed configured origin `astro.config.mjs` derives `Astro.site`
+ * from), never the request Host. The Flag button renders its full
+ * anonymous-safe markup regardless of auth state (design-system §7.8) —
+ * the auth gate happens client-side, on tap, inside FlagModal's island.
  */
 import Base from '../../layouts/Base.astro';
 import Banner from '../../components/Banner.astro';
@@ -85,6 +88,7 @@ import { eq } from 'drizzle-orm';
 import { REPORT_CARD_FIELD_KEYS, type ReportCardFieldKey } from '../../lib/curator';
 import { listNewsLinks } from '../../lib/news';
 import { getKnownSetting } from '../../lib/settings';
+import { personLd, breadcrumbLd } from '../../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -190,32 +194,28 @@ const flagTargets = row
     )
   : '[]';
 
-// Person JSON-LD (architecture §8/§13) — sameAs carries the approved news
-// link URLs; subjectOf additionally carries each link's title (curator-
-// authored text, so this is also what exercises the '<' escape below).
-const siteOrigin = Astro.site ?? new URL('https://bangalore-votes.opencity.in');
-const canonicalHref = new URL(localePath(lang, pagePath), siteOrigin).href;
-
-const personJsonLd = row
-  ? JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'Person',
-      name: candidateName,
-      url: canonicalHref,
-      ...(photoUrl ? { image: new URL(photoUrl, siteOrigin).href } : {}),
-      homeLocation: { '@type': 'AdministrativeArea', name: wardName },
-      sameAs: newsLinks.map((link) => link.url),
-      subjectOf: newsLinks.map((link) => ({ '@type': 'NewsArticle', headline: link.title, url: link.url })),
-    }).replace(/</g, '\\u003c')
-  : null;
+// Person + Breadcrumb JSON-LD (architecture §8/§13, Task 56) — built from
+// data this page already loaded, via the shared src/lib/seo.ts builders.
+// The breadcrumb's "Home" node uses the static, untranslated "Bangalore
+// Votes" brand string — same convention AppBar.astro's own logo text/
+// aria-label already uses (never machine-translated), avoiding a new i18n
+// key for a nice-to-have trail.
+const candidateJsonLd = row
+  ? [
+      personLd({ name: candidateName, party: partyName || null, path: localePath(lang, pagePath) }),
+      breadcrumbLd([
+        { name: 'Bangalore Votes', url: localePath(lang, '/') },
+        { name: wardName, url: localePath(lang, `/ward/${row.wardId}`) },
+        { name: candidateName, url: localePath(lang, pagePath) },
+      ]),
+    ]
+  : [];
 ---
 
-<Base lang={lang} title={title} description={description} path={pagePath}>
+<Base lang={lang} title={title} description={description} path={pagePath} jsonLd={candidateJsonLd}>
   {
     row ? (
       <div class="candidate">
-        {personJsonLd && <script type="application/ld+json" set:html={personJsonLd} is:inline />}
-
         {isProvisional && <p class="provisional-marker">{t(lang, 'candidate.provisionalMarker')}</p>}
 
         {showStatusBanner && (

@@ -63,6 +63,17 @@
  * still cache-safe: nginx's microcache stores the whole response
  * (headers + body) as one unit, so a cached page's baked-in nonce always
  * matches that same cached response's CSP header.
+ *
+ * JSON-LD structured data (Task 56, architecture §8/§13) is rendered ONCE
+ * here too, in `<head>`, from the optional `jsonLd` prop below. Each block
+ * is a plain schema.org object a page already built from its own loaded
+ * data (via `src/lib/seo.ts`'s builders) — this layout only serializes
+ * (`jsonLd()` from `src/lib/seo`, which HTML-escapes `<`/`>`/`&` so a
+ * curator/citizen-authored value can never break out of the `<script>`
+ * tag) and nonces it, the same nonce as the `?src` writer above. Like that
+ * script, this is page-specific but NOT session-specific data — never
+ * built from a cookie/session read — so it stays cache-safe under nginx's
+ * anonymous-page microcache the same way.
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
@@ -73,6 +84,7 @@ import FlagModal from '../components/FlagModal.astro';
 import VoteModal from '../components/VoteModal.astro';
 import { localePath, type Lang } from '../i18n';
 import { ATTRIBUTION_SCRIPT_SOURCE } from '../lib/attribution';
+import { jsonLd } from '../lib/seo';
 
 interface Props {
   lang: Lang;
@@ -89,9 +101,18 @@ interface Props {
   path: string;
   ogImage?: string;
   noindex?: boolean;
+  /**
+   * Plain schema.org objects (from `src/lib/seo.ts`'s builders) this page
+   * wants emitted as `<script type="application/ld+json">` tags in
+   * `<head>` — e.g. `[personLd(candidate), breadcrumbLd(trail)]`. Each is
+   * serialized via `jsonLd()` (never raw `JSON.stringify`) and rendered
+   * with the same per-request CSP nonce as every other inline script on
+   * this layout. Defaults to none.
+   */
+  jsonLd?: Record<string, unknown>[];
 }
 
-const { lang, title, description, path, ogImage, noindex = false } = Astro.props;
+const { lang, title, description, path, ogImage, noindex = false, jsonLd: jsonLdBlocks = [] } = Astro.props;
 
 // Astro.site is always configured (astro.config.mjs falls back to the
 // production origin when SITE_ORIGIN is unset) — the local fallback here
@@ -173,6 +194,12 @@ const cspNonce = Astro.locals.cspNonce;
           crossorigin
         />
       )
+    }
+
+    {
+      jsonLdBlocks.map((block) => (
+        <script type="application/ld+json" nonce={cspNonce} is:inline set:html={jsonLd(block)} />
+      ))
     }
 
     <!-- Google Analytics snippet mounts here (Task 62) — intentionally absent for now. -->

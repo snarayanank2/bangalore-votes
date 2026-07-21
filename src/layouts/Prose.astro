@@ -14,12 +14,14 @@ interface Props {
   path: string;
   ogImage?: string;
   noindex?: boolean;
+  /** Forwarded to Base.astro as-is — see that layout's `jsonLd` prop docstring. */
+  jsonLd?: Record<string, unknown>[];
 }
 
-const { lang, title, description, path, ogImage, noindex } = Astro.props;
+const { lang, title, description, path, ogImage, noindex, jsonLd } = Astro.props;
 ---
 
-<Base lang={lang} title={title} description={description} path={path} ogImage={ogImage} noindex={noindex}>
+<Base lang={lang} title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} jsonLd={jsonLd}>
   <div class="prose">
     <slot />
   </div>
