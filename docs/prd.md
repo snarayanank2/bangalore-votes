@@ -68,7 +68,7 @@ Each feature notes its primary page(s); full page-level detail is in the IA docu
 *Pages: `/`, `/ward/{ward-id}`*
 
 - Look up ward by **address or pincode** (no voter-ID lookup); return new GBA ward name + number and corporation (N/S/E/W/Central).
-- A pincode spans multiple wards, so pincode lookup returns a shortlist to pick from; address lookup returns a single ward. Pincode lookup needs no boundary data, so it ships even if delimitation boundaries slip (the Path B hedge in `docs/project-dependencies.md`).
+- A pincode spans multiple wards, so pincode lookup returns a shortlist to pick from; address lookup returns a single ward. Pincode lookup needs no boundary data, so it remains the fallback when geocoding fails or is ambiguous (`docs/architecture.md` §11). (It was also the Path B hedge against slipping delimitation boundaries; those boundaries have since landed at `data/gba.geojson` — see `docs/project-dependencies.md` §4.1 — so the hedge is no longer load-bearing for launch.)
 - **Out-of-coverage is an answer, not an error.** An address that resolves outside GBA limits, or a pincode with no GBA wards, returns an explicit "this doesn't appear to be in the GBA area" result. Geocoding failure or an ambiguous address degrades to the pincode path with a clear message (`docs/architecture.md` §11).
 - Show the ward boundary on a map. (Old-ward → new-ward mapping was considered and dropped — the finder answers the question that matters, "what is my ward *now*", without needing pre-delimitation boundary data.)
 - The ward result is the anchor for candidate, issue, and logistics views, and is reused to set a registered user's home ward.

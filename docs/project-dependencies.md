@@ -4,7 +4,7 @@
 **Status:** Living document
 **Scope:** Everything this project needs that **cannot be produced by writing code in this repository** — legal work, external account approvals, official data, people, money, and decisions. If a task can be closed by a pull request, it does not belong here.
 
-This document exists because the binding constraints on this project are almost all outside the codebase. The application could be finished and the platform still could not launch: not without ward boundaries, not without a privacy policy, and not without curators.
+This document exists because the binding constraints on this project are almost all outside the codebase. The application could be finished and the platform still could not launch: not without a published privacy policy, not without curators, not without the candidate data the returning officers release on their own timeline. (Ward boundaries — long the emblem of this list — have since landed in the repo; see Path B and §4.1.)
 
 Owners are listed as **unassigned** where nobody has been named. That is the honest state and the first thing to fix — an unowned dependency is not being worked on, whatever its due date says.
 
@@ -25,7 +25,7 @@ retention decision → lawyer drafts /privacy → /privacy published
 
 Every arrow is someone else's queue. The chain is measured in months, and it starts with a retention proposal that still needs legal confirmation (§2.1). This is the one most likely to be mistaken for launch-week paperwork.
 
-**Path B — Ward delimitation data.** The teaser *is* the ward finder (GTM spec §2). Without post-delimitation boundaries there is no Phase 1 — not a degraded Phase 1, none. Pincode lookup (PRD §5.1) ships first and needs no boundary polygons — the decided hedge — which buys a partial path, but address lookup and everything ward-scoped waits on this.
+**Path B — Ward delimitation data. ✓ Largely resolved.** The teaser *is* the ward finder (GTM spec §2), and the post-delimitation boundaries have landed: **`data/gba.geojson`** holds all **369 wards** as polygons plus their metadata — ward names (EN / KN), corporation / zone, assembly constituency, population, and RO codes. Address lookup and every ward-scoped page can now be built against real data. `data/gba.geojson` is the **authoritative final delimitation** (confirmed 2026-07-20) — no reconciliation against a later official release is pending. The one remainder on this path is small and non-blocking: the **postal-boundary data** for the pincode hedge (PRD §5.1) that maps pincodes onto this ward set — needed only for the geocode-failure fallback, not the primary address path. The project's single largest technical risk has retired.
 
 **Path C — People.** Curators gate ward data readiness, which gates candidate comms (PRD §9.1). Partners gate reach. Both are recruited in the same conversations (GTM spec §2), and both are slower than they look because vetting is a judgement, not a form.
 
@@ -109,8 +109,9 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 
 | # | Dependency | Blocks | Owner |
 |---|---|---|---|
-| 4.1 | **Post-delimitation GBA ward boundaries** (GeoJSON, 369 wards) | Path B — Phase 1 entirely | unassigned |
-| 4.2 | **Ward metadata** — names, numbers, zone mapping | Ward pages | unassigned |
+| 4.1 | ✓ **Post-delimitation GBA ward boundaries** — **in repo: `data/gba.geojson`, 369 wards** as polygons; confirmed the authoritative final delimitation (2026-07-20) | Path B — Phase 1 (now unblocked) | ✓ committed |
+| 4.2 | ✓ **Ward metadata** — names (EN / KN), numbers, corporation / zone, assembly constituency, population, RO codes — **all carried in `data/gba.geojson`** | Ward pages | ✓ committed |
+| 4.2a | **Pincode → ward postal-boundary data** — the mapping that backs the pincode-shortlist hedge (PRD §5.1); derived against the ward polygons above, committed as a static table (`docs/architecture.md` §6) | Pincode lookup only — non-blocking now address lookup works | unassigned |
 | 4.3 | **EC notification** — official date and schedule | Anchor **N**; the whole calendar | unassigned |
 | 4.4 | **Electoral roll deadline date** | R1, the highest-value send | unassigned |
 | 4.5 | **Candidate nomination list** — from EC / returning officers, provisional then final | Phase 2, and C2 at E−2w | unassigned |
@@ -118,7 +119,7 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 4.7 | **Polling booth data** — address-accurate, with locations | `/voting-guide/find-booth`; the F1 send | unassigned |
 | 4.8 | **Registration-check link target** — the correct official EC / CEO Karnataka roll-lookup URL for GBA, verified, and monitored for changes (it is a guided link-out, not an integration — PRD §5.6) | `/check-registration` | unassigned |
 
-**4.1 is the single largest technical risk in the project** and it is not a technical task. Geocoding quality is a solved problem (Google geocoding, decided — §6.3); delimitation data is not. Pincode lookup is the hedge.
+**4.1 was the single largest technical risk in the project — now retired.** The post-delimitation boundaries and ward metadata are committed at `data/gba.geojson` (369 wards). Geocoding quality was already a solved problem (Google geocoding, decided — §6.3); with the boundaries in hand, address→ward lookup and every ward-scoped page are buildable today. Pincode lookup stays as the geocode-failure fallback (§4.2a) and still wants official postal-boundary data to map pincodes onto this ward set — a smaller, non-blocking item now that the primary path works. `data/gba.geojson` is confirmed the authoritative final delimitation (2026-07-20), so nothing on this path waits on a later official release.
 
 **4.3 and 4.4 move independently.** The roll deadline is not derived from the election date and must be tracked separately — R1 is anchored to it, and R1 is the one message whose failure cannot be undone (GTM spec §4).
 
@@ -164,10 +165,11 @@ At the Phase 1 target of 25,000 citizens × 7 sends ≈ **175,000 messages**, bi
 | 6.13 | **reCAPTCHA v3 keys** — site key + secret for the anonymous EOI form (`docs/architecture.md` §7); disclosed in `/privacy` alongside GA | `/partner-with-us` | unassigned |
 | 6.14 | **Monitoring accounts** — DigitalOcean Uptime checks (incl. the SSL-expiry alert) wired to an ops alert email; a Sentry project (free tier, server-side only); a healthchecks.io check for the backup dead-man's-switch (`docs/architecture.md` §10) | Knowing the site is down; budget alarms landing somewhere; backup failure being loud | unassigned |
 | 6.15 | **Google Programmable Search Engine + Custom Search JSON API key** — for candidate news-link suggestions (PRD §5.2; `docs/architecture.md` §7), configured against the repo's news-domain allowlist, with a daily query budget + alert | News-link suggestions only — degrades gracefully to curator-added links | unassigned |
+| 6.16 | **GitHub — repository, Actions CI, and GHCR** — the org/repo hosting the code, the Actions workflows that build, test, and deploy (`docs/architecture.md` §14.4), the public `app`/`jobs` images on GHCR (§14.3), and the `staging`/`production` **Environment secrets** holding the deploy SSH keys (§14.4) | Any deployment — CI is the only path onto the box | unassigned |
 
 **6.4 is the one to look at first, because it is not obvious.** Google Maps Platform's terms restrict using Google Maps content — **geocoding results included** — in an application that displays a **non-Google map**. The decided split is *Google geocodes, MapLibre renders*, which is precisely the pattern that restriction targets.
 
-The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation and EC data rather than from Google. Nothing Google-derived reaches the browser. The ward-lookup cache (`docs/architecture.md` §13) keeps to the same line: it stores **normalized address → ward ID** — the platform's own derived conclusion — never Google's coordinates or response content.
+The architecture appears to comply, though more by consequence than by intent: geocoding runs server-side and returns **a ward, not a position**; coordinates are never cached for display; and the two things actually drawn on the map — ward boundaries and booth pins — come from official delimitation (`data/gba.geojson`) and EC data rather than from Google. Nothing Google-derived reaches the browser. The ward-lookup cache (`docs/architecture.md` §13) keeps to the same line: it stores **normalized address → ward ID** — the platform's own derived conclusion — never Google's coordinates or response content.
 
 What is needed is a deliberate confirmation rather than a product spec's reading of the terms, plus the constraint written into the geocoding module when it is built. The risk is not the rule — it costs a feature nobody has asked for — but its invisibility. A future contributor who reads "returns a ward, not a point" without knowing why will eventually, helpfully, return the point.
 
@@ -176,6 +178,8 @@ What is needed is a deliberate confirmation rather than a product spec's reading
 **6.11 is the gap.** Five metered services — geocoding, Anthropic, news search (§6.15, the smallest and bounded by design), CDN, and Twilio messaging — plus hosting, and the two largest scale directly with success: more citizens means more sends and more geocodes. Geocoding spend is capped by design (§6.5); nothing caps the rest, and no total has been put on paper. This connects to the funding disclosure question (§7.3) — you cannot publish who pays for the platform without knowing what it costs.
 
 **6.9 deserves its own line.** "An unrehearsed backup is not a backup" is a task with a date, not a principle. It is the kind of thing that is genuinely fine until the one day it is not, which for this project is a day that cannot be rescheduled.
+
+**6.16 is free but not incidental.** Public GHCR images cost nothing and the Droplet pulls them anonymously (`docs/architecture.md` §14.3), so this row carries no bill — but CI is the *only* path onto the box, and the deploy key lives in a GitHub Environment secret that fires on every push to `main` (§14.4). That puts the GitHub account inside the production trust boundary, not merely where the source lives: a compromised Actions workflow or a malicious merge is full compromise of both stacks, the accepted single-VM limitation recorded in `docs/architecture.md` §13. The dependency is the account, its access control, and secrets custody (§6.10) — not money.
 
 ---
 
