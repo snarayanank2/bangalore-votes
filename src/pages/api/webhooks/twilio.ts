@@ -18,13 +18,19 @@
  *
  * URL RECONSTRUCTION / DEPLOYMENT ASSUMPTION: Twilio signs the URL it was
  * literally configured with, so we must reconstruct that exact string
- * server-side. Behind nginx (Task 62 sets `X-Forwarded-Proto`), we build
+ * server-side. Behind nginx (Task 60, deploy/nginx/conf.d/site.conf sets
+ * `proxy_set_header X-Forwarded-Proto https;` and a pinned `Host` on every
+ * proxied location, including `/api/webhooks/`), we build
  * `${proto}://${host}${pathname}` from `X-Forwarded-Proto` (falling back to
  * `https`) and the `Host` header, plus `new URL(request.url).pathname` for
  * the path. THIS ONLY MATCHES IF THE TWILIO CONSOLE'S CONFIGURED WEBHOOK
- * URL IS EXACTLY `https://<host><pathname>` with NO query string — Task
- * 62/63 nginx config and the Twilio console webhook URL must agree on this
+ * URL IS EXACTLY `https://<host><pathname>` with NO query string — the Task
+ * 60 nginx config and the Twilio console webhook URL must agree on this
  * (no trailing slash mismatch, no `?extra=params` appended in the console).
+ * A missing/wrong `X-Forwarded-Proto` or `Host` at the nginx layer makes
+ * EVERY Twilio webhook 403 here (signature verification would be computed
+ * against the wrong URL) — see deploy/nginx/conf.d/site.conf's own comment
+ * on the `/api/webhooks/` location.
  *
  * FAIL-CLOSED (security-critical): missing/empty `TWILIO_AUTH_TOKEN`,
  * missing `X-Twilio-Signature` header, a computed signature that doesn't

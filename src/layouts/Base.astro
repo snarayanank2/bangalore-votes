@@ -54,7 +54,9 @@
  * The `?src` attribution cookie writer (Task 49, architecture §5/§13, PRD
  * §5.12) is rendered ONCE here too, in `<head>`, on every page —
  * `src/lib/attribution.ts#ATTRIBUTION_SCRIPT_SOURCE`, one of exactly two
- * CSP-allowed nonce'd inline scripts (the other is GA, Task 62). The
+ * CSP-allowed nonce'd inline scripts (the other is GA, Task 58) — see
+ * src/lib/csp.ts (Task 60) for the actual script-src allowlist this nonce
+ * satisfies. The
  * server never reads `?src` or branches the page on it (the cache key
  * ignores the query string entirely); the script reads `location.search`
  * client-side and writes the `bv_src` cookie the registration endpoint
@@ -86,8 +88,9 @@
  * all. Same cache-safety note as the `?src` writer: identical markup for
  * every visitor (only the nonce varies), never a session/cookie read here —
  * GA's own cookies are written client-side by gtag.js, never a server
- * `Set-Cookie`. See src/lib/analytics.ts's own docstring for the CSP note
- * (nginx, Task 62 — not yet built).
+ * `Set-Cookie`. See src/lib/analytics.ts's own docstring, and src/lib/csp.ts
+ * (Task 60), for the CSP note — the app (src/middleware.ts), not nginx,
+ * emits the header that allows GA's hosts.
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
@@ -144,8 +147,9 @@ const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
 // Per-request CSP nonce (architecture §13, src/middleware.ts) for the two
 // allowed nonce'd inline scripts rendered below (the `?src` writer and, when
 // shown, GA — Task 58; the CSP header itself that actually enforces this is
-// nginx's, Task 62, not yet built). This does NOT break this layout's
-// cache-safety: nginx's microcache
+// emitted by the APP, src/middleware.ts + src/lib/csp.ts, Task 60 — nginx
+// only passes it through, see that module's docstring for why). This does
+// NOT break this layout's cache-safety: nginx's microcache
 // stores the full response (headers + body) as one unit per the TTL window
 // (architecture §5), so every visitor served from a given cache entry gets
 // the SAME nonce in both the cached CSP header and this cached markup —

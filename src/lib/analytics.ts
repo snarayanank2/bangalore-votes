@@ -1,6 +1,6 @@
 /**
  * Google Analytics (gtag.js) snippet (architecture.md §8/§13; Task 58,
- * carrying CSP work forward to Task 62).
+ * CSP allowances built out in Task 60 — src/lib/csp.ts).
  *
  * Rendered by src/layouts/Base.astro ONLY on public, indexable pages — the
  * gate is `!noindex && GA_MEASUREMENT_ID` (env). That gate cleanly excludes
@@ -28,16 +28,15 @@
  * test, is unaffected by GA in the test environment.
  *
  * CSP (architecture §13): GA needs `www.googletagmanager.com` allowed as a
- * script source and `*.google-analytics.com` / `www.google-analytics.com`
- * allowed for `connect-src`/`img-src`. That CSP is emitted by nginx (Task
- * 62, not yet built — src/middleware.ts sets no Content-Security-Policy
- * header at all today; see that module's docstring for what it DOES own).
- * Architecture §13 already names GA as one of the two nonce'd inline
- * scripts the eventual nginx CSP allows — Task 62 must additionally add
- * these GA hosts to its script-src/connect-src/img-src directives for
- * PUBLIC routes only (the same precedent as the reCAPTCHA host allowance
- * scoped to `/partner-with-us` alone), never loosening CSP on
- * /api, /account, /curator, /admin.
+ * script source and `*.google-analytics.com` / `*.analytics.google.com`
+ * allowed for `connect-src`/`img-src`. That header is built by
+ * `src/lib/csp.ts#buildCsp` (Task 60) and emitted by the APP
+ * (src/middleware.ts) on every response — nginx only passes it through
+ * (deploy/nginx/snippets/security-headers.conf sets no CSP of its own; see
+ * src/lib/csp.ts's docstring for why the app, not nginx, owns this header).
+ * These GA hosts are in `buildCsp`'s BASE policy (present on every path),
+ * the same precedent as the reCAPTCHA host allowance, which is instead
+ * scoped to `/partner-with-us` alone.
  */
 
 /** The gtag.js loader URL for a given GA4 measurement id. */

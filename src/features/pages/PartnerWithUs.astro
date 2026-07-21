@@ -23,8 +23,11 @@
  * below is emitted ONLY when `RECAPTCHA_SITE_KEY` is configured, and ONLY
  * from this component — no other page in this codebase emits a
  * google.com/recaptcha script tag. The corresponding CSP relaxation
- * (allowing www.google.com/www.gstatic.com as script/frame hosts) is an
- * nginx per-location header, Task 63's concern, not this component's.
+ * (adding www.google.com/www.gstatic.com to script-src, and relaxing
+ * frame-src to www.google.com) is scoped to exactly `/partner-with-us` and
+ * `/kn/partner-with-us` in `src/lib/csp.ts#buildCsp` (Task 60) — the app
+ * emits this header (src/middleware.ts), not nginx; see that module's
+ * docstring for the path-matching rule and why no other page relaxes it.
  * `RECAPTCHA_SITE_KEY` is ABSENT in this repo's dev/CI env (Task 50
  * brief) — the form still renders and still submits without it (see
  * src/islands/EoiForm.ts's module docstring for the empty-token path);

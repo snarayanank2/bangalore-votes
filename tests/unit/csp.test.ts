@@ -1,0 +1,99 @@
+import { describe, it, expect } from 'vitest';
+import { buildCsp } from '../../src/lib/csp';
+
+const NONCE = 'test-nonce-abc123==';
+
+describe('src/lib/csp.ts#buildCsp', () => {
+  describe('base policy (non-partner paths)', () => {
+    it.each(['/', '/ward/57', '/candidate/some-slug', '/account', '/api/me', '/kn/ward/57'])(
+      '%s: strict script-src with the exact nonce interpolated, no unsafe-inline',
+      (pathname) => {
+        const csp = buildCsp(NONCE, pathname);
+        const scriptSrc = csp.split('; ').find((d) => d.startsWith('script-src'));
+        expect(scriptSrc).toBe(`script-src 'self' 'nonce-${NONCE}' https://www.googletagmanager.com`);
+        expect(scriptSrc).not.toContain("'unsafe-inline'");
+      },
+    );
+
+    it('worker-src allows blob: (maplibre-gl web worker)', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain("worker-src 'self' blob:");
+    });
+
+    it('frame-ancestors is none', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain("frame-ancestors 'none'");
+    });
+
+    it('frame-src is none on a non-partner path', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain("frame-src 'none'");
+    });
+
+    it('style-src allows unsafe-inline (Astro scoped styles / inline style attrs)', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    });
+
+    it('base-uri, object-src, form-action, default-src are locked down', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain("default-src 'self'");
+      expect(csp).toContain("base-uri 'self'");
+      expect(csp).toContain("object-src 'none'");
+      expect(csp).toContain("form-action 'self'");
+    });
+
+    it('img-src / connect-src carry the GA hosts (harmless on non-GA pages)', () => {
+      const csp = buildCsp(NONCE, '/ward/57');
+      expect(csp).toContain('img-src \'self\' data: https://www.googletagmanager.com https://*.google-analytics.com');
+      expect(csp).toContain(
+        "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com",
+      );
+    });
+
+    it.each(['/ward/57', '/account', '/api/me', '/', '/kn/ward/57', '/partner/some-slug'])(
+      '%s (non-partner-with-us path) does NOT contain www.google.com in script-src',
+      (pathname) => {
+        const csp = buildCsp(NONCE, pathname);
+        expect(csp).not.toContain('www.google.com');
+        expect(csp).not.toContain('www.gstatic.com');
+      },
+    );
+  });
+
+  describe('partner-with-us extension (reCAPTCHA v3)', () => {
+    it.each(['/partner-with-us', '/kn/partner-with-us'])(
+      '%s: adds www.google.com and www.gstatic.com to script-src',
+      (pathname) => {
+        const csp = buildCsp(NONCE, pathname);
+        const scriptSrc = csp.split('; ').find((d) => d.startsWith('script-src'));
+        expect(scriptSrc).toBe(
+          `script-src 'self' 'nonce-${NONCE}' https://www.googletagmanager.com https://www.google.com https://www.gstatic.com`,
+        );
+      },
+    );
+
+    it.each(['/partner-with-us', '/kn/partner-with-us'])('%s: sets frame-src to www.google.com', (pathname) => {
+      const csp = buildCsp(NONCE, pathname);
+      expect(csp).toContain('frame-src https://www.google.com');
+      expect(csp).not.toContain("frame-src 'none'");
+    });
+
+    it('does not relax a path that merely starts with /partner-with-us (e.g. a trailing segment)', () => {
+      const csp = buildCsp(NONCE, '/partner-with-us-extra');
+      expect(csp).not.toContain('www.google.com');
+      expect(csp).toContain("frame-src 'none'");
+    });
+
+    it('does not relax /partner/:slug (a different route than /partner-with-us)', () => {
+      const csp = buildCsp(NONCE, '/partner/some-partner-slug');
+      expect(csp).not.toContain('www.google.com');
+      expect(csp).toContain("frame-src 'none'");
+    });
+  });
+
+  it('is a pure function: same inputs always produce the same output', () => {
+    expect(buildCsp(NONCE, '/ward/57')).toBe(buildCsp(NONCE, '/ward/57'));
+    expect(buildCsp('other-nonce', '/partner-with-us')).toBe(buildCsp('other-nonce', '/partner-with-us'));
+  });
+});

@@ -647,4 +647,62 @@ describe('src/middleware.ts', () => {
       expect(res.headers.get('x-robots-tag')).toBeNull();
     });
   });
+
+  // Task 60: the app (not nginx) emits Content-Security-Policy, built from
+  // the SAME per-request nonce this middleware mints into `locals.cspNonce`
+  // (src/lib/csp.ts#buildCsp) — src/layouts/Base.astro bakes that exact
+  // nonce onto its two inline <script> tags. Proving the response header's
+  // nonce equals `ctx.locals.cspNonce` after the same middleware call is the
+  // strongest tie-together available without rendering the full HTML here
+  // (that byte-identical header/body agreement is additionally exercised at
+  // the page level in tests/routes/cache-invariant.test.ts, whose
+  // `normalize()` helper explicitly documents relying on this).
+  describe('Content-Security-Policy (Task 60, app-emitted, src/lib/csp.ts)', () => {
+    it('a public page response carries a CSP header whose nonce matches locals.cspNonce for that same request', async () => {
+      const ctx = makeContext({ path: '/ward/1' });
+      const res = await run(ctx, nextStub(200));
+
+      const csp = res.headers.get('content-security-policy');
+      expect(csp).toBeTruthy();
+      expect(typeof ctx.locals.cspNonce).toBe('string');
+      expect((ctx.locals.cspNonce as string).length).toBeGreaterThan(0);
+      expect(csp).toContain(`'nonce-${ctx.locals.cspNonce}'`);
+    });
+
+    it('script-src is present and strict: no unsafe-inline', async () => {
+      const ctx = makeContext({ path: '/ward/1' });
+      const res = await run(ctx, nextStub(200));
+      const csp = res.headers.get('content-security-policy')!;
+      const scriptSrc = csp.split('; ').find((d) => d.startsWith('script-src'));
+      expect(scriptSrc).toBeTruthy();
+      expect(scriptSrc).not.toContain("'unsafe-inline'");
+    });
+
+    it('two independent requests to the same path get two different nonces (per-request, not cached/shared)', async () => {
+      const ctx1 = makeContext({ path: '/ward/1' });
+      const res1 = await run(ctx1, nextStub(200));
+      const ctx2 = makeContext({ path: '/ward/1' });
+      const res2 = await run(ctx2, nextStub(200));
+
+      expect(ctx1.locals.cspNonce).not.toBe(ctx2.locals.cspNonce);
+      expect(res1.headers.get('content-security-policy')).not.toBe(res2.headers.get('content-security-policy'));
+    });
+
+    it('/partner-with-us gets the reCAPTCHA script-src/frame-src relaxation; /ward/1 does not', async () => {
+      const partnerCtx = makeContext({ path: '/partner-with-us' });
+      const partnerRes = await run(partnerCtx, nextStub(200));
+      expect(partnerRes.headers.get('content-security-policy')).toContain('www.google.com');
+
+      const wardCtx = makeContext({ path: '/ward/1' });
+      const wardRes = await run(wardCtx, nextStub(200));
+      expect(wardRes.headers.get('content-security-policy')).not.toContain('www.google.com');
+    });
+
+    it('a 403/redirect response still carries the CSP header (set on every response)', async () => {
+      const ctx = makeContext({ path: '/curator' }); // unauthenticated -> redirect
+      const res = await run(ctx, nextStub());
+      expect(res.status).toBe(302);
+      expect(res.headers.get('content-security-policy')).toBeTruthy();
+    });
+  });
 });

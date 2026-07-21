@@ -13,6 +13,12 @@
  * itself (readSession's sliding-expiry write, if any, is a `sessions` row
  * update, not a `Set-Cookie`).
  *
+ * RESPONSE HEADERS set here on every response, via `respond()`: the
+ * `Content-Security-Policy` header (Task 60, src/lib/csp.ts#buildCsp, built
+ * from `locals.cspNonce` + `pathname` — see that module's docstring for why
+ * the app, not nginx, owns this header) and, on `NOINDEX_PREFIXES` routes,
+ * `X-Robots-Tag: noindex`.
+ *
  * ROUTE CLASSES:
  *  - PUBLIC: everything NOT under /account, /curator, /admin, /api, /login,
  *    /media. Never blocked here; no guard, no CSRF check. (`/partner/*` is
@@ -52,6 +58,7 @@ import { randomBytes } from 'node:crypto';
 import { readSession, SESSION_COOKIE, type Role } from './lib/session';
 import { issueCsrfToken, checkCsrfToken, CSRF_FIELD_NAME } from './lib/csrf';
 import { isSameOriginRelative } from './lib/authz';
+import { buildCsp } from './lib/csp';
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'DELETE', 'PATCH']);
 
@@ -152,13 +159,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
   locals.csrfToken = session && cookieValue ? issueCsrfToken(sessionIdFromCookieValue(cookieValue)) : '';
   locals.cspNonce = randomBytes(16).toString('base64');
 
+  // Every response (Task 60, architecture §13): the app-emitted CSP, built
+  // from this same request's nonce + pathname (src/lib/csp.ts#buildCsp) —
+  // see that module's docstring for why the APP sets this header rather
+  // than nginx. Pure function of (nonce, pathname): never varies by
+  // session, so it doesn't disturb the cache-safety invariant (a cached
+  // response's stored header always matches its stored HTML's nonce).
   const respond = (response: Response): Response => {
+    const headers = new Headers(response.headers);
+    headers.set('Content-Security-Policy', buildCsp(locals.cspNonce, pathname));
     if (isUnderAny(guardPath, NOINDEX_PREFIXES)) {
-      const headers = new Headers(response.headers);
       headers.set('X-Robots-Tag', 'noindex');
-      return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
     }
-    return response;
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   };
 
   const isWebhook = isUnder(pathname, '/api/webhooks');
