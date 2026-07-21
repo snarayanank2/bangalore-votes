@@ -358,7 +358,19 @@ export function wardLookup() {
     `${BASE_URL}/api/ward-lookup`,
     JSON.stringify({ pincode: randomFrom(SAMPLE_PINCODES) }),
     {
-      headers: Object.assign({ 'Content-Type': 'application/json' }, AUTH_HEADERS),
+      // A real browser same-origin POST always carries an `Origin` header
+      // (and, in modern browsers, `Sec-Fetch-Site: same-origin`). The k6 Go
+      // HTTP client sends neither by default. src/middleware.ts's
+      // passesOriginCheck() fails CLOSED when both are absent (by design —
+      // "forged curator publishes are the worst outcome this design can
+      // produce"), so every ward-lookup POST would otherwise get a 403 that
+      // has nothing to do with capacity/cache/rate-limiting. Send both here
+      // so this scenario exercises the real /api/ward-lookup code path
+      // instead of 403-spamming.
+      headers: Object.assign(
+        { 'Content-Type': 'application/json', Origin: BASE_URL, 'Sec-Fetch-Site': 'same-origin' },
+        AUTH_HEADERS,
+      ),
       tags: { name: 'ward_lookup' },
     },
   );
