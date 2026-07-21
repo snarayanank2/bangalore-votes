@@ -55,7 +55,7 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db/client';
 import { geocodeCache } from '../db/schema';
 import { consumeBudget } from './budgets';
-import { wardForPoint } from './geo';
+import { loadWardPolygons, wardForPoint } from './geo';
 
 export type WardLookupResult =
   | { kind: 'ward'; wardId: number }
@@ -206,6 +206,17 @@ export async function lookupWardByAddress(address: string): Promise<WardLookupRe
   // discarded. Never added to the returned object, never passed to
   // cacheResult. See the ToS notice at the top of this file.
   const { lat, lng } = location;
+
+  // There is no boot-time call to loadWardPolygons() anywhere in this app
+  // (Ward.astro deliberately sidesteps it — see its docstring — and no
+  // other startup path calls it either), so this is the ONLY production
+  // caller of wardForPoint and MUST guarantee its precondition itself.
+  // loadWardPolygons() is idempotent (a no-op once loaded — geo.ts's own
+  // module-level guard), so this costs nothing on every call after the
+  // first and keeps the 3.5MB GeoJSON parse lazy: only the address-geocoding
+  // path pays it, on first use, rather than every process eagerly paying it
+  // at boot.
+  await loadWardPolygons();
   const wardId = wardForPoint(lat, lng);
 
   await cacheResult(normalizedAddress, wardId);

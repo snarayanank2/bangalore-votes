@@ -292,6 +292,39 @@ describe('lookupWardByAddress', () => {
     });
   });
 
+  describe('production regression: no boot-time loadWardPolygons() call exists', () => {
+    // Production has NO call site that ever calls loadWardPolygons() (grep
+    // src/ — it appears only in geo.ts's own definition and in this test
+    // file's/geo.test.ts's setup). This file's beforeAll above calls it
+    // explicitly, which masks the real bug: reusing that already-loaded
+    // module instance here would prove nothing. vi.resetModules() + a
+    // dynamic re-import gives a genuinely fresh, unloaded geo.ts (and the
+    // geocode.ts that transitively imports it), reproducing the real
+    // production module state on first request.
+    it('lookupWardByAddress resolves a ward even though loadWardPolygons() was never called on this module instance', async () => {
+      vi.resetModules();
+      // Reuse this file's already-open db connection instead of letting the
+      // freshly re-imported module graph (geocode.ts -> budgets.ts, and
+      // geocode.ts directly) open a second, never-closed postgres pool.
+      vi.doMock('../../src/db/client', () => ({ db }));
+
+      const fresh = await import('../../src/lib/geocode');
+
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({
+          status: 'OK',
+          results: [{ geometry: { location: { lat: INTERIOR_LAT, lng: INTERIOR_LNG } } }],
+        }),
+      );
+
+      const result = await fresh.lookupWardByAddress('Fresh Unloaded Module Regression Address');
+
+      expect(result).toEqual({ kind: 'ward', wardId: INTERIOR_WARD_ID });
+
+      vi.doUnmock('../../src/db/client');
+    });
+  });
+
   describe('Google Maps ToS guard: never a coordinate in or out', () => {
     it('the returned ward result carries only kind/wardId — no lat/lng field', async () => {
       fetchMock.mockResolvedValueOnce(
