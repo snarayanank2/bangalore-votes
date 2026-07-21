@@ -32,6 +32,7 @@
     "maplibre-gl": "^5.24.0",
     "marked": "^18.0.6",
     "postgres": "^3.4.9",
+    "tsx": "^4.20.6",
     "zod": "^3.25.76"
   },
   "devDependencies": {
@@ -42,7 +43,6 @@
     "@types/node": "^26.1.1",
     "drizzle-kit": "^0.31.10",
     "jsdom": "^29.1.1",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vitest": "^3.2.4"
   }
