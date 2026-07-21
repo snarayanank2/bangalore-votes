@@ -141,6 +141,59 @@ h6 {
 }
 
 /* -------------------------------------------------------------------------
+ * Prose vertical rhythm (§6.1)
+ *
+ * Guide/legal/about pages (the Prose layout) inject editorial Markdown via
+ * `set:html`, so component-scoped styles never reach it and its blocks fall
+ * back to the global `margin: 0` reset above — headings hug their body text
+ * and consecutive paragraphs collapse together, leaving no rhythm. These
+ * rules restore a deliberate one.
+ *
+ * The content sits one level deep inside `<div set:html>` wrappers that are
+ * direct children of `.prose`; VoterId/CheckRegistration/Press interleave
+ * link-out buttons and banners as sibling children of `.prose`. So spacing
+ * is applied at both levels: block-to-block inside each wrapper, and
+ * wrapper-to-wrapper across the top level. Scale (§6.1): between-section
+ * 32px (--space-8), heading -> its own body 8px (--space-2), body -> body
+ * 16px (--space-4).
+ * ---------------------------------------------------------------------- */
+.prose :is(p, ul, ol, blockquote) {
+  margin-block: 0;
+  margin-block-start: var(--space-4);
+}
+.prose :is(h2, h3, h4) {
+  margin-block: 0;
+  margin-block-start: var(--space-8);
+}
+.prose :is(h2, h3, h4) + :is(p, ul, ol, blockquote) {
+  margin-block-start: var(--space-2);
+}
+
+/* Top-level flow: each set:html wrapper / interleaved button / banner opens
+   a new section. The first block inside a wrapper resets so its own heading
+   margin isn't counted on top of the wrapper's gap. */
+.prose > * + * {
+  margin-block-start: var(--space-8);
+}
+.prose > * > :first-child {
+  margin-block-start: 0;
+}
+
+/* Guided link-out buttons conclude the section above them — group them a
+   touch closer to their steps than to the next section's heading. The
+   element type is included so this outranks ExternalLinkOut's own scoped
+   `margin: 0` (equal-specificity otherwise, and the component wins on
+   source order). */
+.prose > p.external-link-out {
+  margin-block-start: var(--space-6);
+}
+
+/* First element sits flush against the container's own block padding. */
+.prose > :first-child {
+  margin-block-start: 0;
+}
+
+/* -------------------------------------------------------------------------
  * Accessibility floor (§10)
  * ---------------------------------------------------------------------- */
 :focus-visible {
