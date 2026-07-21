@@ -17,10 +17,27 @@
 # `production` environment's secrets of the same name, never printed.
 name: deploy-staging
 
+# Serialize deploys against the same box: an overlapping run doing
+# pull -> migrate -> up while another is mid-flight is the race we're
+# guarding against. `cancel-in-progress: false` so an in-flight deploy
+# always finishes (rather than being killed mid-migrate) and the next one
+# queues behind it.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
 on:
   workflow_run:
     workflows: [ci]
     types: [completed]
+    # NOTE: `branches:` here filters on `head_branch` by NAME only — a
+    # fork branch literally named `main` would also match. This is
+    # harmless in practice because ci.yml's build-and-push job (the only
+    # thing that produces an image this workflow deploys) is itself gated
+    # to `github.event_name == 'push' && github.ref == 'refs/heads/main'`
+    # and never runs for pull_request/fork events, so there is no
+    # attacker-controlled image a same-named fork branch could get
+    # deployed. Documented here as a residual/known caveat, not a gap.
     branches: [main]
 
 jobs:
@@ -32,6 +49,10 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     environment: staging
+    # SSH-only job (no GitHub API calls) — least-privilege: no
+    # `packages:write` needed here, that's ci.yml's build-and-push job.
+    permissions:
+      contents: read
     steps:
       # Ordering matters (architecture §14.7): pull the freshly-pushed
       # image, run the migration against it BEFORE any container using the
