@@ -1,0 +1,92 @@
+# Staging Compose stack (Task 61; architecture.md §14.2). A SEPARATE
+# Compose project from compose.production.yml, sharing ONLY the production
+# stack's `front` network (so the one shared nginx can reverse-proxy to
+# `app-staging`, per deploy/nginx/conf.d/site.conf's third server block).
+#
+# SECURITY-CRITICAL: no service in this file may ever list `back_prod` —
+# that omission is the entire "staging cannot reach production Postgres"
+# guarantee (architecture §14.2). `postgres-staging` lives on its own
+# `back_staging` network, joined only by `app-staging`/`jobs-staging`.
+# Verified live (not just by inspecting this file): see task-61-report.md
+# for the `nc -z` isolation proof.
+#
+# Bring this stack up AFTER compose.production.yml (nginx must already own
+# `gba_front` for `external: true` below to resolve).
+#
+# IMAGE: staging tracks `:edge` (every `main` build — architecture §14.3),
+# same `${IMAGE_TAG:-...}` indirection as production. Local verification:
+#   docker build -t ghcr.io/snarayanank2/bangalore-votes:local .
+#   IMAGE_TAG=local docker compose -f deploy/compose.staging.yml up -d
+#
+# ENV: `./.env.staging` (deploy/.env.staging), gitignored, never committed.
+# MUST NOT contain production Twilio/SendGrid keys and MUST set
+# `SENDS_DISABLED=true` (architecture §14.2's second, independent guard —
+# "staging jobs cannot message real people" even if a key leaked in) — see
+# task-61-report.md for the full required-vars list. Staging Postgres is
+# disposable: no backup concern, safe to reset/drop at any time.
+
+services:
+  app-staging:
+    image: ghcr.io/snarayanank2/bangalore-votes:${IMAGE_TAG:-edge}
+    restart: unless-stopped
+    env_file: ${STAGING_ENV_FILE:-./.env.staging}
+    networks:
+      - front
+      - back_staging
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4321/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  jobs-staging:
+    image: ghcr.io/snarayanank2/bangalore-votes:${IMAGE_TAG:-edge}
+    restart: unless-stopped
+    command: ['supercronic', '/app/deploy/crontab']
+    env_file: ${STAGING_ENV_FILE:-./.env.staging}
+    networks:
+      - back_staging
+    depends_on:
+      postgres-staging:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  # `back_staging` ONLY (no `front`) — never reachable from nginx or from
+  # any production container, and — the point of this whole file — no
+  # production container is reachable from here either.
+  postgres-staging:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ${STAGING_ENV_FILE:-./.env.staging}
+    volumes:
+      - pg_data_staging:/var/lib/postgresql/data
+    networks:
+      - back_staging
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+networks:
+  # Owned by compose.production.yml; joined here, never (re)declared.
+  front:
+    external: true
+    name: gba_front
+  back_staging:
+    name: gba_back_staging
+
+volumes:
+  pg_data_staging:

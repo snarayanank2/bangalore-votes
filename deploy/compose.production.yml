@@ -1,0 +1,232 @@
+# Production Compose stack (Task 61; architecture.md §14.2-§14.5).
+#
+# Topology: nginx is the SHARED TLS terminator — it owns the `front` network
+# and is the only thing in this file staging (compose.staging.yml) ever
+# touches, by joining `front` as an EXTERNAL network. Everything else here
+# (app, postgres, jobs, certbot, static-init) lives on `back_prod`, which
+# staging never joins — that absence is the whole network-isolation
+# guarantee (verified live; see task-61-report.md).
+#
+# IMAGE: the Droplet only pulls public GHCR images (architecture §14.3) —
+# never builds locally. `${IMAGE_TAG:-latest}` lets a release pin an exact
+# tag (`vYYYY.MM.DD`) via `--env-file`/exported var while defaulting to
+# `:latest`. For LOCAL verification, build+tag the Task 59 Dockerfile to
+# match this reference before `docker compose up`:
+#   docker build -t ghcr.io/snarayanank2/bangalore-votes:local .
+#   IMAGE_TAG=local docker compose -f deploy/compose.production.yml up -d
+#
+# ENV FILES: `./.env.production` (resolved relative to THIS file's
+# directory, i.e. deploy/.env.production) is intentionally gitignored
+# (.gitignore's `.env.*` rule) — never committed. On the Droplet this is
+# written by the provisioning runbook (architecture §14.6 step 4, "outside
+# the repo", mode 600) and kept in sync at that path (or replaced with an
+# absolute path here if the runbook places it elsewhere — see
+# task-61-report.md's "required env vars" list for what it must contain).
+# `${PROD_ENV_FILE:-./.env.production}` lets local verification point at an
+# env file living outside the repo tree entirely (e.g. this sandbox's
+# scratch dir, since the harness here refuses to write literal `.env*`
+# paths inside the repo) without changing the checked-in default.
+#
+# CERTS: real issuance is the `certbot` service below, driven by Let's
+# Encrypt HTTP-01 against the real hostnames — it does nothing useful
+# against `localhost`. For local verification, self-signed certs are
+# written directly into the `certs` volume before first `up` (see the
+# report for the exact commands); the daily reload loop picks up whatever
+# is on that volume either way, real or stubbed.
+
+services:
+  # ---------------------------------------------------------------------
+  # Shared TLS terminator. Owns `front`; serves static assets straight off
+  # the `static_assets` volume (populated by `static-init`, below) and
+  # proxies everything else per deploy/nginx/conf.d/site.conf.
+  # ---------------------------------------------------------------------
+  nginx:
+    image: nginx:stable
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    networks:
+      - front
+    volumes:
+      # Mounted file-by-file/dir-by-dir rather than the whole `./nginx` tree
+      # onto `/etc/nginx` — overmounting the entire directory would shadow
+      # the `nginx:stable` image's own `/etc/nginx/mime.types` (and other
+      # stock files this repo's config doesn't ship), which crashes nginx
+      # at startup (empirically hit while verifying this file: "open()
+      # \"/etc/nginx/mime.types\" failed"). This way Task 60's config
+      # layers on top of the image's own files instead of replacing them.
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      - certs:/etc/letsencrypt:ro
+      - certbot_webroot:/var/www/certbot:ro
+      - static_assets:/srv/static:ro
+    depends_on:
+      static-init:
+        condition: service_completed_successfully
+    # Daily `nginx -s reload` (architecture §14.5): a no-op when certbot
+    # hasn't renewed anything, and picks up a renewed cert without giving
+    # certbot a docker-socket mount. Deliberately minimal: background a
+    # sleep-then-reload loop, then exec nginx itself in the foreground so
+    # PID 1 is still the real nginx master process (signals/health as
+    # normal). `nginx -s reload` before nginx itself has started once is
+    # harmless (fails silently, next iteration succeeds).
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        ( while true; do sleep 86400; nginx -s reload; done ) &
+        exec nginx -g 'daemon off;'
+    healthcheck:
+      # --resolve pins SNI to the real hostname so nginx's default_server
+      # (`ssl_reject_handshake on` for unmatched Host/SNI) doesn't reject
+      # this probe the way it would a bare `https://localhost/`.
+      test:
+        - CMD-SHELL
+        - >-
+          curl -sk -f --resolve bangalore-votes.opencity.in:443:127.0.0.1
+          https://bangalore-votes.opencity.in/healthz || exit 1
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  # ---------------------------------------------------------------------
+  # One-shot: copies the app image's build output onto the shared static
+  # volume so nginx can serve `/_astro/*` and `/data/gba.geojson` directly
+  # (Task 60's conf.d/site.conf assumes `/srv/static` already holds them).
+  # Runs as root (`user: "0:0"`) ONLY for this one-shot copy — a fresh
+  # named volume is root-owned by default and the runtime image's normal
+  # user (`appuser`, non-root) can't write to it; nothing else in this
+  # stack runs as root. `restart: "no"` — it's meant to exit 0 and stay
+  # stopped; nginx's `depends_on: condition: service_completed_successfully`
+  # blocks nginx's own start until this has finished successfully at least
+  # once. Re-run manually (`docker compose run --rm static-init`) after any
+  # app image update that changed static assets, since this doesn't re-run
+  # automatically on `docker compose up -d` once already "completed".
+  # ---------------------------------------------------------------------
+  static-init:
+    image: ghcr.io/snarayanank2/bangalore-votes:${IMAGE_TAG:-latest}
+    user: '0:0'
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        mkdir -p /srv/static/data
+        cp -r /app/dist/client/. /srv/static/
+        cp /app/data/gba.geojson /srv/static/data/gba.geojson
+        echo "static-init: populated /srv/static from the app image"
+    volumes:
+      - static_assets:/srv/static
+    restart: 'no'
+
+  # ---------------------------------------------------------------------
+  # The Astro SSR app (Task 59 image, default CMD).
+  # ---------------------------------------------------------------------
+  app:
+    image: ghcr.io/snarayanank2/bangalore-votes:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: ${PROD_ENV_FILE:-./.env.production}
+    networks:
+      - front
+      - back_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:4321/healthz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  # ---------------------------------------------------------------------
+  # Same image as `app`, cron entrypoint (Task 59: supercronic + deploy/crontab).
+  # Needs Postgres, not the public network — no `front` membership.
+  # ---------------------------------------------------------------------
+  jobs:
+    image: ghcr.io/snarayanank2/bangalore-votes:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    command: ['supercronic', '/app/deploy/crontab']
+    env_file: ${PROD_ENV_FILE:-./.env.production}
+    networks:
+      - back_prod
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  # ---------------------------------------------------------------------
+  # Production Postgres. `back_prod` ONLY — never `front` — is the entire
+  # isolation guarantee: nothing outside this stack's own back network,
+  # including every staging container, has a route here.
+  # ---------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    env_file: ${PROD_ENV_FILE:-./.env.production}
+    volumes:
+      - pg_data_prod:/var/lib/postgresql/data
+    networks:
+      - back_prod
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+  # ---------------------------------------------------------------------
+  # Real Let's Encrypt HTTP-01 renewal (architecture §14.5). Shares the
+  # `certs` + `certbot_webroot` volumes with nginx; nginx proxies
+  # `/.well-known/acme-challenge/` to the webroot (Task 60) and reloads
+  # daily (above) to pick up whatever certbot writes here. Not attached to
+  # `front`/`back_prod` — it never talks to another container, only shares
+  # volumes, so it gets Compose's implicit default network (outbound
+  # internet for the ACME servers) and nothing else.
+  #
+  # LOCAL NOTE: `certbot renew` against no existing certs (the local
+  # self-signed stub) is a safe no-op — it only renews certs it already
+  # manages, so it never touches the stubbed self-signed pair.
+  # ---------------------------------------------------------------------
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certs:/etc/letsencrypt
+      - certbot_webroot:/var/www/certbot
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - >-
+        trap exit TERM;
+        while :; do
+          certbot renew --webroot -w /var/www/certbot --quiet;
+          sleep 12h & wait $${!};
+        done
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '5' }
+
+networks:
+  # Declared here (not `external: true`) because THIS stack owns it;
+  # compose.staging.yml joins it as `external: true` under the same name.
+  front:
+    name: gba_front
+  back_prod:
+    name: gba_back_prod
+
+volumes:
+  certs:
+  certbot_webroot:
+  static_assets:
+  pg_data_prod:
