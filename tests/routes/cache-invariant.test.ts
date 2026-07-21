@@ -59,7 +59,7 @@ import PressPage from '../../src/pages/press.astro';
 import AccountPage from '../../src/pages/account/index.astro';
 import CuratorIndexPage from '../../src/pages/curator/index.astro';
 import AdminIndexPage from '../../src/pages/admin/index.astro';
-import { GET as meGET } from '../../src/pages/api/me';
+import * as meRoute from '../../src/pages/api/me';
 import { POST as sendgridPOST } from '../../src/pages/api/webhooks/sendgrid';
 import { POST as twilioPOST } from '../../src/pages/api/webhooks/twilio';
 
@@ -177,14 +177,28 @@ function normalize(html: string): string {
 async function renderThroughMiddleware(
   page: unknown,
   path: string,
-  opts: { cookieValue?: string; params?: Record<string, string> } = {},
+  opts: {
+    cookieValue?: string;
+    params?: Record<string, string>;
+    method?: string;
+    /**
+     * 'endpoint' for API routes (a module exporting GET/POST/etc., e.g.
+     * `src/pages/api/me.ts`) — the container API renders these via
+     * `renderEndpoint` rather than the page-component path. Defaults to
+     * 'page'. See the container API's own docstring
+     * (node_modules/astro/dist/container/index.d.ts): "Useful in case
+     * you're attempting to render an endpoint: renderToString(Endpoint,
+     * { routeType: 'endpoint' })".
+     */
+    routeType?: 'page' | 'endpoint';
+  } = {},
 ): Promise<Response> {
-  const { cookieValue, params } = opts;
+  const { cookieValue, params, method, routeType } = opts;
   const url = new URL(path, SITE_URL);
 
   const headers = new Headers();
   if (cookieValue) headers.set('cookie', `${SESSION_COOKIE}=${cookieValue}`);
-  const request = new Request(url, { headers });
+  const request = new Request(url, { method, headers });
 
   const cookiesStub = {
     get: (name: string) => (name === SESSION_COOKIE && cookieValue ? { value: cookieValue } : undefined),
@@ -198,6 +212,7 @@ async function renderThroughMiddleware(
       partial: false,
       request,
       params,
+      routeType,
       locals: locals as unknown as App.Locals,
     });
 
@@ -324,7 +339,18 @@ describe('§12 cache-invariant + security guard suite', () => {
   // -------------------------------------------------------------------------
   describe('Guard 2 — no-store on non-public routes', () => {
     it('GET /api/me (anonymous) -> cache-control contains no-store', async () => {
-      const res = await meGET({ locals: { session: null } } as any);
+      // Routed through the SAME real-middleware path (onRequest + the
+      // container API) as the /account, /curator, /admin checks below,
+      // rather than a hand-built `{ locals: { session: null } }` context, so
+      // this also catches a middleware-level cache-control override — not
+      // just a regression in the handler's own JSON_HEADERS
+      // (src/pages/api/me.ts). `routeType: 'endpoint'` tells the container
+      // API to render the module's exported GET rather than treat it as a
+      // page component (see renderThroughMiddleware's docstring above). The
+      // handler-level unit coverage (anonymous/authed shapes, no PII) stays
+      // in tests/routes/me.test.ts; this is only the cache-control guard.
+      const res = await renderThroughMiddleware(meRoute, '/api/me', { routeType: 'endpoint' });
+      expect(res.status).toBe(200);
       expect(res.headers.get('cache-control')).toContain('no-store');
     });
 

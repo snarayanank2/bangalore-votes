@@ -22,7 +22,12 @@ function normalize(html: string): string {
     .replace(/\s+/g, ' ');
 }
 
-async function renderBase(lang: Lang, path: string, extraProps: Record<string, unknown> = {}) {
+async function renderBase(
+  lang: Lang,
+  path: string,
+  extraProps: Record<string, unknown> = {},
+  locals: Record<string, unknown> = {},
+) {
   const container = await AstroContainer.create({
     astroConfig: {
       site: SITE_ORIGIN,
@@ -31,6 +36,13 @@ async function renderBase(lang: Lang, path: string, extraProps: Record<string, u
   });
   const html = await container.renderToString(Base, {
     partial: false,
+    // Same mechanism as tests/routes/attribution.test.ts's renderBase: the
+    // container API only bakes a real nonce into `Astro.locals.cspNonce`
+    // (src/layouts/Base.astro) when one is supplied here — otherwise the
+    // `nonce={cspNonce}` attributes render as nothing at all. Defaults to
+    // `{}` (no nonce) so every OTHER case in this file, which doesn't care
+    // about the nonce, is unaffected.
+    locals: locals as unknown as App.Locals,
     props: {
       lang,
       title: 'Test page',
@@ -141,20 +153,27 @@ describe('Base layout — Google Analytics gating (Task 58)', () => {
     expect(html).not.toContain('gtag(');
   });
 
-  it('GA_MEASUREMENT_ID set + public (indexable) page: renders the async loader + inline config with the measurement id', async () => {
+  it('GA_MEASUREMENT_ID set + public (indexable) page: renders the async loader + inline config, BOTH carrying the real per-request CSP nonce', async () => {
     process.env.GA_MEASUREMENT_ID = 'G-TEST123456';
-    const html = await renderBase('en', '/ward/57');
+    const GA_NONCE = 'test-nonce-123';
+    // Supply a real `locals.cspNonce`, same mechanism as
+    // tests/routes/attribution.test.ts's renderBase, so `Astro.locals.cspNonce`
+    // (src/layouts/Base.astro) resolves to a KNOWN value we can assert on
+    // exactly — rather than leaving it unset, which would let the nonce
+    // attribute silently disappear from both GA `<script>` tags without
+    // failing this test.
+    const html = await renderBase('en', '/ward/57', {}, { cspNonce: GA_NONCE });
 
-    // The container API's default render (no `locals.cspNonce` supplied,
-    // unlike tests/routes/attribution.test.ts's renderBase) omits the nonce
-    // attribute entirely rather than emitting `nonce="undefined"` — that
-    // nonce-presence behavior is already covered by attribution.test.ts's
-    // "is one of exactly two CSP-allowed nonce'd inline scripts" case. This
-    // test only checks the GA-specific content: the loader src and the
-    // inline config carrying the right measurement id.
-    expect(html).toMatch(/<script async(?: nonce="[^"]*")? src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-TEST123456"/);
+    // Nonce is MANDATORY here (not optional) on both GA script tags — the
+    // async gtag.js loader and the inline config — matching what
+    // src/layouts/Base.astro actually emits (`nonce={cspNonce}` on each).
+    // If `nonce={cspNonce}` were ever deleted from either tag, these two
+    // assertions would fail.
+    expect(html).toMatch(
+      /<script async nonce="test-nonce-123" src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-TEST123456"/,
+    );
     expect(html).toContain("gtag('config',\"G-TEST123456\")");
-    expect(html).toMatch(/<script(?: nonce="[^"]*")?>window\.dataLayer/);
+    expect(html).toMatch(/<script nonce="test-nonce-123">window\.dataLayer/);
   });
 
   it('GA_MEASUREMENT_ID set but noindex (an authenticated-shaped page): renders NO GA snippet', async () => {
