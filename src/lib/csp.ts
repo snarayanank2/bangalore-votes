@@ -39,8 +39,22 @@ function stripLocalePrefix(pathname: string): string {
   return pathname.replace(/^\/kn(?=\/|$)/, '') || '/';
 }
 
+/**
+ * Strips a single optional trailing slash (never touches the root `/`
+ * itself). Astro's default `trailingSlash: 'ignore'` routes
+ * `/partner-with-us/` to the exact same page as `/partner-with-us` — without
+ * this normalization `isPartnerWithUsPath` would miss that variant on exact
+ * equality and silently fail to relax the CSP for reCAPTCHA there. Applied
+ * BEFORE the exact-match comparison (not a prefix match), so
+ * `/partner-with-us/sub` still correctly does NOT match (it strips to
+ * `/partner-with-us/sub`, not `/partner-with-us`).
+ */
+function stripTrailingSlash(pathname: string): string {
+  return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+}
+
 function isPartnerWithUsPath(pathname: string): boolean {
-  return stripLocalePrefix(pathname) === PARTNER_PATH;
+  return stripTrailingSlash(stripLocalePrefix(pathname)) === PARTNER_PATH;
 }
 
 /**
@@ -77,11 +91,16 @@ function isPartnerWithUsPath(pathname: string): boolean {
  *
  * PARTNER EXTENSION: on `/partner-with-us` and `/kn/partner-with-us` ONLY
  * (matched the same locale-aware way src/middleware.ts matches every other
- * path prefix — strip a leading `/kn`, compare the rest), reCAPTCHA v3
- * (src/features/pages/PartnerWithUs.astro) needs `www.google.com` and
- * `www.gstatic.com` added to `script-src`, and the base `frame-src 'none'`
- * relaxed to `https://www.google.com` (reCAPTCHA injects its challenge
- * iframe from that host). No other path gets these hosts relaxed.
+ * path prefix — strip a leading `/kn`, compare the rest, THEN strip a single
+ * optional trailing slash before the exact-equality check, since Astro's
+ * default `trailingSlash: 'ignore'` routes `/partner-with-us/` to the same
+ * page and the CSP must relax there too — see `stripTrailingSlash` below),
+ * reCAPTCHA v3 (src/features/pages/PartnerWithUs.astro) needs
+ * `www.google.com` and `www.gstatic.com` added to `script-src`, and the base
+ * `frame-src 'none'` relaxed to `https://www.google.com` (reCAPTCHA injects
+ * its challenge iframe from that host). No other path gets these hosts
+ * relaxed — in particular a genuine subpath like `/partner-with-us/sub`
+ * still does not match after trailing-slash stripping.
  */
 export function buildCsp(nonce: string, pathname: string): string {
   const scriptSrcHosts = ['https://www.googletagmanager.com'];

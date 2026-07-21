@@ -79,6 +79,18 @@ describe('src/lib/csp.ts#buildCsp', () => {
       expect(csp).not.toContain("frame-src 'none'");
     });
 
+    it.each(['/partner-with-us/', '/kn/partner-with-us/'])(
+      '%s: trailing-slash variant (Astro trailingSlash: "ignore") still relaxes the CSP',
+      (pathname) => {
+        const csp = buildCsp(NONCE, pathname);
+        const scriptSrc = csp.split('; ').find((d) => d.startsWith('script-src'));
+        expect(scriptSrc).toBe(
+          `script-src 'self' 'nonce-${NONCE}' https://www.googletagmanager.com https://www.google.com https://www.gstatic.com`,
+        );
+        expect(csp).toContain('frame-src https://www.google.com');
+      },
+    );
+
     it('does not relax a path that merely starts with /partner-with-us (e.g. a trailing segment)', () => {
       const csp = buildCsp(NONCE, '/partner-with-us-extra');
       expect(csp).not.toContain('www.google.com');
@@ -87,6 +99,12 @@ describe('src/lib/csp.ts#buildCsp', () => {
 
     it('does not relax /partner/:slug (a different route than /partner-with-us)', () => {
       const csp = buildCsp(NONCE, '/partner/some-partner-slug');
+      expect(csp).not.toContain('www.google.com');
+      expect(csp).toContain("frame-src 'none'");
+    });
+
+    it('does not relax a genuine subpath even after trailing-slash normalization', () => {
+      const csp = buildCsp(NONCE, '/partner-with-us/sub');
       expect(csp).not.toContain('www.google.com');
       expect(csp).toContain("frame-src 'none'");
     });
