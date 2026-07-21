@@ -3,6 +3,13 @@
  * Prose layout — wraps Base for long-form guide/legal/about pages,
  * constraining content to the --container-prose measure (design-system.md
  * §6.2) for readable line length.
+ *
+ * Renders `title` as the page's single visible <h1>. The content files
+ * (content/pages/**\/*.md) deliberately start their bodies at `## ` (h2) and
+ * rely on this layout for the h1 — without it these pages had no h1 at all,
+ * breaking the document outline (started at h2), the primary SEO/AEO topic
+ * signal, and heading-based screen-reader navigation. Design-system.md §5.2:
+ * H1 is --text-3xl.
  */
 import Base from './Base.astro';
 import type { Lang } from '../i18n';
@@ -23,6 +30,7 @@ const { lang, title, description, path, ogImage, noindex, jsonLd } = Astro.props
 
 <Base lang={lang} title={title} description={description} path={path} ogImage={ogImage} noindex={noindex} jsonLd={jsonLd}>
   <div class="prose">
+    {title && <h1 class="prose-title">{title}</h1>}
     <slot />
   </div>
 </Base>
@@ -33,5 +41,14 @@ const { lang, title, description, path, ogImage, noindex, jsonLd } = Astro.props
     margin-inline: auto;
     padding-block: var(--space-8);
     padding-inline: var(--container-pad-x);
+  }
+
+  /* Single page <h1> (design-system.md §5.2 — H1 is --text-3xl). Sits flush
+     at the top and takes its gap to the content from the shared prose rhythm
+     (`.prose > * + *` in global.css), same as any section boundary. */
+  .prose-title {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-3xl);
+    margin: 0;
   }
 </style>
