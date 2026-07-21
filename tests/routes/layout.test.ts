@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { experimental_AstroContainer as AstroContainer } from 'astro/container';
 import Base from '../../src/layouts/Base.astro';
 import { localePath, otherLang, type Lang } from '../../src/i18n';
@@ -117,5 +117,51 @@ describe('Base layout (design-system.md §7.1/§7.2, IA §1)', () => {
   it('renders the skip link and a main landmark with matching id', () => {
     expect(enHtml).toContain('href="#main-content"');
     expect(enHtml).toMatch(/<main id="main-content"/);
+  });
+});
+
+/**
+ * GA gating (Task 58, src/lib/analytics.ts) — kept in its own describe
+ * block, toggling `GA_MEASUREMENT_ID` only for these cases, so the main
+ * describe block above (and every other suite) keeps running with GA
+ * unset — the test/CI default — and stays unperturbed by it.
+ */
+describe('Base layout — Google Analytics gating (Task 58)', () => {
+  const ORIGINAL_GA_ID = process.env.GA_MEASUREMENT_ID;
+
+  afterEach(() => {
+    if (ORIGINAL_GA_ID === undefined) delete process.env.GA_MEASUREMENT_ID;
+    else process.env.GA_MEASUREMENT_ID = ORIGINAL_GA_ID;
+  });
+
+  it('GA_MEASUREMENT_ID unset (test/CI default): no GA snippet at all, on any page', async () => {
+    delete process.env.GA_MEASUREMENT_ID;
+    const html = await renderBase('en', '/ward/57');
+    expect(html).not.toContain('googletagmanager.com');
+    expect(html).not.toContain('gtag(');
+  });
+
+  it('GA_MEASUREMENT_ID set + public (indexable) page: renders the async loader + inline config with the measurement id', async () => {
+    process.env.GA_MEASUREMENT_ID = 'G-TEST123456';
+    const html = await renderBase('en', '/ward/57');
+
+    // The container API's default render (no `locals.cspNonce` supplied,
+    // unlike tests/routes/attribution.test.ts's renderBase) omits the nonce
+    // attribute entirely rather than emitting `nonce="undefined"` — that
+    // nonce-presence behavior is already covered by attribution.test.ts's
+    // "is one of exactly two CSP-allowed nonce'd inline scripts" case. This
+    // test only checks the GA-specific content: the loader src and the
+    // inline config carrying the right measurement id.
+    expect(html).toMatch(/<script async(?: nonce="[^"]*")? src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-TEST123456"/);
+    expect(html).toContain("gtag('config',\"G-TEST123456\")");
+    expect(html).toMatch(/<script(?: nonce="[^"]*")?>window\.dataLayer/);
+  });
+
+  it('GA_MEASUREMENT_ID set but noindex (an authenticated-shaped page): renders NO GA snippet', async () => {
+    process.env.GA_MEASUREMENT_ID = 'G-TEST123456';
+    const html = await renderBase('en', '/account', { noindex: true });
+
+    expect(html).not.toContain('googletagmanager.com');
+    expect(html).not.toContain('gtag(');
   });
 });

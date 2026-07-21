@@ -74,6 +74,20 @@
  * script, this is page-specific but NOT session-specific data — never
  * built from a cookie/session read — so it stays cache-safe under nginx's
  * anonymous-page microcache the same way.
+ *
+ * The Google Analytics (gtag.js) snippet (Task 58, src/lib/analytics.ts) is
+ * mounted ONCE here too, in `<head>`, gated to `!noindex && GA_MEASUREMENT_ID`
+ * (env) — i.e. ONLY on public, indexable pages, and ONLY when a measurement
+ * id is actually configured (unset in dev/test/CI, so this never perturbs
+ * existing tests or the cache-safety byte-identical guard). That gate alone
+ * excludes every authenticated screen: every `/account`, `/login`,
+ * `/partner/*` page renders with `noindex={true}` (src/middleware.ts's
+ * `NOINDEX_PREFIXES`), and `/curator`/`/admin` never render through Base at
+ * all. Same cache-safety note as the `?src` writer: identical markup for
+ * every visitor (only the nonce varies), never a session/cookie read here —
+ * GA's own cookies are written client-side by gtag.js, never a server
+ * `Set-Cookie`. See src/lib/analytics.ts's own docstring for the CSP note
+ * (nginx, Task 62 — not yet built).
  */
 import '../styles/global.css';
 import SkipLink from '../components/SkipLink.astro';
@@ -84,6 +98,7 @@ import FlagModal from '../components/FlagModal.astro';
 import VoteModal from '../components/VoteModal.astro';
 import { localePath, type Lang } from '../i18n';
 import { ATTRIBUTION_SCRIPT_SOURCE } from '../lib/attribution';
+import { gaLoaderSrc, gaConfigScriptSource } from '../lib/analytics';
 import { jsonLd } from '../lib/seo';
 
 interface Props {
@@ -126,14 +141,22 @@ const knHref = new URL(localePath('kn', path), siteOrigin).href;
 const ogImageHref = ogImage ? new URL(ogImage, siteOrigin).href : undefined;
 const ogLocale = lang === 'en' ? 'en_IN' : 'kn_IN';
 
-// Per-request CSP nonce (architecture §13, src/middleware.ts) for the ONE
-// of the two allowed inline scripts rendered below (the other is GA, Task
-// 62). This does NOT break this layout's cache-safety: nginx's microcache
+// Per-request CSP nonce (architecture §13, src/middleware.ts) for the two
+// allowed nonce'd inline scripts rendered below (the `?src` writer and, when
+// shown, GA — Task 58; the CSP header itself that actually enforces this is
+// nginx's, Task 62, not yet built). This does NOT break this layout's
+// cache-safety: nginx's microcache
 // stores the full response (headers + body) as one unit per the TTL window
 // (architecture §5), so every visitor served from a given cache entry gets
 // the SAME nonce in both the cached CSP header and this cached markup —
 // they never need to match a freshly-generated value on a cache HIT.
 const cspNonce = Astro.locals.cspNonce;
+
+// GA (Task 58/62): public, indexable pages only, and only when a
+// measurement id is actually configured — see the docstring above and
+// src/lib/analytics.ts. Unset in dev/test/CI, so GA renders nothing there.
+const gaMeasurementId = process.env.GA_MEASUREMENT_ID;
+const showGa = !noindex && !!gaMeasurementId;
 ---
 
 <!doctype html>
@@ -147,8 +170,8 @@ const cspNonce = Astro.locals.cspNonce;
       Reads location.search client-side ONLY; the server never branches on
       ?src, so this markup (aside from the nonce attribute itself, see
       cspNonce above) is identical for every visitor — the query-blind
-      nginx cache is safe. One of exactly two CSP-allowed inline scripts
-      (the other is GA, Task 62); no unsafe-inline.
+      nginx cache is safe. One of exactly two CSP-allowed nonce'd inline
+      scripts (the other is GA below, Task 58); no unsafe-inline.
     -->
     <script nonce={cspNonce} is:inline set:html={ATTRIBUTION_SCRIPT_SOURCE} />
     <title>{title}</title>
@@ -202,7 +225,14 @@ const cspNonce = Astro.locals.cspNonce;
       ))
     }
 
-    <!-- Google Analytics snippet mounts here (Task 62) — intentionally absent for now. -->
+    {
+      showGa && (
+        <>
+          <script async is:inline nonce={cspNonce} src={gaLoaderSrc(gaMeasurementId!)} />
+          <script nonce={cspNonce} is:inline set:html={gaConfigScriptSource(gaMeasurementId!)} />
+        </>
+      )
+    }
   </head>
   <body>
     <SkipLink lang={lang} />

@@ -7,7 +7,7 @@
  * must be byte-identical whether or not a `?src` param is present. The whole
  * mechanism therefore lives client-side: `src/layouts/Base.astro` renders
  * `ATTRIBUTION_SCRIPT_SOURCE` as ONE of the two CSP-allowed nonce'd inline
- * scripts (the other is GA, Task 62) on every page. The script reads
+ * scripts (the other is GA, Task 58/src/lib/analytics.ts) on every page. The script reads
  * `location.search` at runtime (the server HTML is identical with or
  * without `?src` — only the browser sees the query string) and, if a valid
  * slug is present, writes it to the `SRC_COOKIE_NAME` cookie. The
