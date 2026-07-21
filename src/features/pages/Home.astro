@@ -238,7 +238,13 @@ function wardName(ward: WardRow): string {
     max-width: 32rem;
   }
 
-  .ward-result:not(:empty) {
+  /* Only paint the surface once there's an actual result. The container is
+     a permanent aria-live region, and Astro leaves an indentation-whitespace
+     text node inside it when the SSR result slots render nothing — so it is
+     never truly `:empty`. Key off an element child instead (renderResult in
+     WardLookup.ts always `replaceChildren`s in a <p>/<ul>/<a>), which the
+     stray whitespace node doesn't satisfy. */
+  .ward-result:has(> *) {
     padding: var(--space-3) var(--space-4);
     background: var(--color-surface);
     border-radius: var(--radius-md);
@@ -254,5 +260,19 @@ function wardName(ward: WardRow): string {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
     gap: var(--space-4);
+  }
+
+  /* Shortcut-card contents (slotted into Card, so still in this component's
+     scope). The card title sits a step below the hero h1 (text-xl vs
+     text-3xl), and the heading/description/button get explicit vertical
+     rhythm — Card itself is a bare container with no internal spacing. */
+  .shortcuts h2 {
+    font-size: var(--text-xl);
+    line-height: var(--leading-xl);
+    margin: 0 0 var(--space-2);
+  }
+
+  .shortcuts p {
+    margin: 0 0 var(--space-4);
   }
 </style>
