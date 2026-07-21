@@ -106,15 +106,33 @@ async function recordSend(
   language: Lang,
   status: CampaignSendStatus,
 ): Promise<void> {
-  // onConflictDoNothing: the pre-check in sendToUser (existingSend) is the
-  // primary send-once mechanism; this is the backstop for a genuine
-  // concurrent race (two callers both pass the pre-check before either
-  // inserts) so send_once_uq's unique-violation degrades to a graceful
-  // no-op rather than throwing.
+  // The pre-check in sendToUser (existingSend) is the primary send-once
+  // mechanism; this insert is the backstop for a genuine concurrent race
+  // (two callers both pass the pre-check before either inserts) AND the
+  // held->terminal UPGRADE path (Task 54): a calendar run may have written
+  // a 'held' row for (code, userId, channel) before the ward's readiness
+  // gate cleared (src/lib/send/calendar.ts's recordWardHeld) — the
+  // existingSend check above treats 'held' as "not yet sent" precisely so
+  // that a later real send still reaches this insert once the hold lifts.
+  //
+  // ON CONFLICT ... DO UPDATE ... WHERE status = 'held' (the `setWhere`
+  // clause) means: if the existing row is 'held', overwrite it with this
+  // real outcome (upgrading it to 'sent'/'failed'/'suppressed' exactly
+  // once); if the existing row is already terminal ('sent'/'failed'/
+  // 'suppressed' — i.e. NOT 'held'), the WHERE fails and Postgres leaves it
+  // untouched, same as DO NOTHING. This preserves all three invariants:
+  // (1) a terminal row is never overwritten (send-once holds), (2) the
+  // concurrent-race backstop still degrades to a no-op, (3) a held row is
+  // upgraded to terminal exactly once, so the NEXT run's existingSend sees
+  // a terminal status instead of re-sending forever.
   await db
     .insert(campaignSends)
     .values({ code, userId, wardId, channel, language, status })
-    .onConflictDoNothing({ target: [campaignSends.code, campaignSends.userId, campaignSends.channel] });
+    .onConflictDoUpdate({
+      target: [campaignSends.code, campaignSends.userId, campaignSends.channel],
+      set: { status, wardId, language, sentAt: new Date() },
+      setWhere: eq(campaignSends.status, 'held'),
+    });
   logEvent('campaign_send', { code, userId, channel, status });
 }
 
