@@ -407,12 +407,24 @@ export interface CodeRunSummary {
   held: number;
   /** Users skipped because `buildVars` deferred (today: only possible for F1's content gap) — distinct from `held`, which is a ward-readiness gate. */
   deferred: number;
+  /** Per-user (buildVars+sendToUser) and per-ward (recordWardHeld) failures caught and logged for this code — the run continued past every one of them. See `logEvent('campaign_send_error', ...)`. */
+  errors: number;
 }
 
 export interface CampaignRunSummary {
   due: SendCode[];
   guardrailTripped: SendCode[];
   perCode: Partial<Record<SendCode, CodeRunSummary>>;
+  /**
+   * Total error count across this run: every `perCode[code].errors` PLUS
+   * one for each due code whose processing itself failed outright (audience
+   * query, ward-readiness resolution, etc. — caught by the per-code
+   * try/catch, logged as `campaign_code_error`, `perCode[code]` left unset
+   * for that code since it was never meaningfully processed). Zero on a
+   * clean run; the job entrypoint should log/exit-nonzero when this is
+   * nonzero.
+   */
+  errors: number;
 }
 
 /**
@@ -421,6 +433,22 @@ export interface CampaignRunSummary {
  * resolves the registered-citizen audience AT SEND TIME, gates L1/C2/C3 per
  * ward on `isWardReadyForComms`, and sends. Never logs PII — the summary
  * and every `logEvent` call carry only codes/counts/ids.
+ *
+ * FAILURE ISOLATION (Task 54 review): a transient failure anywhere in the
+ * per-user send chain (buildVars, isSuppressed, recordSend, sendToUser's
+ * transport calls, etc.) or in a single ward's held-row write must not
+ * abort every other user/ward/code in this invocation — a DB blip on one
+ * user out of thousands must not cost every other due code its send this
+ * run. Two isolation boundaries, both catch-log-continue (never rethrow):
+ *   - PER USER: the `buildVars` + `sendToUser` call for a sendable user,
+ *     and the `recordWardHeld` write for a not-ready ward, are each wrapped
+ *     individually — one user's (or one ward's held-write) failure logs
+ *     `campaign_send_error` and moves on to the next user/ward.
+ *   - PER CODE: everything else in a due code's processing (the audience
+ *     query itself, `isWardReadyForComms`'s resolution) is wrapped as a
+ *     whole — a failure there logs `campaign_code_error` and moves on to
+ *     the next due code, exactly as the guardrail/gating refusals already
+ *     do (those stay untouched: a refusal is not an error).
  */
 export async function runCampaign(now: Date): Promise<CampaignRunSummary> {
   const settingsRows = await getSettings([
@@ -440,7 +468,7 @@ export async function runCampaign(now: Date): Promise<CampaignRunSummary> {
   const violations = new Set(guardrailViolations(settings));
   const ctx = createBuildContext(settings, settingsRows.poll_open_time, settingsRows.poll_close_time);
 
-  const summary: CampaignRunSummary = { due, guardrailTripped: [], perCode: {} };
+  const summary: CampaignRunSummary = { due, guardrailTripped: [], perCode: {}, errors: 0 };
 
   for (const code of due) {
     if (violations.has(code)) {
@@ -449,65 +477,107 @@ export async function runCampaign(now: Date): Promise<CampaignRunSummary> {
       continue;
     }
 
-    // Audience resolved fresh on every code, at send time (PRD §9) — a
-    // user who registered between runs (or between two codes in the same
-    // run) is included.
-    const audienceRows = await db
-      .select({
-        id: users.id,
-        email: users.email,
-        phone: users.phone,
-        language: users.language,
-        emailEnabled: users.emailEnabled,
-        whatsappEnabled: users.whatsappEnabled,
-        homeWardId: users.homeWardId,
-      })
-      .from(users)
-      .where(and(eq(users.status, 'active'), isNotNull(users.homeWardId)));
-    const audience: SendToUserUser[] = audienceRows;
+    try {
+      // Audience resolved fresh on every code, at send time (PRD §9) — a
+      // user who registered between runs (or between two codes in the same
+      // run) is included.
+      const audienceRows = await db
+        .select({
+          id: users.id,
+          email: users.email,
+          phone: users.phone,
+          language: users.language,
+          emailEnabled: users.emailEnabled,
+          whatsappEnabled: users.whatsappEnabled,
+          homeWardId: users.homeWardId,
+        })
+        .from(users)
+        .where(and(eq(users.status, 'active'), isNotNull(users.homeWardId)));
+      const audience: SendToUserUser[] = audienceRows;
 
-    if (GATED_CODES.has(code)) {
-      const byWard = new Map<number, SendToUserUser[]>();
-      for (const user of audience) {
-        const wardId = user.homeWardId!;
-        if (!byWard.has(wardId)) byWard.set(wardId, []);
-        byWard.get(wardId)!.push(user);
-      }
-
-      let sent = 0;
-      let held = 0;
-      let deferred = 0;
-      for (const [wardId, wardUsers] of byWard) {
-        const ready = await isWardReadyForComms(wardId);
-        if (!ready) {
-          await recordWardHeld(code, wardUsers, wardId);
-          held += wardUsers.length;
-          continue;
+      if (GATED_CODES.has(code)) {
+        const byWard = new Map<number, SendToUserUser[]>();
+        for (const user of audience) {
+          const wardId = user.homeWardId!;
+          if (!byWard.has(wardId)) byWard.set(wardId, []);
+          byWard.get(wardId)!.push(user);
         }
-        for (const user of wardUsers) {
-          const vars = await buildVars(code, user, ctx);
-          if (!vars) {
-            deferred++;
+
+        let sent = 0;
+        let held = 0;
+        let deferred = 0;
+        let errors = 0;
+        for (const [wardId, wardUsers] of byWard) {
+          // Readiness resolution itself is NOT individually isolated — a
+          // failure here escapes to this code's outer catch below (same
+          // "audience query failing" bucket), which is fine: it costs this
+          // ONE due code the rest of its wards, not every other due code.
+          const ready = await isWardReadyForComms(wardId);
+          if (!ready) {
+            // PER-WARD isolation: one ward's held-row write failing must
+            // not skip every other ward's held write (or sends) for this
+            // code.
+            try {
+              await recordWardHeld(code, wardUsers, wardId);
+              held += wardUsers.length;
+            } catch {
+              logEvent('campaign_send_error', { code, wardId });
+              errors++;
+            }
             continue;
           }
-          await sendToUser(user, code, vars);
-          sent++;
+          for (const user of wardUsers) {
+            // PER-USER isolation: one user's send failing (a transient DB
+            // error in buildVars's lookups, isSuppressed, recordSend, or an
+            // unexpected throw anywhere in sendToUser's chain) must not
+            // skip every other user in this ward/code.
+            try {
+              const vars = await buildVars(code, user, ctx);
+              if (!vars) {
+                deferred++;
+                continue;
+              }
+              await sendToUser(user, code, vars);
+              sent++;
+            } catch {
+              logEvent('campaign_send_error', { code, wardId, userId: user.id });
+              errors++;
+            }
+          }
         }
-      }
-      summary.perCode[code] = { sent, held, deferred };
-    } else {
-      let sent = 0;
-      let deferred = 0;
-      for (const user of audience) {
-        const vars = await buildVars(code, user, ctx);
-        if (!vars) {
-          deferred++;
-          continue;
+        summary.perCode[code] = { sent, held, deferred, errors };
+        summary.errors += errors;
+      } else {
+        let sent = 0;
+        let deferred = 0;
+        let errors = 0;
+        for (const user of audience) {
+          // PER-USER isolation — same rationale as the gated branch above.
+          try {
+            const vars = await buildVars(code, user, ctx);
+            if (!vars) {
+              deferred++;
+              continue;
+            }
+            await sendToUser(user, code, vars);
+            sent++;
+          } catch {
+            logEvent('campaign_send_error', { code, userId: user.id });
+            errors++;
+          }
         }
-        await sendToUser(user, code, vars);
-        sent++;
+        summary.perCode[code] = { sent, held: 0, deferred, errors };
+        summary.errors += errors;
       }
-      summary.perCode[code] = { sent, held: 0, deferred };
+    } catch {
+      // PER-CODE isolation: an error escaping the per-user/per-ward
+      // handling above (the audience query itself, or `isWardReadyForComms`
+      // resolution) must not abort every other due code in this run.
+      // `perCode[code]` is deliberately left unset — this code was never
+      // meaningfully processed, same convention the guardrail refusal above
+      // already uses.
+      logEvent('campaign_code_error', { code });
+      summary.errors++;
     }
   }
 

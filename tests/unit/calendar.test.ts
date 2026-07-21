@@ -29,6 +29,8 @@ vi.mock('../../src/lib/send/twilio', () => ({ sendWhatsAppTemplate: vi.fn() }));
 import { sendEmail } from '../../src/lib/send/sendgrid';
 import { sendWhatsAppTemplate } from '../../src/lib/send/twilio';
 import { scheduleFor, dueSends, guardrailViolations, runCampaign } from '../../src/lib/send/calendar';
+import * as sendModule from '../../src/lib/send/send';
+import * as readinessModule from '../../src/lib/readiness';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -419,5 +421,92 @@ describe('src/lib/send/calendar.ts — runCampaign (DB-backed)', () => {
     // send to this user — that's expected and not what this test checks).
     const l1Subject = 'Candidates have filed in Calendar Test Ward Held ward';
     expect(vi.mocked(sendEmail).mock.calls.some((c) => c[0] === user.email && c[1] === l1Subject)).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 54 REVIEW FIX: per-user / per-code failure isolation. Neither a
+  // single user's nor a single due code's failure may abort the rest of the
+  // run — see calendar.ts's runCampaign docstring ("FAILURE ISOLATION").
+  // -------------------------------------------------------------------------
+
+  it('PER-USER ISOLATION: one user\'s send throwing does not stop another user in the same due code, and runCampaign resolves', async () => {
+    const userGood = await makeUser(WARD_UNGATED.id);
+    const userBad = await makeUser(WARD_UNGATED.id);
+
+    const now = new Date('2026-08-25T00:00:00.000Z');
+    await setSettings({ roll_deadline: '2026-09-01' }); // R1 fireAt = 2026-08-25 == now (ungated — no readiness gating involved)
+
+    const originalSendToUser = sendModule.sendToUser;
+    const spy = vi
+      .spyOn(sendModule, 'sendToUser')
+      .mockImplementation(async (user, code, vars, opts) => {
+        if (user.id === userBad.id) throw new Error('simulated transient failure (e.g. a DB blip)');
+        return originalSendToUser(user, code, vars, opts);
+      });
+
+    try {
+      const summary = await runCampaign(now); // must resolve, not reject
+
+      // The failure is reflected in the summary (perCode.R1.sent isn't
+      // asserted here — the audience query is GLOBAL, per the module
+      // docstring above, so it also counts stray active users left over
+      // from other suites sharing this DB; errors is not, since only our
+      // mocked throw produces one).
+      expect(summary.perCode.R1?.errors).toBe(1);
+
+      // ...the OTHER user in the same audience was still sent to...
+      const goodRows = await sendRowsFor(userGood.id, 'R1');
+      expect(goodRows.length).toBeGreaterThan(0);
+      expect(vi.mocked(sendEmail).mock.calls.some((c) => c[0] === userGood.email)).toBe(true);
+
+      // ...and the failing user's send never reached recordSend (threw
+      // before it), so no ledger row and no transport call for them either.
+      const badRows = await sendRowsFor(userBad.id, 'R1');
+      expect(badRows).toHaveLength(0);
+      expect(vi.mocked(sendEmail).mock.calls.some((c) => c[0] === userBad.email)).toBe(false);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('PER-CODE ISOLATION: one due code failing outright does not stop a different due code from processing, and runCampaign resolves', async () => {
+    const l1User = await makeUser(WARD_HELD.id); // WARD_HELD's readiness check is the one forced to throw below
+    const c1User = await makeUser(WARD_UNGATED.id); // C1 is ungated — never calls isWardReadyForComms, so it's unaffected
+
+    const now = new Date('2026-08-30T00:00:00.000Z');
+    await setSettings({
+      scrutiny_complete_date: '2026-08-23', // L1 fireAt = 2026-08-23 (due)
+      election_date: '2026-09-20', // C1 fireAt = election_date - 21d = 2026-08-30 == now (due); guardrail window starts 2026-09-18, well after both
+    });
+
+    const spy = vi.spyOn(readinessModule, 'isWardReadyForComms').mockImplementation(async (wardId: number) => {
+      if (wardId === WARD_HELD.id) throw new Error('simulated readiness-check failure (e.g. a DB blip)');
+      return false;
+    });
+
+    try {
+      const summary = await runCampaign(now); // must resolve, not reject
+
+      expect(summary.due).toEqual(expect.arrayContaining(['L1', 'C1']));
+      expect(summary.guardrailTripped).toEqual([]);
+
+      // L1's whole-code processing failed outright: never meaningfully
+      // processed (perCode entry left unset — the same convention a
+      // guardrail refusal already uses), and it's counted in the top-level
+      // error total.
+      expect(summary.perCode.L1).toBeUndefined();
+      expect(summary.errors).toBeGreaterThan(0);
+      const l1Rows = await sendRowsFor(l1User.id, 'L1');
+      expect(l1Rows).toHaveLength(0); // no held row, no sent row — L1 never got far enough to write one
+
+      // C1 — a DIFFERENT due code in the SAME run — still processed fully,
+      // unaffected by L1's failure.
+      expect(summary.perCode.C1?.sent).toBeGreaterThan(0);
+      const c1Rows = await sendRowsFor(c1User.id, 'C1');
+      expect(c1Rows.length).toBeGreaterThan(0);
+      expect(vi.mocked(sendEmail).mock.calls.some((c) => c[0] === c1User.email)).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
